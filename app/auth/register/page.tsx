@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import GlobalHeader from "@/components/GlobalHeader";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -19,16 +20,17 @@ export default function RegisterPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    router.push("/auth/social");
+    router.push("/auth/pet-register");
   };
 
   const handleGoogleRegister = () => {
-    router.push("/auth/social");
+    router.push("/auth/register-google");
   };
 
   return (
     <div className="font-body-base text-body-base selection:bg-primary-container selection:text-on-primary-container bg-background min-h-screen">
-      <main className="flex min-h-screen">
+      <GlobalHeader />
+      <main className="flex min-h-[calc(100vh-50px)]">
         {/* Left Column: Institutional (Hidden on Mobile) */}
         <section className="hidden lg:flex lg:w-[45%] bg-matte-canvas p-margin-desktop flex-col justify-between relative overflow-hidden border-r border-hairline-border">
           {/* Background Decorative Glow */}

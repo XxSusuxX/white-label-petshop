@@ -1,197 +1,103 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
-
-interface ServiceItem {
-  id: string;
-  name: string;
-  category: "Banho & Tosa" | "Veterinária" | "Estética & Spa";
-  duration: string;
-  priceSmall: string;
-  priceMedium: string;
-  priceLarge: string;
-}
-
-export default function AdminServicosPage() {
-  const [services] = useState<ServiceItem[]>([
-    {
-      id: "1",
-      name: "Banho Completo Hipoalergênico",
-      category: "Banho & Tosa",
-      duration: "45 min",
-      priceSmall: "R$ 60,00",
-      priceMedium: "R$ 80,00",
-      priceLarge: "R$ 110,00",
-    },
-    {
-      id: "2",
-      name: "Tosa Bebê / Tosa da Raça",
-      category: "Banho & Tosa",
-      duration: "60 min",
-      priceSmall: "R$ 90,00",
-      priceMedium: "R$ 120,00",
-      priceLarge: "R$ 160,00",
-    },
-    {
-      id: "3",
-      name: "Vacinação V10 Importada",
-      category: "Veterinária",
-      duration: "20 min",
-      priceSmall: "R$ 95,00",
-      priceMedium: "R$ 95,00",
-      priceLarge: "R$ 95,00",
-    },
-    {
-      id: "4",
-      name: "Consulta Veterinária de Rotina",
-      category: "Veterinária",
-      duration: "30 min",
-      priceSmall: "R$ 150,00",
-      priceMedium: "R$ 150,00",
-      priceLarge: "R$ 150,00",
-    },
-  ]);
-
+export default function ServicosPage() {
   return (
-    <div className="bg-matte-canvas text-on-surface font-body-base min-h-screen flex selection:bg-primary/30">
-      {/* Admin Sidebar Navigation */}
-      <aside className="hidden md:flex flex-col w-64 h-screen fixed left-0 top-0 bg-surface-container border-r border-hairline-border py-6 px-4 z-50">
-        <div className="flex items-center gap-3 mb-8 px-2">
-          <div className="w-10 h-10 rounded-lg bg-primary-container flex items-center justify-center extruded-shadow">
-            <span
-              className="material-symbols-outlined text-on-primary-container text-xl"
-              style={{ fontVariationSettings: "'FILL' 1" }}
-            >
-              admin_panel_settings
-            </span>
-          </div>
-          <div>
-            <h1 className="font-headline-md text-headline-md text-primary font-bold leading-none">
-              Painel Admin
-            </h1>
-            <p className="text-[10px] uppercase tracking-widest text-on-surface-variant font-bold mt-1">
-              Gestão de Petshop & Vet
-            </p>
-          </div>
-        </div>
-
-        <nav className="flex-1 space-y-1">
-          <Link
-            className="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors rounded-lg font-label-bold"
-            href="/admin/dashboard"
-          >
-            <span className="material-symbols-outlined">dashboard</span>
-            <span>Dashboard</span>
-          </Link>
-          <Link
-            className="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors rounded-lg font-label-bold"
-            href="/admin/clientes"
-          >
-            <span className="material-symbols-outlined">group</span>
-            <span>Clientes / Tutores</span>
-          </Link>
-          <Link
-            className="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors rounded-lg font-label-bold"
-            href="/admin/pets"
-          >
-            <span className="material-symbols-outlined">pets</span>
-            <span>Pets & Prontuários</span>
-          </Link>
-          <Link
-            className="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors rounded-lg font-label-bold"
-            href="/admin/agenda"
-          >
-            <span className="material-symbols-outlined">calendar_month</span>
-            <span>Agenda Geral</span>
-          </Link>
-          <Link
-            className="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors rounded-lg font-label-bold"
-            href="/admin/operacao"
-          >
-            <span className="material-symbols-outlined">pending_actions</span>
-            <span>Esteira de Operação</span>
-          </Link>
-          <Link
-            className="flex items-center gap-3 px-4 py-3 bg-secondary-container text-on-secondary-container rounded-lg font-label-bold extruded-shadow"
-            href="/admin/servicos"
-          >
-            <span className="material-symbols-outlined">sell</span>
-            <span>Serviços & Preços</span>
-          </Link>
-        </nav>
-      </aside>
-
-      {/* Main Admin Workspace */}
-      <div className="flex-1 md:ml-64 flex flex-col min-h-screen">
-        <header className="h-16 w-full flex justify-between items-center px-4 md:px-8 sticky top-0 z-30 bg-matte-canvas/90 backdrop-blur-md border-b border-hairline-border">
-          <div className="flex items-center gap-2 text-sm text-on-surface-variant">
-            <span>Administração</span>
-            <span>/</span>
-            <span className="text-on-surface font-bold">Catálogo de Serviços & Tabela de Preços</span>
-          </div>
-        </header>
-
-        <main className="flex-1 p-4 md:p-8 space-y-6 max-w-7xl w-full mx-auto">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <div className="w-full">
+      {/* Desktop Workspace */}
+      <main className="hidden md:block flex-1 w-full pl-64 pt-16 min-h-screen">
+        <div className="max-w-7xl mx-auto p-margin-desktop pb-safe">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-stack-lg gap-4">
             <div>
-              <h1 className="text-2xl md:text-3xl font-extrabold text-on-surface">Gestão de Serviços & Valores</h1>
-              <p className="text-sm text-on-surface-variant">Configure os preços por porte de pet (Pequeno, Médio, Grande).</p>
+              <h2 className="text-headline-lg font-headline-lg text-on-surface mb-1">Serviços e Preços</h2>
+              <p className="text-body-base font-body-base text-on-surface-variant">Gerencie suas ofertas de serviços, durações e preços.</p>
             </div>
-
-            <button
-              onClick={() => alert("Novo Serviço: Adicionar ao catálogo de preços")}
-              className="px-5 py-2.5 bg-primary text-on-primary font-bold text-sm rounded-xl extruded-shadow hover:brightness-110 transition-all flex items-center gap-2 cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-lg">add_circle</span>
-              <span>Cadastrar Novo Serviço</span>
+            <button className="bg-primary-container text-on-primary-container font-label-bold text-label-bold py-2.5 px-6 rounded-DEFAULT extruded-shadow flex items-center justify-center gap-2 hover:bg-emerald-glow transition-colors shrink-0">
+              <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>add_circle</span>
+              Novo Serviço
             </button>
           </div>
-
-          {/* Table Container */}
-          <div className="bg-elevated-card border border-hairline-border rounded-2xl overflow-hidden extruded-shadow">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm text-on-surface">
-                <thead className="bg-surface-container-low border-b border-hairline-border text-xs font-bold text-on-surface-variant uppercase tracking-wider">
-                  <tr>
-                    <th className="p-4">Serviço</th>
-                    <th className="p-4">Categoria</th>
-                    <th className="p-4">Duração Aprox.</th>
-                    <th className="p-4">Porte Pequeno</th>
-                    <th className="p-4">Porte Médio</th>
-                    <th className="p-4">Porte Grande</th>
-                    <th className="p-4 text-center">Editar</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-hairline-border/40">
-                  {services.map((item) => (
-                    <tr key={item.id} className="hover:bg-surface-container-high/50 transition-colors">
-                      <td className="p-4 font-bold text-on-surface">{item.name}</td>
-                      <td className="p-4">
-                        <span className="px-2.5 py-1 bg-primary/10 text-primary border border-primary/20 rounded-full font-bold text-xs">
-                          {item.category}
-                        </span>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Services Table Card */}
+            <div className="lg:col-span-2 bg-elevated-card border border-hairline-border rounded-lg overflow-hidden flex flex-col shadow-[0_4px_24px_-10px_rgba(0,0,0,0.5)]">
+              <div className="p-5 border-b border-hairline-border flex justify-between items-center bg-surface-container-lowest">
+                <h3 className="text-body-lg font-body-lg font-semibold text-on-surface">Serviços Ativos</h3>
+                <button className="text-primary hover:text-surface-tint font-label-bold text-label-bold flex items-center gap-1 transition-colors">
+                  <span className="material-symbols-outlined text-[18px]">filter_list</span>
+                  Filtrar
+                </button>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-hairline-border bg-surface-container-lowest/50">
+                      <th className="py-3 px-5 text-label-muted font-label-muted text-on-surface-variant font-medium tracking-wider">Nome do Serviço</th>
+                      <th className="py-3 px-5 text-label-muted font-label-muted text-on-surface-variant font-medium tracking-wider hidden sm:table-cell">Descrição</th>
+                      <th className="py-3 px-5 text-label-muted font-label-muted text-on-surface-variant font-medium tracking-wider">Duração</th>
+                      <th className="py-3 px-5 text-label-muted font-label-muted text-on-surface-variant font-medium tracking-wider">Preço (R$)</th>
+                      <th className="py-3 px-5 text-right text-label-muted font-label-muted text-on-surface-variant font-medium tracking-wider">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-hairline-border">
+                    <tr className="hover:bg-surface-container-low transition-colors group">
+                      <td className="py-4 px-5">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-primary-container/20 text-primary flex items-center justify-center shrink-0">
+                            <span className="material-symbols-outlined text-[18px]">water_drop</span>
+                          </div>
+                          <span className="text-body-base font-body-base font-medium text-on-surface">Banho</span>
+                        </div>
                       </td>
-                      <td className="p-4 text-xs font-mono text-on-surface-variant">{item.duration}</td>
-                      <td className="p-4 font-bold text-on-surface">{item.priceSmall}</td>
-                      <td className="p-4 font-bold text-on-surface">{item.priceMedium}</td>
-                      <td className="p-4 font-bold text-primary">{item.priceLarge}</td>
-                      <td className="p-4 text-center">
-                        <button
-                          onClick={() => alert(`Editando valores de: ${item.name}`)}
-                          className="p-1.5 text-on-surface-variant hover:text-primary transition-colors cursor-pointer"
-                        >
-                          <span className="material-symbols-outlined text-base">edit</span>
-                        </button>
+                      <td className="py-4 px-5 hidden sm:table-cell text-body-base font-body-base text-on-surface-variant truncate max-w-[200px]">Banho padrão com shampoo premium.</td>
+                      <td className="py-4 px-5 text-body-base font-body-base text-on-surface-variant">45 min</td>
+                      <td className="py-4 px-5 text-body-base font-body-base font-medium text-on-surface">60,00</td>
+                      <td className="py-4 px-5 text-right">
+                        <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button className="p-1.5 text-on-surface-variant hover:text-primary transition-colors rounded hover:bg-surface-container-high" title="Editar">
+                            <span className="material-symbols-outlined text-[20px]">edit</span>
+                          </button>
+                        </div>
                       </td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
-        </main>
-      </div>
+        </div>
+      </main>
+
+      {/* Mobile Workspace */}
+      <main className="block md:hidden px-5 py-6 space-y-8 pb-32">
+        <div className="flex items-center justify-between">
+          <div className="flex flex-col">
+            <span className="font-label-muted text-label-muted text-on-surface-variant">Catálogo Ativo</span>
+            <span className="font-headline-md text-headline-md text-on-surface">6 Serviços</span>
+          </div>
+          <button className="bg-primary text-on-primary font-label-bold text-label-bold px-4 py-3 rounded-xl extruded-shadow flex items-center gap-2">
+            <span className="material-symbols-outlined">add</span>
+            Novo Serviço
+          </button>
+        </div>
+
+        <section className="space-y-4">
+          <h2 className="font-label-bold text-label-bold text-on-surface-variant uppercase tracking-wider">Principais Serviços</h2>
+          <div className="bg-elevated-card border border-hairline-border rounded-2xl p-4 flex items-center gap-4 extruded-shadow">
+            <div className="w-12 h-12 rounded-xl bg-primary-container/20 flex items-center justify-center text-primary">
+              <span className="material-symbols-outlined">shower</span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex justify-between items-start">
+                <h3 className="font-body-lg text-body-lg text-on-surface truncate">Banho</h3>
+                <span className="font-label-bold text-label-bold text-primary">R$ 45,00</span>
+              </div>
+              <div className="flex items-center gap-2 text-on-surface-variant">
+                <span className="material-symbols-outlined text-sm">schedule</span>
+                <span className="font-caption text-caption">45 min</span>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
     </div>
   );
 }

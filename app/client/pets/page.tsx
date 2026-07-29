@@ -156,94 +156,9 @@ export default function MeusPetsPage() {
   });
 
   return (
-    <div className="bg-background text-on-background min-h-screen flex selection:bg-primary/30">
-      {/* Desktop Sidebar Navigation */}
-      <aside className="hidden md:flex flex-col w-64 h-screen fixed left-0 top-0 bg-surface-container-low border-r border-outline-variant py-stack-md px-4 z-50">
-        <div className="flex items-center gap-3 mb-8 px-2">
-          <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center extruded-shadow">
-            <span
-              className="material-symbols-outlined text-on-primary"
-              style={{ fontVariationSettings: "'FILL' 1" }}
-            >
-              pets
-            </span>
-          </div>
-          <div>
-            <h1 className="font-headline-md text-headline-md text-primary font-black leading-none">
-              SaaS Portal
-            </h1>
-            <p className="text-[10px] uppercase tracking-widest text-on-surface-variant font-bold">
-              Management Suite
-            </p>
-          </div>
-        </div>
-
-        <nav className="flex-1 space-y-1">
-          <Link
-            className="flex items-center gap-3 px-3 py-3 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all rounded-lg font-label-bold text-label-bold"
-            href="/"
-          >
-            <span className="material-symbols-outlined">dashboard</span>
-            <span>Dashboard</span>
-          </Link>
-          <Link
-            className="flex items-center gap-3 px-3 py-3 bg-secondary-container text-on-secondary-container rounded-lg font-label-bold text-label-bold extruded-shadow"
-            href="/pets"
-          >
-            <span
-              className="material-symbols-outlined"
-              style={{ fontVariationSettings: "'FILL' 1" }}
-            >
-              pets
-            </span>
-            <span>Meus Pets</span>
-          </Link>
-          <Link
-            className="flex items-center gap-3 px-3 py-3 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all rounded-lg font-label-bold text-label-bold"
-            href="/client/agenda"
-          >
-            <span className="material-symbols-outlined">event</span>
-            <span>Agendamentos</span>
-          </Link>
-          <Link
-            className="flex items-center gap-3 px-3 py-3 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all rounded-lg font-label-bold text-label-bold"
-            href="/auth/login"
-          >
-            <span className="material-symbols-outlined">medical_services</span>
-            <span>Prontuário Digital</span>
-          </Link>
-        </nav>
-
-        <div className="mt-auto space-y-1 border-t border-outline-variant pt-4">
-          <button
-            onClick={() => setShowAddPetModal(true)}
-            className="w-full flex items-center justify-center gap-2 bg-primary text-on-primary font-label-bold text-label-bold py-3 rounded-lg extruded-shadow active:scale-98 transition-all mb-4 cursor-pointer"
-          >
-            <span className="material-symbols-outlined">add</span>
-            <span>Adicionar Novo Pet</span>
-          </button>
-          <a
-            className="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:text-on-surface transition-all rounded-lg font-label-bold text-label-bold"
-            href="#"
-            onClick={(e) => { e.preventDefault(); alert("Suporte do Sistema"); }}
-          >
-            <span className="material-symbols-outlined">help</span>
-            <span>Suporte</span>
-          </a>
-          <Link
-            className="flex items-center gap-3 px-3 py-2 text-error hover:bg-error-container/10 transition-all rounded-lg font-label-bold text-label-bold"
-            href="/auth/login"
-          >
-            <span className="material-symbols-outlined">logout</span>
-            <span>Sair</span>
-          </Link>
-        </div>
-      </aside>
-
-      {/* Main Content Area */}
-      <main className="flex-1 md:ml-64 relative flex flex-col h-screen overflow-y-auto custom-scrollbar">
-        {/* Top Navigation Bar */}
-        <header className="flex justify-between items-center px-4 md:px-margin-desktop w-full h-16 sticky top-0 z-40 bg-background/80 backdrop-blur-md border-b border-outline-variant">
+    <>
+      {/* Top Navigation Bar */}
+      <header className="flex justify-between items-center px-4 md:px-margin-desktop w-full h-16 sticky top-0 z-40 bg-background/80 backdrop-blur-md border-b border-outline-variant">
           <div className="flex items-center gap-3 md:hidden">
             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
               <span className="material-symbols-outlined text-on-primary text-sm">pets</span>
@@ -474,7 +389,6 @@ export default function MeusPetsPage() {
             </button>
           </div>
         </div>
-      </main>
 
       {/* Modal: Adicionar Novo Pet */}
       {showAddPetModal && (
@@ -704,6 +618,6 @@ export default function MeusPetsPage() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import GlobalHeader from "@/components/GlobalHeader";
 
 export default function SocialPetSetupPage() {
   const router = useRouter();
@@ -17,7 +18,7 @@ export default function SocialPetSetupPage() {
   const [color, setColor] = useState("");
   const [isCastrated, setIsCastrated] = useState(false);
   const [notes, setNotes] = useState("");
-  
+
   const [isLoading, setIsLoading] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
@@ -53,6 +54,7 @@ export default function SocialPetSetupPage() {
 
   return (
     <div className="bg-matte-canvas text-on-surface font-body-base selection:bg-primary/30 min-h-screen flex flex-col">
+      <GlobalHeader />
       {/* Header / Progress Bar */}
       <header className="w-full bg-surface py-6 px-margin-mobile md:px-margin-desktop border-b border-hairline-border z-10 sticky top-0">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -62,7 +64,7 @@ export default function SocialPetSetupPage() {
             </Link>
             <span className="text-outline">/</span>
             <span className="font-label-bold text-label-bold text-on-surface uppercase tracking-widest">
-              PASSO FINAL: Cadastro do Pet
+              Cadastro do Pet
             </span>
           </div>
           <div className="flex-1 max-w-md w-full">
@@ -233,18 +235,16 @@ export default function SocialPetSetupPage() {
                   <button
                     type="button"
                     onClick={() => setSex("Macho")}
-                    className={`flex-1 text-center py-2 rounded-lg font-label-bold text-label-bold transition-all ${
-                      sex === "Macho" ? "bg-primary text-on-primary" : "text-on-surface-variant"
-                    }`}
+                    className={`flex-1 text-center py-2 rounded-lg font-label-bold text-label-bold transition-all ${sex === "Macho" ? "bg-primary text-on-primary" : "text-on-surface-variant"
+                      }`}
                   >
                     Macho
                   </button>
                   <button
                     type="button"
                     onClick={() => setSex("Fêmea")}
-                    className={`flex-1 text-center py-2 rounded-lg font-label-bold text-label-bold transition-all ${
-                      sex === "Fêmea" ? "bg-primary text-on-primary" : "text-on-surface-variant"
-                    }`}
+                    className={`flex-1 text-center py-2 rounded-lg font-label-bold text-label-bold transition-all ${sex === "Fêmea" ? "bg-primary text-on-primary" : "text-on-surface-variant"
+                      }`}
                   >
                     Fêmea
                   </button>

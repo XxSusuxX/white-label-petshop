@@ -91,83 +91,13 @@ export default function AgendarServicoPage() {
   };
 
   return (
-    <div className="bg-[#0e1511] text-on-surface font-body-base min-h-screen flex flex-col selection:bg-primary/30">
+    <>
       {/* ========================================================================= */}
       {/* 🖥️ DESKTOP VIEW (Visible on md screens and above: md:flex) */}
       {/* ========================================================================= */}
       <div className="hidden md:flex min-h-screen flex-1">
-        {/* Desktop Sidebar */}
-        <aside className="w-64 h-screen fixed left-0 top-0 bg-[#161d19] border-r border-[#334155] flex flex-col py-6 px-4 z-50">
-          <div className="flex items-center gap-3 mb-8 px-2">
-            <div className="w-10 h-10 bg-primary-container rounded-lg flex items-center justify-center extruded-shadow">
-              <span
-                className="material-symbols-outlined text-on-primary-container text-xl"
-                style={{ fontVariationSettings: "'FILL' 1" }}
-              >
-                pets
-              </span>
-            </div>
-            <div>
-              <h1 className="font-headline-md text-headline-md text-primary font-bold leading-none">
-                SaaS Portal
-              </h1>
-              <p className="text-[10px] uppercase tracking-widest text-on-surface-variant font-bold mt-1">
-                Agendamento de Serviço
-              </p>
-            </div>
-          </div>
-
-          <nav className="flex-1 space-y-2">
-            <Link
-              href="/client"
-              className="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-[#242c27] hover:text-primary transition-colors font-label-muted"
-            >
-              <span className="material-symbols-outlined">dashboard</span>
-              <span>Dashboard</span>
-            </Link>
-            <Link
-              href="/client/pets"
-              className="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-[#242c27] hover:text-primary transition-colors font-label-muted"
-            >
-              <span className="material-symbols-outlined">pets</span>
-              <span>Meus Pets</span>
-            </Link>
-            <Link
-              href="/client/agenda"
-              className="flex items-center gap-3 px-4 py-3 rounded-lg bg-[#4edea3]/10 text-[#4edea3] font-label-bold transition-colors"
-            >
-              <span
-                className="material-symbols-outlined"
-                style={{ fontVariationSettings: "'FILL' 1" }}
-              >
-                calendar_today
-              </span>
-              <span>Agendar Serviço</span>
-            </Link>
-            <Link
-              href="/auth/login"
-              className="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-[#242c27] hover:text-primary transition-colors font-label-muted"
-            >
-              <span className="material-symbols-outlined">medical_services</span>
-              <span>Prontuário Digital</span>
-            </Link>
-          </nav>
-
-          <div className="p-4 border-t border-[#334155] space-y-3">
-            <div className="flex items-center gap-3 p-3 bg-[#161d19] rounded-xl">
-              <div className="w-9 h-9 rounded-full bg-[#4edea3]/20 flex items-center justify-center text-[#4edea3] font-bold">
-                A
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-on-surface truncate">Ana Paula</p>
-                <p className="text-xs text-on-surface-variant truncate">ana.tutor@exemplo.com</p>
-              </div>
-            </div>
-          </div>
-        </aside>
-
         {/* Desktop Main Workspace */}
-        <div className="flex-1 ml-64 flex flex-col min-h-screen">
+        <div className="flex-1 flex flex-col min-h-screen">
           {/* Top Header Bar */}
           <header className="h-16 w-full flex justify-between items-center px-8 sticky top-0 z-30 bg-[#0e1511]/90 backdrop-blur-md border-b border-[#334155]">
             <div className="flex items-center gap-2 text-sm text-on-surface-variant">
@@ -773,55 +703,7 @@ export default function AgendarServicoPage() {
             <span className="material-symbols-outlined text-base">arrow_forward</span>
           </button>
         </div>
-
-        {/* Mobile Bottom Nav */}
-        <nav className="fixed bottom-0 left-0 right-0 z-40 bg-[#0e1511]/95 backdrop-blur-lg border-t border-[#1e293b] px-2 py-1.5 flex items-center justify-around">
-          <Link
-            href="/client"
-            className="flex flex-col items-center gap-0.5 p-1 text-on-surface-variant hover:text-[#4edea3] transition-colors"
-          >
-            <span className="material-symbols-outlined text-lg">home</span>
-            <span className="text-[9px] font-bold">Início</span>
-          </Link>
-
-          <Link
-            href="/client/pets"
-            className="flex flex-col items-center gap-0.5 p-1 text-on-surface-variant hover:text-[#4edea3] transition-colors"
-          >
-            <span className="material-symbols-outlined text-lg">pets</span>
-            <span className="text-[9px] font-bold">Meus Pets</span>
-          </Link>
-
-          <Link
-            href="/client/agenda"
-            className="flex flex-col items-center gap-0.5 p-1 text-[#4edea3] transition-colors"
-          >
-            <span
-              className="material-symbols-outlined text-lg"
-              style={{ fontVariationSettings: "'FILL' 1" }}
-            >
-              calendar_today
-            </span>
-            <span className="text-[9px] font-bold">Agendar</span>
-          </Link>
-
-          <Link
-            href="/admin/clientes"
-            className="flex flex-col items-center gap-0.5 p-1 text-on-surface-variant hover:text-[#4edea3] transition-colors"
-          >
-            <span className="material-symbols-outlined text-lg">history</span>
-            <span className="text-[9px] font-bold">Histórico</span>
-          </Link>
-
-          <Link
-            href="/admin/servicos"
-            className="flex flex-col items-center gap-0.5 p-1 text-on-surface-variant hover:text-[#4edea3] transition-colors"
-          >
-            <span className="material-symbols-outlined text-lg">settings</span>
-            <span className="text-[9px] font-bold">Config</span>
-          </Link>
-        </nav>
       </div>
-    </div>
+    </>
   );
 }

@@ -1,165 +1,152 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
-
-export default function AdminAgendaPage() {
-  const [selectedProfessional, setSelectedProfessional] = useState("todos");
-
+export default function AgendaPage() {
   return (
-    <div className="bg-matte-canvas text-on-surface font-body-base min-h-screen flex selection:bg-primary/30">
-      {/* Admin Sidebar Navigation */}
-      <aside className="hidden md:flex flex-col w-64 h-screen fixed left-0 top-0 bg-surface-container border-r border-hairline-border py-6 px-4 z-50">
-        <div className="flex items-center gap-3 mb-8 px-2">
-          <div className="w-10 h-10 rounded-lg bg-primary-container flex items-center justify-center extruded-shadow">
-            <span
-              className="material-symbols-outlined text-on-primary-container text-xl"
-              style={{ fontVariationSettings: "'FILL' 1" }}
-            >
-              admin_panel_settings
-            </span>
+    <div className="w-full">
+      {/* Desktop Workspace */}
+      <main className="hidden md:flex flex-col lg:flex-row gap-6 p-8 pb-8">
+        {/* Left: Monthly Grid */}
+        <div className="flex-1 flex flex-col gap-4">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-4">
+              <h2 className="font-headline-lg text-headline-lg">Julho 2026</h2>
+              <div className="flex gap-1">
+                <button className="p-2 hover:bg-surface-container-highest rounded-lg transition-colors material-symbols-outlined text-on-surface-variant">chevron_left</button>
+                <button className="p-2 hover:bg-surface-container-highest rounded-lg transition-colors material-symbols-outlined text-on-surface-variant">chevron_right</button>
+              </div>
+            </div>
+            <div className="flex bg-surface-container-high rounded-lg p-1 border border-hairline-border">
+              <button className="px-4 py-1.5 bg-secondary-container text-on-secondary-container rounded-md font-label-bold text-label-bold">Mês</button>
+              <button className="px-4 py-1.5 text-on-surface-variant hover:text-on-surface transition-colors font-label-bold text-label-bold">Semana</button>
+              <button className="px-4 py-1.5 text-on-surface-variant hover:text-on-surface transition-colors font-label-bold text-label-bold">Dia</button>
+            </div>
           </div>
-          <div>
-            <h1 className="font-headline-md text-headline-md text-primary font-bold leading-none">
-              Painel Admin
-            </h1>
-            <p className="text-[10px] uppercase tracking-widest text-on-surface-variant font-bold mt-1">
-              Gestão de Petshop & Vet
-            </p>
+
+          {/* Calendar Container */}
+          <div className="bg-elevated-card border border-hairline-border rounded-xl overflow-hidden flex flex-col">
+            <div className="grid grid-cols-7 border-b border-hairline-border bg-surface-container-low">
+              <div className="py-3 text-center text-caption font-label-bold text-on-surface-variant uppercase tracking-wider">Dom</div>
+              <div className="py-3 text-center text-caption font-label-bold text-on-surface-variant uppercase tracking-wider">Seg</div>
+              <div className="py-3 text-center text-caption font-label-bold text-on-surface-variant uppercase tracking-wider">Ter</div>
+              <div className="py-3 text-center text-caption font-label-bold text-on-surface-variant uppercase tracking-wider">Qua</div>
+              <div className="py-3 text-center text-caption font-label-bold text-on-surface-variant uppercase tracking-wider">Qui</div>
+              <div className="py-3 text-center text-caption font-label-bold text-on-surface-variant uppercase tracking-wider">Sex</div>
+              <div className="py-3 text-center text-caption font-label-bold text-on-surface-variant uppercase tracking-wider">Sáb</div>
+            </div>
+            <div className="grid grid-cols-7 flex-1 min-h-[500px]">
+              <div className="p-3 border-r border-b border-hairline-border bg-surface/30 opacity-30 text-on-surface-variant font-label-bold">31</div>
+              <div className="p-3 border-r border-b border-hairline-border min-h-[90px] hover:bg-surface-container-highest transition-colors cursor-pointer group relative">
+                <div className="flex justify-between items-start">
+                  <span className="font-label-bold text-body-base text-on-surface">1</span>
+                </div>
+              </div>
+              <div className="p-3 border-r border-b border-hairline-border min-h-[90px] hover:bg-surface-container-highest transition-colors cursor-pointer group relative">
+                <div className="flex justify-between items-start">
+                  <span className="font-label-bold text-body-base text-on-surface">2</span>
+                </div>
+              </div>
+              <div className="p-3 border-r border-b border-hairline-border min-h-[90px] hover:bg-surface-container-highest transition-colors cursor-pointer group relative">
+                <div className="flex justify-between items-start">
+                  <span className="font-label-bold text-body-base text-on-surface">3</span>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-1">
+                  <div className="w-1.5 h-1.5 rounded-full bg-primary"></div>
+                  <div className="w-1.5 h-1.5 rounded-full bg-warning-amber"></div>
+                </div>
+                <div className="mt-2 hidden md:block text-[10px] text-on-surface-variant font-medium">2 Agend.</div>
+              </div>
+              <div className="p-3 border-r border-b border-hairline-border min-h-[90px] hover:bg-surface-container-highest transition-colors cursor-pointer group relative bg-primary/5">
+                <div className="flex justify-between items-start">
+                  <span className="font-label-bold text-body-base text-primary">15</span>
+                  <span className="w-2 h-2 rounded-full bg-primary shadow-[0_0_8px_rgba(78,222,163,0.6)]"></span>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-1">
+                  <div className="w-1.5 h-1.5 rounded-full bg-primary"></div>
+                  <div className="w-1.5 h-1.5 rounded-full bg-warning-amber"></div>
+                </div>
+                <div className="mt-2 hidden md:block text-[10px] text-on-surface-variant font-medium">2 Agend.</div>
+              </div>
+            </div>
           </div>
         </div>
 
-        <nav className="flex-1 space-y-1">
-          <Link
-            className="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors rounded-lg font-label-bold"
-            href="/admin/dashboard"
-          >
-            <span className="material-symbols-outlined">dashboard</span>
-            <span>Dashboard</span>
-          </Link>
-          <Link
-            className="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors rounded-lg font-label-bold"
-            href="/admin/clientes"
-          >
-            <span className="material-symbols-outlined">group</span>
-            <span>Clientes / Tutores</span>
-          </Link>
-          <Link
-            className="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors rounded-lg font-label-bold"
-            href="/admin/pets"
-          >
-            <span className="material-symbols-outlined">pets</span>
-            <span>Pets & Prontuários</span>
-          </Link>
-          <Link
-            className="flex items-center gap-3 px-4 py-3 bg-secondary-container text-on-secondary-container rounded-lg font-label-bold extruded-shadow"
-            href="/admin/agenda"
-          >
-            <span className="material-symbols-outlined">calendar_month</span>
-            <span>Agenda Geral</span>
-          </Link>
-          <Link
-            className="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors rounded-lg font-label-bold"
-            href="/admin/operacao"
-          >
-            <span className="material-symbols-outlined">pending_actions</span>
-            <span>Esteira de Operação</span>
-          </Link>
-          <Link
-            className="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors rounded-lg font-label-bold"
-            href="/admin/servicos"
-          >
-            <span className="material-symbols-outlined">sell</span>
-            <span>Serviços & Preços</span>
-          </Link>
-        </nav>
-      </aside>
-
-      {/* Main Admin Workspace */}
-      <div className="flex-1 md:ml-64 flex flex-col min-h-screen">
-        <header className="h-16 w-full flex justify-between items-center px-4 md:px-8 sticky top-0 z-30 bg-matte-canvas/90 backdrop-blur-md border-b border-hairline-border">
-          <div className="flex items-center gap-2 text-sm text-on-surface-variant">
-            <span>Administração</span>
-            <span>/</span>
-            <span className="text-on-surface font-bold">Grade de Horários & Profissionais</span>
+        {/* Right: Daily Schedule Sidebar */}
+        <div className="w-full lg:w-96 flex flex-col gap-6">
+          <div className="bg-elevated-card border border-hairline-border rounded-xl p-5 flex flex-col gap-6 extruded-shadow h-full">
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="font-headline-md text-headline-md">Quarta-feira</h3>
+                <p className="text-on-surface-variant">15 de Julho, 2026</p>
+              </div>
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                <span className="material-symbols-outlined">event</span>
+              </div>
+            </div>
+            <div className="relative flex flex-col gap-0">
+              <div className="absolute left-4 top-4 bottom-4 w-0.5 bg-hairline-border"></div>
+              <div className="relative pl-12 pb-8">
+                <div className="absolute left-2.5 top-1.5 w-3.5 h-3.5 rounded-full bg-deep-surface border-4 border-primary ring-4 ring-deep-surface"></div>
+                <div className="flex flex-col gap-2">
+                  <span className="text-caption font-label-bold text-primary uppercase">09:00 — 10:30</span>
+                  <div className="bg-surface-container rounded-lg p-3 border border-hairline-border hover:border-primary/50 transition-colors cursor-pointer group">
+                    <h4 className="font-label-bold text-body-base">Banho + Tosa: Bella (Golden)</h4>
+                    <p className="text-caption text-on-surface-variant mt-1">Cliente: Maria Jenkins • Serviço Completo</p>
+                    <div className="mt-3 flex items-center gap-2">
+                      <span className="px-2 py-0.5 bg-primary/20 text-primary text-[10px] rounded uppercase font-bold tracking-tighter flex items-center gap-1">
+                        <span className="w-1 h-1 rounded-full bg-primary animate-pulse"></span> Confirmado
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-        </header>
+        </div>
+      </main>
 
-        <main className="flex-1 p-4 md:p-8 space-y-6 max-w-7xl w-full mx-auto">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      {/* Mobile Workspace */}
+      <main className="block md:hidden pb-32">
+        <section className="bg-surface-container pt-4 pb-6 px-4 border-b border-hairline-border">
+          <div className="flex justify-between items-end mb-6">
             <div>
-              <h1 className="text-2xl md:text-3xl font-extrabold text-on-surface">Agenda Integrada da Equipe</h1>
-              <p className="text-sm text-on-surface-variant">Controle de banhistas, groomers e equipe médica veterinária.</p>
+              <h1 className="font-headline-lg-mobile text-headline-lg-mobile">Agenda</h1>
+              <p className="font-label-muted text-label-muted text-on-surface-variant">Julho 2026</p>
             </div>
+            <button className="bg-primary-container text-on-primary-container px-4 py-2 rounded-xl font-label-bold text-label-bold extruded-shadow flex items-center gap-2 active:scale-95 transition-transform">
+              <span className="material-symbols-outlined text-[20px]">add</span>
+              Novo
+            </button>
+          </div>
+          <div className="flex gap-3 overflow-x-auto hide-scrollbar -mx-4 px-4">
+            <button className="flex flex-col items-center justify-center min-w-[64px] h-24 rounded-2xl bg-primary text-on-primary extruded-shadow emerald-glow-effect active:scale-95 transition-all">
+              <span className="font-label-bold text-label-bold uppercase tracking-wider">qua</span>
+              <span className="font-headline-lg-mobile text-headline-lg-mobile leading-none mt-1">25</span>
+              <div className="w-1.5 h-1.5 bg-on-primary rounded-full mt-1"></div>
+            </button>
+          </div>
+        </section>
 
-            <div className="flex items-center gap-3">
-              <select
-                value={selectedProfessional}
-                onChange={(e) => setSelectedProfessional(e.target.value)}
-                className="bg-surface-container border border-hairline-border rounded-xl px-3 py-2 text-on-surface text-sm outline-none cursor-pointer"
-              >
-                <option value="todos">Todos os Profissionais</option>
-                <option value="ricardo">Ricardo M. (Groomer)</option>
-                <option value="ana">Ana Costa (Banhista)</option>
-                <option value="camila">Dra. Camila (Vet)</option>
-              </select>
-
-              <button
-                onClick={() => alert("Novo Agendamento na Grade Admin")}
-                className="px-4 py-2 bg-primary text-on-primary font-bold text-sm rounded-xl extruded-shadow hover:brightness-110 transition-all flex items-center gap-2 cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-base">add</span>
-                <span>Novo Encaixe</span>
-              </button>
+        <section className="mt-6 px-4 space-y-8 relative">
+          <div className="absolute left-[51px] top-4 bottom-4 w-0.5 bg-hairline-border"></div>
+          <div className="flex gap-6 relative">
+            <div className="w-10 pt-2">
+              <p className="font-label-bold text-label-bold text-on-surface-variant text-right">09:00</p>
+              <p className="font-caption text-caption text-outline text-right uppercase">AM</p>
+            </div>
+            <div className="absolute left-[41px] top-3 z-10 w-5 h-5 rounded-full bg-surface border-4 border-primary ring-4 ring-surface"></div>
+            <div className="flex-1 bg-elevated-card rounded-2xl p-5 border border-hairline-border extruded-shadow">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-primary/20 text-primary font-caption text-caption mb-2">
+                CONFIRMADO
+              </span>
+              <h3 className="font-body-lg text-body-lg text-on-surface">Banho + Tosa: Luna (Golden)</h3>
             </div>
           </div>
+        </section>
 
-          {/* Schedule Time Table Grid */}
-          <div className="bg-elevated-card border border-hairline-border rounded-2xl p-6 extruded-shadow space-y-4">
-            <h3 className="font-bold text-on-surface text-lg">Grade do Dia — Quarta, 15 de Julho</h3>
-            <div className="space-y-3">
-              <div className="p-4 bg-surface-container-low border border-hairline-border rounded-xl flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <span className="text-sm font-mono font-bold text-primary">09:00</span>
-                  <div>
-                    <h4 className="font-bold text-on-surface">Thor (Golden Retriever)</h4>
-                    <p className="text-xs text-on-surface-variant">Banho Completo + Tosa Bebê • Ricardo M.</p>
-                  </div>
-                </div>
-                <span className="px-3 py-1 bg-warning-amber/10 border border-warning-amber/20 text-warning-amber text-xs font-bold rounded-full">
-                  Em Tosa
-                </span>
-              </div>
-
-              <div className="p-4 bg-surface-container-low border border-hairline-border rounded-xl flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <span className="text-sm font-mono font-bold text-primary">11:30</span>
-                  <div>
-                    <h4 className="font-bold text-on-surface">Luna (Gato Siamês)</h4>
-                    <p className="text-xs text-on-surface-variant">Vacinação V10 • Dra. Camila</p>
-                  </div>
-                </div>
-                <span className="px-3 py-1 bg-primary/10 border border-primary/20 text-primary text-xs font-bold rounded-full">
-                  Confirmado
-                </span>
-              </div>
-
-              <div className="p-4 bg-surface-container-low border border-hairline-border rounded-xl flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <span className="text-sm font-mono font-bold text-primary">14:15</span>
-                  <div>
-                    <h4 className="font-bold text-on-surface">Max (French Bulldog)</h4>
-                    <p className="text-xs text-on-surface-variant">Tosa Higiênica • Ana Costa</p>
-                  </div>
-                </div>
-                <span className="px-3 py-1 bg-primary/10 border border-primary/20 text-primary text-xs font-bold rounded-full">
-                  Confirmado
-                </span>
-              </div>
-            </div>
-          </div>
-        </main>
-      </div>
+        <button className="fixed bottom-20 right-4 w-14 h-14 bg-primary text-on-primary rounded-2xl flex items-center justify-center extruded-shadow emerald-glow-effect z-40">
+          <span className="material-symbols-outlined text-2xl">add</span>
+        </button>
+      </main>
     </div>
   );
 }

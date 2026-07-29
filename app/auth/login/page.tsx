@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import GlobalHeader from "@/components/GlobalHeader";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -12,16 +13,17 @@ export default function LoginPage() {
 
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    router.push("/auth/social");
+    router.push("/auth/register");
   };
 
   const handleGoogleLogin = () => {
-    router.push("/auth/social");
+    router.push("/auth/register-google");
   };
 
   return (
     <div className="font-body-base text-body-base selection:bg-primary-container selection:text-on-primary-container min-h-screen bg-background">
-      <main className="flex min-h-screen">
+      <GlobalHeader />
+      <main className="flex min-h-[calc(100vh-50px)]">
         {/* Left Column: Hero Illustration (Hidden on Mobile) */}
         <section className="hidden lg:flex lg:w-[45%] bg-matte-canvas p-margin-desktop flex-col justify-center items-center relative overflow-hidden border-r border-hairline-border">
           {/* Background Decorative Glow */}

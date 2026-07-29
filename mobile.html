@@ -1,0 +1,299 @@
+<!DOCTYPE html><html class="dark" lang="pt-BR"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport">
+<title>PetFlow | Gestão Inteligente para o seu Pet</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary-container": "#e29100",
+                        "inverse-primary": "#006c49",
+                        "tertiary": "#ffb95f",
+                        "primary-fixed": "#6ffbbe",
+                        "surface-container-high": "#242c27",
+                        "emerald-glow": "#064e3b",
+                        "error-red": "#ef4444",
+                        "surface-variant": "#2f3632",
+                        "secondary-fixed": "#d8e3fa",
+                        "on-error-container": "#ffdad6",
+                        "on-tertiary-container": "#523200",
+                        "matte-canvas": "#0f1419",
+                        "elevated-card": "#1e293b",
+                        "on-secondary": "#263143",
+                        "surface-container-low": "#161d19",
+                        "error-container": "#93000a",
+                        "primary": "#4edea3",
+                        "surface-container-highest": "#2f3632",
+                        "on-secondary-fixed": "#111c2d",
+                        "on-primary-fixed-variant": "#005236",
+                        "on-error": "#690005",
+                        "on-background": "#dde4dd",
+                        "inverse-surface": "#dde4dd",
+                        "secondary": "#bcc7de",
+                        "on-tertiary-fixed-variant": "#653e00",
+                        "on-secondary-fixed-variant": "#3c475a",
+                        "on-surface-variant": "#bbcabf",
+                        "surface-container": "#1a211d",
+                        "inverse-on-surface": "#2b322d",
+                        "surface-tint": "#4edea3",
+                        "secondary-container": "#3c475a",
+                        "on-primary-container": "#00422b",
+                        "on-primary": "#003824",
+                        "warning-amber": "#f59e0b",
+                        "on-tertiary": "#472a00",
+                        "primary-container": "#10b981",
+                        "surface": "#0e1511",
+                        "hairline-border": "#334155",
+                        "primary-fixed-dim": "#4edea3",
+                        "on-secondary-container": "#aab5cc",
+                        "tertiary-fixed-dim": "#ffb95f",
+                        "outline": "#86948a",
+                        "surface-bright": "#343b36",
+                        "outline-variant": "#3c4a42",
+                        "on-surface": "#dde4dd",
+                        "surface-dim": "#0e1511",
+                        "surface-container-lowest": "#09100c",
+                        "secondary-fixed-dim": "#bcc7de",
+                        "background": "#0e1511",
+                        "on-tertiary-fixed": "#2a1700",
+                        "on-primary-fixed": "#002113",
+                        "tertiary-fixed": "#ffddb8",
+                        "error": "#ffb4ab"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "stack-md": "1rem",
+                        "stack-lg": "2rem",
+                        "stack-sm": "0.5rem",
+                        "gutter": "1rem",
+                        "touch-target": "3rem",
+                        "margin-mobile": "1.25rem",
+                        "margin-desktop": "2.5rem"
+                    },
+                    "fontFamily": {
+                        "headline-lg-mobile": ["Hanken Grotesk"],
+                        "label-bold": ["Hanken Grotesk"],
+                        "body-lg": ["Hanken Grotesk"],
+                        "headline-lg": ["Hanken Grotesk"],
+                        "label-muted": ["Hanken Grotesk"],
+                        "caption": ["Hanken Grotesk"],
+                        "body-base": ["Hanken Grotesk"],
+                        "headline-md": ["Hanken Grotesk"]
+                    },
+                    "fontSize": {
+                        "headline-lg-mobile": ["28px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "label-bold": ["14px", {"lineHeight": "1.2", "letterSpacing": "0.02em", "fontWeight": "700"}],
+                        "body-lg": ["18px", {"lineHeight": "1.5", "fontWeight": "500"}],
+                        "headline-lg": ["32px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "label-muted": ["14px", {"lineHeight": "1.2", "fontWeight": "500"}],
+                        "caption": ["12px", {"lineHeight": "1.2", "fontWeight": "400"}],
+                        "body-base": ["16px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                        "headline-md": ["24px", {"lineHeight": "1.3", "letterSpacing": "-0.01em", "fontWeight": "600"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .extruded-shadow {
+            box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.05), 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+        }
+        .emerald-glow-effect {
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.15);
+        }
+        .pulse-node {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .5; }
+        }
+        body {
+            background-color: #0e1511;
+            color: #dde4dd;
+            font-family: 'Hanken Grotesk', sans-serif;
+            overflow-x: hidden;
+        }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen">
+<!-- TopAppBar -->
+<header class="docked full-width top-0 z-50 bg-surface dark:bg-surface border-b border-hairline-border dark:border-hairline-border">
+<div class="flex justify-between items-center w-full px-margin-mobile md:px-margin-desktop py-4">
+<div class="font-headline-md text-headline-md font-bold text-primary dark:text-primary">
+                PetFlow
+            </div>
+<div class="flex gap-4">
+<button class="material-symbols-outlined text-primary hover:bg-surface-variant/50 transition-colors p-2 rounded-full Active: scale-95 duration-100">help</button>
+<button class="material-symbols-outlined text-primary hover:bg-surface-variant/50 transition-colors p-2 rounded-full Active: scale-95 duration-100">account_circle</button>
+</div>
+</div>
+</header>
+<main class="flex-1 w-full max-w-7xl mx-auto pb-32">
+<!-- Hero Section -->
+<section class="px-margin-mobile pt-stack-lg pb-stack-lg text-center relative overflow-hidden">
+<div class="relative z-10 space-y-6">
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface tracking-tight">
+                    O Futuro do Cuidado com seu <span class="text-primary">Melhor Amigo</span> Começa Aqui.
+                </h1>
+<p class="font-body-base text-body-base text-on-surface-variant max-w-md mx-auto">
+                    A plataforma inteligente que conecta você, seu pet e os melhores profissionais em um só lugar. Preciso, tecnológico e humano.
+                </p>
+<div class="flex justify-center py-stack-md">
+<div class="relative w-full max-w-sm aspect-square rounded-xl overflow-hidden extruded-shadow border border-hairline-border">
+<img alt="Friendly golden retriever and tabby cat in a modern PetFlow shop" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida/AP1WRLvzQIboEldSFaeDjl-oGz-L5R0L_rE0s-eGdYXAo4xOiEiPq2AUjkknb-81XaYQnGecy7htKu5kx3VDd3NT-xe-Rma5Glh27um8z_fFBJPKa3FqiZuZEOilJqA-5r1maencfbjzrr1NtY0gSjL_YqZZLMPahhxrPu6rjuZUHotylgN_4DUpJGaRDmrpMgzsKpuK9yi4jJlK9ME2-sJkx9Sc1nE0RwtULTyDwiO3eRJWinIfqLS26VezbSA">
+<div class="absolute inset-0 bg-gradient-to-t from-surface/80 to-transparent"></div>
+</div>
+</div>
+<button class="w-full py-4 px-8 bg-primary-container text-on-primary-container font-label-bold text-label-bold rounded-xl extruded-shadow hover:brightness-110 active:scale-95 transition-all emerald-glow-effect">
+                    Criar Conta Agora
+                </button>
+<p class="font-caption text-caption text-on-surface-variant">Comece grátis. Não precisa de cartão.</p>
+</div>
+<!-- Atmospheric Glow Background -->
+<div class="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-emerald-glow/10 via-transparent to-transparent -z-0"></div>
+</section>
+<!-- Nossos Diferenciais -->
+<section class="px-margin-mobile py-stack-lg space-y-gutter">
+<h2 class="font-headline-md text-headline-md text-on-surface">Nossos Diferenciais</h2>
+<div class="grid gap-4">
+<!-- Card 1 -->
+<div class="bg-elevated-card p-5 rounded-xl border border-hairline-border extruded-shadow flex items-start gap-4 active:scale-[0.98] transition-transform">
+<div class="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-primary text-[32px]">live_tv</span>
+</div>
+<div>
+<h3 class="font-label-bold text-label-bold text-on-surface mb-1">Acompanhamento ao vivo</h3>
+<p class="font-caption text-caption text-on-surface-variant">Assista aos passeios e consultas do seu pet em tempo real pelo app.</p>
+<div class="mt-2 flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-primary pulse-node"></span>
+<span class="text-[10px] uppercase font-bold text-primary tracking-widest">Ativo</span>
+</div>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="bg-elevated-card p-5 rounded-xl border border-hairline-border extruded-shadow flex items-start gap-4 active:scale-[0.98] transition-transform">
+<div class="w-12 h-12 rounded-lg bg-tertiary/10 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-tertiary text-[32px]">calendar_month</span>
+</div>
+<div>
+<h3 class="font-label-bold text-label-bold text-on-surface mb-1">Agendamento ágil</h3>
+<p class="font-caption text-caption text-on-surface-variant">Reserve serviços em segundos com nossa IA de disponibilidade inteligente.</p>
+</div>
+</div>
+<!-- Card 3 -->
+<div class="bg-elevated-card p-5 rounded-xl border border-hairline-border extruded-shadow flex items-start gap-4 active:scale-[0.98] transition-transform">
+<div class="w-12 h-12 rounded-lg bg-primary-container/10 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-primary-container text-[32px]">loyalty</span>
+</div>
+<div>
+<h3 class="font-label-bold text-label-bold text-on-surface mb-1">Clube de Benefícios</h3>
+<p class="font-caption text-caption text-on-surface-variant">Ganhe pontos Flow em cada serviço e troque por produtos exclusivos.</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Social Proof -->
+<section class="bg-surface-container-low mx-margin-mobile rounded-2xl p-6 border border-hairline-border space-y-6">
+<div class="flex flex-col items-center text-center space-y-2">
+<div class="flex text-warning-amber">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">star</span>
+</div>
+<h3 class="font-label-bold text-label-bold text-on-surface">Aprovado por +15.000 tutores</h3>
+</div>
+<div class="relative overflow-hidden">
+<div class="flex gap-4 overflow-x-auto pb-4 snap-x no-scrollbar">
+<div class="min-w-[280px] snap-center bg-surface p-5 rounded-xl border border-outline-variant/30">
+<p class="font-caption text-caption text-on-surface mb-4">"O PetFlow mudou minha rotina. Ver o Max passeando me dá uma tranquilidade incrível enquanto estou no trabalho."</p>
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-secondary-container">
+<img class="w-full h-full object-cover rounded-full" data-alt="Close up portrait of a smiling young woman with dark curly hair in a professional office setting, soft corporate lighting, professional SaaS aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAaXxkqxetcRiZz4OKDYhZq8V8jPAs-ulhQz-MbJV_IGx_DgH895LUtO47WkFLtCwnDWPqu7TvsaOAELQ3yOp3ewAtP6EQc7L123uKCvfFxgQl4Qa2NGv6sIQkybE6WiTf5KCXyVy2BcP40up3Qlhe8v5yNlfIYzHKGbqWLSk12j1Kx3-AVJcgCj0u3JTMpR8if_jwzGWfdNP0ZB47XQUBZs4mfkrdN9mKDEWUm7s2kdXZhJdjD7arWtjTGP6I88yD1bHy3aEPm72I">
+</div>
+<div>
+<p class="font-label-bold text-[12px] text-on-surface">Mariana Costa</p>
+<p class="text-[10px] text-on-surface-variant">Tutor do Max (Golden)</p>
+</div>
+</div>
+</div>
+<div class="min-w-[280px] snap-center bg-surface p-5 rounded-xl border border-outline-variant/30">
+<p class="font-caption text-caption text-on-surface mb-4">"Plataforma intuitiva e muito precisa. Os agendamentos são rápidos e os profissionais são excelentes."</p>
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-secondary-container">
+<img class="w-full h-full object-cover rounded-full" data-alt="Portrait of a modern young man with glasses, wearing a casual sweater, clean background, high quality commercial photography style." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDodxfXFgERydJfiKdgKiVSgH4aH2gxzg7iYKfx8u9QdzhKiNht1iH9N7DL00wxyA80ELU5R3f6u3GFga2Lk5dmAMwNOGVjvRnDy_aKasp-GuDRRpGTojHJJmo7oe4j4gzzR-UbRRDe7LMX1VC33BZTTBEE3-CUxjj-4ExDoqk-YANm6Em7Wt46WaUHYWnPZutgfhmriCZFVkUqvwUk68RoUp2HJSkqsKsw9n_Bn-nA4H1Tr3qg9nxrsMDM0TyNtrL1ONZv3qjK41k">
+</div>
+<div>
+<p class="font-label-bold text-[12px] text-on-surface">Ricardo Alves</p>
+<p class="text-[10px] text-on-surface-variant">Tutor da Luna (Persa)</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Sticky CTA Footer -->
+<div class="fixed bottom-[72px] left-0 w-full px-margin-mobile pb-4 z-40 pointer-events-none">
+<button class="pointer-events-auto w-full py-4 bg-primary text-on-primary font-label-bold text-label-bold rounded-full extruded-shadow flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-95 transition-all">
+<span class="material-symbols-outlined">rocket_launch</span>
+            Começar Agora
+        </button>
+</div>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pb-safe py-3 bg-surface-container-low dark:bg-surface-container-low border-t border-hairline-border shadow-lg rounded-t-xl">
+<a class="flex flex-col items-center justify-center bg-primary-container/20 text-primary rounded-xl px-3 py-1 scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">dashboard</span>
+<span class="font-label-bold text-label-bold">Dashboard</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-all" href="#">
+<span class="material-symbols-outlined">pets</span>
+<span class="font-label-muted text-label-muted">Pets</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-all" href="#">
+<span class="material-symbols-outlined">group</span>
+<span class="font-label-muted text-label-muted">Clients</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-all" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-label-muted text-label-muted">Settings</span>
+</a>
+</nav>
+<script>
+        // Micro-interactions and effects
+        document.querySelectorAll('button, a').forEach(el => {
+            el.addEventListener('mousedown', () => {
+                el.style.transform = 'scale(0.96)';
+            });
+            el.addEventListener('mouseup', () => {
+                el.style.transform = '';
+            });
+            el.addEventListener('mouseleave', () => {
+                el.style.transform = '';
+            });
+        });
+
+        // Horizontal scroll indicators for testimonials
+        const testimonialContainer = document.querySelector('.snap-x');
+        if (testimonialContainer) {
+            testimonialContainer.addEventListener('scroll', () => {
+                // Future expansion: active dot tracking
+            });
+        }
+    </script>
+
+
+</body></html>

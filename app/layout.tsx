@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
+import { Hanken_Grotesk } from "next/font/google";
 import "./globals.css";
 
+const hankenGrotesk = Hanken_Grotesk({ subsets: ["latin"] });
+
 export const metadata: Metadata = {
-  title: "SaaS Client Portal | Gestão de Cuidados",
-  description: "Portal do cliente e acompanhamento de pets em tempo real.",
+  title: "Gestão Pet Shop",
+  description: "SaaS White-Label para Pet Shops e Clínicas Veterinárias",
 };
 
 export default function RootLayout({
@@ -14,18 +17,9 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" className="dark">
       <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:ital,wght@0,100..900;1,100..900&display=swap"
-          rel="stylesheet"
-        />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
-          rel="stylesheet"
-        />
+        <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
       </head>
-      <body className="bg-matte-canvas text-on-surface min-h-screen flex flex-col antialiased">
+      <body className={`${hankenGrotesk.className} min-h-screen bg-[#0f1419] text-white antialiased`}>
         {children}
       </body>
     </html>

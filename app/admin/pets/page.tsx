@@ -1,221 +1,190 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
-
-interface AdminPet {
-  id: string;
-  name: string;
-  tutor: string;
-  species: string;
-  breed: string;
-  weight: string;
-  lastVaccine: string;
-  status: "Saudável" | "Em tratamento" | "Vacina Pendente";
-}
-
-export default function AdminPetsPage() {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [pets] = useState<AdminPet[]>([
-    {
-      id: "1",
-      name: "Thor",
-      tutor: "Ana Paula Silva",
-      species: "Cachorro",
-      breed: "Golden Retriever",
-      weight: "32.4 kg",
-      lastVaccine: "V10 - 15/05/2026",
-      status: "Saudável",
-    },
-    {
-      id: "2",
-      name: "Luna",
-      tutor: "Ana Paula Silva",
-      species: "Gato",
-      breed: "Siamês",
-      weight: "4.2 kg",
-      lastVaccine: "AntirrÁbica - 10/01/2026",
-      status: "Saudável",
-    },
-    {
-      id: "3",
-      name: "Max",
-      tutor: "Carlos Eduardo Costa",
-      species: "Cachorro",
-      breed: "French Bulldog",
-      weight: "11.0 kg",
-      lastVaccine: "Pendente Vacina de Raiva",
-      status: "Vacina Pendente",
-    },
-  ]);
-
-  const filteredPets = pets.filter(
-    (p) =>
-      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.tutor.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.breed.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
+export default function PetsPage() {
   return (
-    <div className="bg-matte-canvas text-on-surface font-body-base min-h-screen flex selection:bg-primary/30">
-      {/* Admin Sidebar Navigation */}
-      <aside className="hidden md:flex flex-col w-64 h-screen fixed left-0 top-0 bg-surface-container border-r border-hairline-border py-6 px-4 z-50">
-        <div className="flex items-center gap-3 mb-8 px-2">
-          <div className="w-10 h-10 rounded-lg bg-primary-container flex items-center justify-center extruded-shadow">
-            <span
-              className="material-symbols-outlined text-on-primary-container text-xl"
-              style={{ fontVariationSettings: "'FILL' 1" }}
-            >
-              admin_panel_settings
-            </span>
-          </div>
-          <div>
-            <h1 className="font-headline-md text-headline-md text-primary font-bold leading-none">
-              Painel Admin
-            </h1>
-            <p className="text-[10px] uppercase tracking-widest text-on-surface-variant font-bold mt-1">
-              Gestão de Petshop & Vet
-            </p>
-          </div>
-        </div>
-
-        <nav className="flex-1 space-y-1">
-          <Link
-            className="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors rounded-lg font-label-bold"
-            href="/admin/dashboard"
-          >
-            <span className="material-symbols-outlined">dashboard</span>
-            <span>Dashboard</span>
-          </Link>
-          <Link
-            className="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors rounded-lg font-label-bold"
-            href="/admin/clientes"
-          >
-            <span className="material-symbols-outlined">group</span>
-            <span>Clientes / Tutores</span>
-          </Link>
-          <Link
-            className="flex items-center gap-3 px-4 py-3 bg-secondary-container text-on-secondary-container rounded-lg font-label-bold extruded-shadow"
-            href="/admin/pets"
-          >
-            <span className="material-symbols-outlined">pets</span>
-            <span>Pets & Prontuários</span>
-          </Link>
-          <Link
-            className="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors rounded-lg font-label-bold"
-            href="/admin/agenda"
-          >
-            <span className="material-symbols-outlined">calendar_month</span>
-            <span>Agenda Geral</span>
-          </Link>
-          <Link
-            className="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors rounded-lg font-label-bold"
-            href="/admin/operacao"
-          >
-            <span className="material-symbols-outlined">pending_actions</span>
-            <span>Esteira de Operação</span>
-          </Link>
-          <Link
-            className="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors rounded-lg font-label-bold"
-            href="/admin/servicos"
-          >
-            <span className="material-symbols-outlined">sell</span>
-            <span>Serviços & Preços</span>
-          </Link>
-        </nav>
-      </aside>
-
-      {/* Main Admin Workspace */}
-      <div className="flex-1 md:ml-64 flex flex-col min-h-screen">
-        <header className="h-16 w-full flex justify-between items-center px-4 md:px-8 sticky top-0 z-30 bg-matte-canvas/90 backdrop-blur-md border-b border-hairline-border">
-          <div className="flex items-center gap-2 text-sm text-on-surface-variant">
-            <span>Administração</span>
-            <span>/</span>
-            <span className="text-on-surface font-bold">Controle Clínico de Pets & Prontuários</span>
-          </div>
-        </header>
-
-        <main className="flex-1 p-4 md:p-8 space-y-6 max-w-7xl w-full mx-auto">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <div className="w-full">
+      {/* Desktop View */}
+      <main className="hidden md:block p-margin-desktop min-h-screen pb-12">
+        <div className="max-w-7xl mx-auto">
+          {/* Page Header & Filters */}
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
             <div>
-              <h1 className="text-2xl md:text-3xl font-extrabold text-on-surface">Prontuários Médicos & Ficha dos Pets</h1>
-              <p className="text-sm text-on-surface-variant">Histórico clínico vet, vacinação e observações de saúde.</p>
+              <h2 className="font-headline-lg text-headline-lg text-on-surface mb-1">Pets</h2>
+              <p className="text-body-base text-on-surface-variant"><span className="text-primary font-bold">12 pets</span> registrados no sistema</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button className="px-5 py-2 rounded-full bg-primary text-on-primary font-label-bold text-label-bold extruded-shadow transition-all">
+                Todos
+              </button>
+              <button className="px-5 py-2 rounded-full bg-elevated-card text-on-surface-variant hover:text-on-surface font-label-bold text-label-bold border border-hairline-border transition-all">
+                Em Atendimento
+              </button>
+              <button className="px-5 py-2 rounded-full bg-elevated-card text-on-surface-variant hover:text-on-surface font-label-bold text-label-bold border border-hairline-border transition-all">
+                Disponível
+              </button>
+            </div>
+          </div>
+
+          {/* Pets Bento Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-gutter">
+            {/* Pet Card 1 */}
+            <div className="bg-elevated-card border border-hairline-border rounded-xl p-5 extruded-shadow group hover:border-primary/50 transition-all duration-300 relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-4">
+                <button className="text-on-surface-variant hover:text-primary transition-colors">
+                  <span className="material-symbols-outlined">more_vert</span>
+                </button>
+              </div>
+              <div className="flex items-start gap-4 mb-5">
+                <div className="w-16 h-16 rounded-xl overflow-hidden border-2 border-hairline-border group-hover:border-primary/30 transition-colors">
+                  <img className="w-full h-full object-cover" alt="Maximus" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD6LoQ5WYhIqjOKmbQxNYV0ZalOGkzh7My77dg4m9VI36QjpqZ5BOk_l8AZNYaDJ7eZ66hdKW-6knREQuAdjK_4xy5O7cER3NNkwURFWHq09ZDentwyKJaodOB7WWrXMy39oHybLCvs-EbyTXjRsGGYBE0X273fkIift-iIBuwTx8hos3VwT-UuYaK__Y9wvhMXTBql2vKOKV7l_QZ79SryMrx5RnouUSafkZSs3CKKzDzOvrPWoEtC9E-wRR5-3v_2q1lUe6zymiw" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <h3 className="font-headline-md text-body-lg font-bold text-on-surface">Maximus</h3>
+                    <span className="flex h-2 w-2 rounded-full bg-primary pulse-node"></span>
+                  </div>
+                  <p className="text-caption text-on-surface-variant">Golden Retriever</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-y-3 gap-x-4 mb-6">
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-on-surface-variant/60 font-bold">Peso</p>
+                  <p className="text-label-bold text-on-surface">32.5 kg</p>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-on-surface-variant/60 font-bold">Pelagem</p>
+                  <p className="text-label-bold text-on-surface">Pelo Longo</p>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-on-surface-variant/60 font-bold">Cor</p>
+                  <p className="text-label-bold text-on-surface">Dourado</p>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-on-surface-variant/60 font-bold">Tutor</p>
+                  <p className="text-label-bold text-primary">Sarah Jenkins</p>
+                </div>
+              </div>
+              <button className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg bg-surface-container-high text-on-surface hover:bg-primary/10 hover:text-primary border border-hairline-border transition-all font-label-bold text-label-bold">
+                Ver Detalhes
+                <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+              </button>
             </div>
 
-            <button
-              onClick={() => alert("Novo Prontuário Médico: Formulário clínico veterinário")}
-              className="px-5 py-2.5 bg-primary text-on-primary font-bold text-sm rounded-xl extruded-shadow hover:brightness-110 transition-all flex items-center gap-2 cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-lg">medical_services</span>
-              <span>Abrir Ficha Clínica</span>
+            {/* Pet Card 2 */}
+            <div className="bg-elevated-card border border-hairline-border rounded-xl p-5 extruded-shadow group hover:border-primary/50 transition-all duration-300 relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-4">
+                <button className="text-on-surface-variant hover:text-primary transition-colors">
+                  <span className="material-symbols-outlined">more_vert</span>
+                </button>
+              </div>
+              <div className="flex items-start gap-4 mb-5">
+                <div className="w-16 h-16 rounded-xl overflow-hidden border-2 border-hairline-border group-hover:border-primary/30 transition-colors">
+                  <img className="w-full h-full object-cover" alt="Luna" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB46q-HWzLd0l-2zfnLDshSyK7oF11OpKTdmKwO7BEdZaxKwKuXstFwVc5hue7t6dy0aDBvp01EahshqP6_VZHeXHHujuffXq6t0T9_X1KHKQn04piCszo-QdVP89BwRgNfaxUnXRO08UNi7ILLS4_Yia4ZXudH5Sfc3HmcArOlAlc3b4ozSQcohapzIgay19BDg9VzsZtr9_W1osXoRtb1OPK_1pIZuIR-qgbsBB9VjZe5IIAYfYOcNSOi0CmGOCyTwqnlEu-fCQw" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <h3 className="font-headline-md text-body-lg font-bold text-on-surface">Luna</h3>
+                    <span className="flex h-2 w-2 rounded-full bg-warning-amber"></span>
+                  </div>
+                  <p className="text-caption text-on-surface-variant">Siberian Husky</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-y-3 gap-x-4 mb-6">
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-on-surface-variant/60 font-bold">Peso</p>
+                  <p className="text-label-bold text-on-surface">21.0 kg</p>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-on-surface-variant/60 font-bold">Pelagem</p>
+                  <p className="text-label-bold text-on-surface">Dupla Camada</p>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-on-surface-variant/60 font-bold">Cor</p>
+                  <p className="text-label-bold text-on-surface">Preto/Branco</p>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-on-surface-variant/60 font-bold">Tutor</p>
+                  <p className="text-label-bold text-primary">James Wilson</p>
+                </div>
+              </div>
+              <button className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg bg-surface-container-high text-on-surface hover:bg-primary/10 hover:text-primary border border-hairline-border transition-all font-label-bold text-label-bold">
+                Ver Detalhes
+                <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+              </button>
+            </div>
+
+            {/* Add New Pet Card (Dashed) */}
+            <button className="bg-surface-container-low border-2 border-dashed border-hairline-border rounded-xl p-5 hover:border-primary/50 hover:bg-surface-container-high transition-all flex flex-col items-center justify-center gap-3 min-h-[280px]">
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                <span className="material-symbols-outlined text-[32px]">add</span>
+              </div>
+              <p className="font-label-bold text-label-bold text-on-surface">Cadastrar Novo Pet</p>
+              <p className="text-caption text-on-surface-variant text-center px-4">Adicione um novo pet ao ecossistema PetFlow</p>
             </button>
           </div>
+        </div>
+      </main>
 
-          {/* Search */}
-          <div className="relative w-full max-w-md">
-            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">
-              search
-            </span>
-            <input
-              className="w-full bg-surface-container px-10 py-2.5 rounded-xl border border-hairline-border text-on-surface placeholder:text-outline text-sm outline-none"
-              placeholder="Buscar por pet, tutor ou raça..."
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-
-          {/* Table Container */}
-          <div className="bg-elevated-card border border-hairline-border rounded-2xl overflow-hidden extruded-shadow">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm text-on-surface">
-                <thead className="bg-surface-container-low border-b border-hairline-border text-xs font-bold text-on-surface-variant uppercase tracking-wider">
-                  <tr>
-                    <th className="p-4">Nome do Pet</th>
-                    <th className="p-4">Tutor Responsável</th>
-                    <th className="p-4">Espécie / Raça</th>
-                    <th className="p-4">Peso</th>
-                    <th className="p-4">Carteira de Vacina</th>
-                    <th className="p-4">Status de Saúde</th>
-                    <th className="p-4 text-center">Ações Clínicas</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-hairline-border/40">
-                  {filteredPets.map((pet) => (
-                    <tr key={pet.id} className="hover:bg-surface-container-high/50 transition-colors">
-                      <td className="p-4 font-bold text-on-surface">{pet.name}</td>
-                      <td className="p-4 text-xs text-on-surface-variant">{pet.tutor}</td>
-                      <td className="p-4 text-xs">{pet.species} • {pet.breed}</td>
-                      <td className="p-4 font-mono text-xs">{pet.weight}</td>
-                      <td className="p-4 text-xs text-on-surface-variant">{pet.lastVaccine}</td>
-                      <td className="p-4">
-                        <span
-                          className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase border ${
-                            pet.status === "Saudável"
-                              ? "bg-primary/10 text-primary border-primary/20"
-                              : "bg-warning-amber/10 text-warning-amber border-warning-amber/20"
-                          }`}
-                        >
-                          {pet.status}
-                        </span>
-                      </td>
-                      <td className="p-4 text-center">
-                        <button
-                          onClick={() => alert(`Abrindo Prontuário Médico de ${pet.name}`)}
-                          className="px-3 py-1.5 bg-surface-container border border-hairline-border hover:bg-surface-container-high text-on-surface font-bold text-xs rounded-lg transition-all inline-flex items-center gap-1.5 cursor-pointer"
-                        >
-                          <span className="material-symbols-outlined text-sm">assignment</span>
-                          Ver Prontuário
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+      {/* Mobile View */}
+      <main className="block md:hidden px-5 pb-32 pt-4">
+        {/* Compact Metrics Horizontal Scroll */}
+        <section className="overflow-x-auto no-scrollbar flex gap-3 pb-2">
+          <div className="flex-shrink-0 bg-elevated-card border border-hairline-border rounded-xl p-4 min-w-[140px] extruded-shadow">
+            <div className="flex items-center justify-between mb-1">
+              <span className="material-symbols-outlined text-primary text-lg">pets</span>
+              <span className="text-primary font-bold text-label-bold">+12%</span>
             </div>
+            <div className="text-on-surface-variant font-label-muted text-caption">Total de Pets</div>
+            <div className="text-on-surface font-headline-md text-headline-md">142</div>
           </div>
-        </main>
-      </div>
+          <div className="flex-shrink-0 bg-elevated-card border border-hairline-border rounded-xl p-4 min-w-[140px] extruded-shadow">
+            <div className="flex items-center justify-between mb-1">
+              <span className="material-symbols-outlined text-tertiary text-lg">medical_services</span>
+              <div className="w-2 h-2 rounded-full bg-tertiary pulse-node"></div>
+            </div>
+            <div className="text-on-surface-variant font-label-muted text-caption">Tarefas Urgentes</div>
+            <div className="text-on-surface font-headline-md text-headline-md">8</div>
+          </div>
+        </section>
+
+        {/* Section Title & Filter */}
+        <section className="mt-8 flex justify-between items-end mb-4">
+          <div>
+            <h1 className="font-headline-lg-mobile text-headline-lg-mobile text-on-surface">Registro de Pets</h1>
+            <p className="font-body-base text-body-base text-on-surface-variant">Gerencie seus clientes ativos</p>
+          </div>
+          <button className="bg-surface-container-high p-2 rounded-lg border border-hairline-border text-on-surface-variant">
+            <span className="material-symbols-outlined">filter_list</span>
+          </button>
+        </section>
+
+        {/* Vertical List of Pet Cards */}
+        <div className="space-y-4">
+          <article className="bg-elevated-card border border-hairline-border rounded-xl p-4 extruded-shadow flex gap-4 items-center">
+            <div className="w-20 h-20 rounded-xl overflow-hidden flex-shrink-0 border-2 border-primary/20">
+              <img className="w-full h-full object-cover" alt="Cooper" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB99g7g7b7O2OwbeXd0v6e_awpbWJfxDo53LCicJqL3MdYgXFKUUdUj0NiHNyOTdsd6Em4EiUjvRuOz1CvG6qg3O_B_dUZ6xpvHT7cM9ax9TyNVR6RXg1i2zfGHrjnvI37TuB1loV7SJOKtH8pTb-i-pZOBzsTasE3xamub0KNIAoplrcuP9J2EDjCunLJzStY9VznECG3qJzmdCjKBglL436ItwKzB-9CmT8sOmdes-y9a7NBgAn1u-cb_zBldc11jFFLpi_A0GF8" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex justify-between items-start">
+                <h3 className="font-headline-md text-headline-md text-primary truncate">Cooper</h3>
+                <span className="bg-primary/20 text-primary px-2 py-0.5 rounded-full font-label-bold text-caption border border-primary/30">Ativo</span>
+              </div>
+              <p className="font-label-muted text-caption text-on-surface-variant">Golden Retriever</p>
+              <div className="mt-2 flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-sm text-on-surface-variant">person</span>
+                <span className="font-label-muted text-caption text-on-surface truncate">Sarah Jenkins</span>
+              </div>
+            </div>
+            <button className="bg-primary text-on-primary font-label-bold text-caption px-3 py-2 rounded-lg extruded-shadow active:scale-95 transition-transform emerald-glow-effect">
+              Ver Perfil
+            </button>
+          </article>
+        </div>
+
+        <button className="fixed bottom-24 right-6 w-14 h-14 bg-primary text-on-primary rounded-full shadow-2xl flex items-center justify-center extruded-shadow emerald-glow-effect active:scale-90 transition-transform">
+          <span className="material-symbols-outlined text-[32px]">add</span>
+        </button>
+      </main>
     </div>
   );
 }
