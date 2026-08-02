@@ -1,0 +1,398 @@
+<!DOCTYPE html><html class="dark" lang="pt-BR"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>PetFlow - Registrar Conta</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary-fixed-dim": "#4edea3",
+                        "matte-canvas": "#0f1419",
+                        "on-tertiary": "#472a00",
+                        "surface-dim": "#0e1511",
+                        "tertiary-fixed": "#ffddb8",
+                        "primary-container": "#10b981",
+                        "on-primary-fixed-variant": "#005236",
+                        "error": "#ffb4ab",
+                        "on-error-container": "#ffdad6",
+                        "secondary": "#bcc7de",
+                        "on-secondary-container": "#aab5cc",
+                        "on-surface": "#dde4dd",
+                        "emerald-glow": "#064e3b",
+                        "inverse-primary": "#006c49",
+                        "inverse-on-surface": "#2b322d",
+                        "on-tertiary-container": "#523200",
+                        "surface-variant": "#2f3632",
+                        "surface-container": "#1a211d",
+                        "surface-tint": "#4edea3",
+                        "error-container": "#93000a",
+                        "outline-variant": "#3c4a42",
+                        "on-primary": "#003824",
+                        "on-tertiary-fixed-variant": "#653e00",
+                        "surface-container-lowest": "#09100c",
+                        "secondary-container": "#3c475a",
+                        "outline": "#86948a",
+                        "on-surface-variant": "#bbcabf",
+                        "elevated-card": "#1e293b",
+                        "surface-container-high": "#242c27",
+                        "surface-bright": "#343b36",
+                        "warning-amber": "#f59e0b",
+                        "surface-container-highest": "#2f3632",
+                        "hairline-border": "#334155",
+                        "primary-fixed": "#6ffbbe",
+                        "on-secondary": "#263143",
+                        "inverse-surface": "#dde4dd",
+                        "secondary-fixed-dim": "#bcc7de",
+                        "on-secondary-fixed-variant": "#3c475a",
+                        "on-primary-fixed": "#002113",
+                        "background": "#0e1511",
+                        "surface": "#0e1511",
+                        "on-background": "#dde4dd",
+                        "secondary-fixed": "#d8e3fa",
+                        "primary": "#4edea3",
+                        "tertiary-container": "#e29100",
+                        "on-error": "#690005",
+                        "error-red": "#ef4444",
+                        "tertiary-fixed-dim": "#ffb95f",
+                        "on-secondary-fixed": "#111c2d",
+                        "on-primary-container": "#00422b",
+                        "surface-container-low": "#161d19",
+                        "on-tertiary-fixed": "#2a1700",
+                        "tertiary": "#ffb95f"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "touch-target": "3rem",
+                        "stack-sm": "0.5rem",
+                        "margin-mobile": "1.25rem",
+                        "stack-md": "1rem",
+                        "margin-desktop": "2.5rem",
+                        "stack-lg": "2rem",
+                        "gutter": "1rem"
+                    },
+                    "fontFamily": {
+                        "caption": ["Hanken Grotesk"],
+                        "label-bold": ["Hanken Grotesk"],
+                        "label-muted": ["Hanken Grotesk"],
+                        "headline-lg-mobile": ["Hanken Grotesk"],
+                        "body-base": ["Hanken Grotesk"],
+                        "headline-lg": ["Hanken Grotesk"],
+                        "headline-md": ["Hanken Grotesk"],
+                        "body-lg": ["Hanken Grotesk"]
+                    },
+                    "fontSize": {
+                        "caption": ["12px", {"lineHeight": "1.2", "fontWeight": "400"}],
+                        "label-bold": ["14px", {"lineHeight": "1.2", "letterSpacing": "0.02em", "fontWeight": "700"}],
+                        "label-muted": ["14px", {"lineHeight": "1.2", "fontWeight": "500"}],
+                        "headline-lg-mobile": ["28px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "body-base": ["16px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                        "headline-lg": ["32px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "headline-md": ["24px", {"lineHeight": "1.3", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                        "body-lg": ["18px", {"lineHeight": "1.5", "fontWeight": "500"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .extruded-shadow {
+            box-shadow: 0 4px 0 0 rgba(0, 0, 0, 0.3), inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+        }
+        .emerald-glow-effect {
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.15);
+        }
+        .active-pulse {
+            position: relative;
+        }
+        .active-pulse::after {
+            content: '';
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background: #4edea3;
+            border-radius: 50%;
+            right: -12px;
+            top: 50%;
+            transform: translateY(-50%);
+            box-shadow: 0 0 8px #4edea3;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: translateY(-50%) scale(0.95); opacity: 0.7; }
+            50% { transform: translateY(-50%) scale(1.1); opacity: 1; }
+            100% { transform: translateY(-50%) scale(0.95); opacity: 0.7; }
+        }
+        body {
+            background-color: #0e1511;
+            color: #dde4dd;
+        }
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #4edea3 !important;
+            box-shadow: 0 0 0 2px rgba(78, 222, 163, 0.2);
+        }
+    </style>
+</head>
+<body class="font-body-base text-body-base selection:bg-primary-container selection:text-on-primary-container">
+<main class="flex min-h-screen">
+<!-- Left Column: Institutional (Hidden on Mobile) -->
+<section class="hidden lg:flex lg:w-[45%] bg-matte-canvas p-margin-desktop flex-col justify-between relative overflow-hidden border-r border-hairline-border">
+<!-- Background Decorative Glow -->
+<div class="absolute -top-24 -left-24 w-96 h-96 bg-emerald-glow opacity-20 blur-[100px] pointer-events-none"></div>
+<!-- Top section: Logo & Identity -->
+<div class="relative z-10">
+<div class="flex items-center gap-3">
+<div class="w-12 h-12 bg-primary-container rounded-lg flex items-center justify-center extruded-shadow">
+<span class="material-symbols-outlined text-on-primary-container text-2xl" style="font-variation-settings: 'FILL' 1;">pets</span>
+</div>
+<div>
+<h1 class="font-headline-md text-headline-md font-bold text-primary leading-none">PetFlow</h1>
+<p class="font-caption text-caption text-on-surface-variant mt-1">Precise pet care management.</p>
+</div>
+</div>
+</div>
+<!-- Middle: Illustration -->
+<div class="relative z-10 flex flex-col items-center">
+<div class="w-full max-w-md aspect-square bg-surface-container rounded-3xl overflow-hidden border border-hairline-border extruded-shadow emerald-glow-effect mb-8 group">
+<img class="w-full h-full object-cover grayscale-[0.2] group-hover:grayscale-0 transition-all duration-500" alt="Friendly dog and cat with a floating digital gift box" src="https://lh3.googleusercontent.com/aida/AP1WRLvqDyd3USRlTHo1r44wLefav3U8F5hthDQ7_U9PvHAzzrMoG9RsvZ9y3c03GxtNjVzSZpY3CXK7CMg5YyUh1XKBERkiw0Ft676Evom_mwU7WAm0RCYernV1c9QPYLB9dbosJJ4EDTBaZrH5gW92nXq_rc1ntxU3en2Ah-u633CHbS6SpyrI4PxpQa2wNI3N-2wRlvGebPXsWb2GD0FHFjcf7YSlgctW2SZ98SQ2g4Kdovp3-Bb1Dms91lU">
+</div>
+<div class="text-center">
+<h2 class="font-headline-lg text-headline-lg text-primary mb-4">Crie sua conta e resgate benefícios exclusivos para o seu pet</h2>
+<p class="text-on-surface-variant max-w-sm mx-auto">A tecnologia que transforma a rotina de cuidados do seu melhor amigo em uma experiência simples e segura.</p>
+</div>
+</div>
+<!-- Bottom: Benefits -->
+<div class="relative z-10 grid grid-cols-1 gap-y-4 max-w-sm">
+<div class="flex items-center gap-3 group">
+<span class="material-symbols-outlined text-primary-fixed-dim bg-primary-container/10 p-1.5 rounded-full" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="font-label-muted text-label-muted text-on-surface group-hover:text-primary transition-colors">Agende serviços online</span>
+</div>
+<div class="flex items-center gap-3 group">
+<span class="material-symbols-outlined text-primary-fixed-dim bg-primary-container/10 p-1.5 rounded-full" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="font-label-muted text-label-muted text-on-surface group-hover:text-primary transition-colors">Acompanhe o histórico do seu pet</span>
+</div>
+<div class="flex items-center gap-3 group">
+<span class="material-symbols-outlined text-primary-fixed-dim bg-primary-container/10 p-1.5 rounded-full" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="font-label-muted text-label-muted text-on-surface group-hover:text-primary transition-colors">Carteira de vacinação digital</span>
+</div>
+<div class="flex items-center gap-3 group">
+<span class="material-symbols-outlined text-primary-fixed-dim bg-primary-container/10 p-1.5 rounded-full" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="font-label-muted text-label-muted text-on-surface group-hover:text-primary transition-colors">Receba lembretes automáticos</span>
+</div>
+<div class="flex items-center gap-3 group">
+<span class="material-symbols-outlined text-primary-fixed-dim bg-primary-container/10 p-1.5 rounded-full" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="font-label-muted text-label-muted text-on-surface group-hover:text-primary transition-colors">Histórico completo sempre disponível</span>
+</div>
+</div>
+</section>
+<!-- Right Column: Form Area -->
+<section class="w-full lg:w-[55%] bg-background p-margin-mobile md:p-margin-desktop overflow-y-auto flex flex-col items-center">
+<div class="w-full max-w-2xl">
+<!-- Mobile Header -->
+<div class="flex items-center gap-3 lg:hidden mb-10">
+<div class="w-10 h-10 bg-primary-container rounded-lg flex items-center justify-center extruded-shadow">
+<span class="material-symbols-outlined text-on-primary-container text-xl" style="font-variation-settings: 'FILL' 1;">pets</span>
+</div>
+<h1 class="font-headline-md text-headline-md font-bold text-primary">PetFlow</h1>
+</div>
+<!-- Registration Card -->
+<div class="bg-elevated-card rounded-xl p-6 md:p-8 border border-hairline-border extruded-shadow">
+<header class="mb-8">
+<h2 class="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface mb-2">Criar sua conta</h2>
+<p class="text-on-surface-variant">Cadastre-se gratuitamente para gerenciar seu pet e acompanhar todos os atendimentos em um só lugar.</p>
+</header>
+<!-- Social Login -->
+<button class="w-full h-touch-target flex items-center justify-center gap-3 bg-white text-on-surface-variant font-label-bold text-label-bold rounded-lg border border-hairline-border transition-all hover:bg-surface-variant/10 active:scale-95 mb-6">
+<svg class="w-5 h-5" viewBox="0 0 24 24">
+<path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"></path>
+<path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"></path>
+<path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"></path>
+<path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"></path>
+</svg>
+                        Continuar com Google
+                    </button>
+<div class="relative flex items-center justify-center mb-8">
+<div class="w-full h-px bg-hairline-border"></div>
+<span class="absolute px-4 bg-elevated-card text-caption font-caption text-outline">ou continue com seu e-mail</span>
+</div>
+<!-- Form -->
+<form class="space-y-stack-lg">
+<!-- Section: Tutor Info -->
+<div class="space-y-4">
+<h3 class="font-label-bold text-label-bold text-primary-fixed-dim uppercase tracking-wider flex items-center gap-2">
+<span class="material-symbols-outlined text-lg">person</span>
+                                Dados do Tutor
+                            </h3>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div class="col-span-1 md:col-span-2">
+<label class="block font-label-muted text-label-muted text-on-surface-variant mb-1.5">Nome Completo</label>
+<input class="w-full bg-surface-container border border-hairline-border rounded-lg p-3 text-on-surface focus:ring-0" placeholder="Ex: João Silva" type="text">
+</div>
+<div>
+<label class="block font-label-muted text-label-muted text-on-surface-variant mb-1.5">E-mail</label>
+<input class="w-full bg-surface-container border border-hairline-border rounded-lg p-3 text-on-surface focus:ring-0" placeholder="joao@exemplo.com" type="email">
+</div>
+<div>
+<label class="block font-label-muted text-label-muted text-on-surface-variant mb-1.5">Telefone</label>
+<input class="w-full bg-surface-container border border-hairline-border rounded-lg p-3 text-on-surface focus:ring-0" placeholder="(00) 00000-0000" type="text">
+</div>
+<div>
+<label class="block font-label-muted text-label-muted text-on-surface-variant mb-1.5">CPF (Opcional)</label>
+<input class="w-full bg-surface-container border border-hairline-border rounded-lg p-3 text-on-surface focus:ring-0" placeholder="000.000.000-00" type="text">
+</div>
+<div>
+<label class="block font-label-muted text-label-muted text-on-surface-variant mb-1.5">Senha</label>
+<input class="w-full bg-surface-container border border-hairline-border rounded-lg p-3 text-on-surface focus:ring-0" placeholder="••••••••" type="password">
+</div>
+</div>
+</div>
+<!-- Section: Pet Info -->
+<div class="pt-6 border-t border-hairline-border space-y-6">
+<div>
+<h3 class="font-label-bold text-label-bold text-primary-fixed-dim uppercase tracking-wider flex items-center gap-2 mb-1">
+<span class="material-symbols-outlined text-lg">pets</span>
+                                    Cadastre seu primeiro pet
+                                </h3>
+<p class="text-caption font-caption text-outline">Poderá adicionar mais pets depois.</p>
+</div>
+<div class="flex flex-col md:flex-row gap-6">
+<!-- Photo Upload -->
+<div class="flex-shrink-0">
+<div class="w-32 h-32 md:w-40 md:h-40 bg-surface-container border-2 border-dashed border-hairline-border rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:border-primary transition-all group overflow-hidden relative">
+<div class="flex flex-col items-center group-hover:scale-105 transition-transform">
+<span class="material-symbols-outlined text-outline group-hover:text-primary mb-2 text-3xl">add_a_photo</span>
+<span class="font-caption text-caption text-outline text-center px-4">Foto do Pet</span>
+</div>
+</div>
+</div>
+<!-- Pet Fields -->
+<div class="flex-grow grid grid-cols-1 md:grid-cols-2 gap-4">
+<div class="col-span-1 md:col-span-2">
+<label class="block font-label-muted text-label-muted text-on-surface-variant mb-1.5">Nome do Pet</label>
+<input class="w-full bg-surface-container border border-hairline-border rounded-lg p-3 text-on-surface focus:ring-0" placeholder="Nome dele(a)" type="text">
+</div>
+<div>
+<label class="block font-label-muted text-label-muted text-on-surface-variant mb-1.5">Espécie</label>
+<select class="w-full bg-surface-container border border-hairline-border rounded-lg p-3 text-on-surface focus:ring-0">
+<option>Cachorro</option>
+<option>Gato</option>
+<option>Ave</option>
+<option>Outro</option>
+</select>
+</div>
+<div>
+<label class="block font-label-muted text-label-muted text-on-surface-variant mb-1.5">Raça</label>
+<input class="w-full bg-surface-container border border-hairline-border rounded-lg p-3 text-on-surface focus:ring-0" placeholder="Ex: Golden Retriever" type="text">
+</div>
+<div>
+<label class="block font-label-muted text-label-muted text-on-surface-variant mb-1.5">Sexo</label>
+<div class="flex gap-2">
+<button class="flex-1 p-3 border border-hairline-border rounded-lg bg-surface-container text-on-surface font-label-muted hover:border-primary" type="button">Macho</button>
+<button class="flex-1 p-3 border border-hairline-border rounded-lg bg-surface-container text-on-surface font-label-muted hover:border-primary" type="button">Fêmea</button>
+</div>
+</div>
+<div>
+<label class="block font-label-muted text-label-muted text-on-surface-variant mb-1.5">Data de Nascimento</label>
+<input class="w-full bg-surface-container border border-hairline-border rounded-lg p-3 text-on-surface focus:ring-0" type="date">
+</div>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+<div>
+<label class="block font-label-muted text-label-muted text-on-surface-variant mb-1.5">Peso (kg)</label>
+<input class="w-full bg-surface-container border border-hairline-border rounded-lg p-3 text-on-surface focus:ring-0" placeholder="0.0" step="0.1" type="number">
+</div>
+<div>
+<label class="block font-label-muted text-label-muted text-on-surface-variant mb-1.5">Tipo de Pelagem</label>
+<select class="w-full bg-surface-container border border-hairline-border rounded-lg p-3 text-on-surface focus:ring-0">
+<option>Curta</option>
+<option>Média</option>
+<option>Longa</option>
+<option>Dura</option>
+</select>
+</div>
+<div>
+<label class="block font-label-muted text-label-muted text-on-surface-variant mb-1.5">Cor</label>
+<input class="w-full bg-surface-container border border-hairline-border rounded-lg p-3 text-on-surface focus:ring-0" placeholder="Ex: Caramelo" type="text">
+</div>
+</div>
+<div class="flex items-center gap-2">
+<input class="w-5 h-5 rounded border-hairline-border bg-surface-container text-primary-container focus:ring-0" id="castrated" type="checkbox">
+<label class="font-label-muted text-label-muted text-on-surface cursor-pointer" for="castrated">Meu pet é castrado</label>
+</div>
+<div>
+<label class="block font-label-muted text-label-muted text-on-surface-variant mb-1.5">Observações (Alergias, cuidados especiais...)</label>
+<textarea class="w-full bg-surface-container border border-hairline-border rounded-lg p-3 text-on-surface focus:ring-0 resize-none" placeholder="Conte-nos um pouco mais..." rows="3"></textarea>
+</div>
+<!-- Add another pet -->
+<button class="flex items-center gap-2 text-primary font-label-bold hover:underline transition-all" type="button">
+<span class="material-symbols-outlined">add_circle</span>
+                                Adicionar outro pet
+                            </button>
+</div>
+<!-- Terms and Submit -->
+<div class="pt-6 space-y-6">
+<div class="flex items-start gap-3">
+<input class="mt-1 w-5 h-5 rounded border-hairline-border bg-surface-container text-primary-container focus:ring-0" id="terms" required="" type="checkbox">
+<label class="font-caption text-caption text-on-surface-variant" for="terms">
+                                    Li e concordo com os <a class="text-primary hover:underline" href="#">Termos de Uso</a> e a <a class="text-primary hover:underline" href="#">Política de Privacidade</a> do PetFlow.
+                                </label>
+</div>
+<button class="w-full h-touch-target bg-primary-container text-on-primary-container font-label-bold text-lg rounded-xl extruded-shadow hover:bg-primary-fixed-dim transition-all active:scale-95 flex items-center justify-center gap-2" type="submit">
+                                Criar conta e cadastrar meu pet
+                                <span class="material-symbols-outlined">arrow_forward</span>
+</button>
+<p class="text-center font-label-muted text-label-muted text-on-surface-variant">
+                                Já tem uma conta? <a class="text-primary font-label-bold hover:underline" href="#">Fazer login</a>
+</p>
+</div>
+</form>
+</div>
+<!-- Footer Links (Subtle) -->
+<footer class="mt-8 mb-4 flex flex-wrap justify-center gap-x-8 gap-y-2 opacity-60">
+<span class="font-caption text-caption text-on-surface-variant">© 2024 PetFlow</span>
+<a class="font-caption text-caption text-on-surface-variant hover:text-primary transition-colors" href="#">Centro de Ajuda</a>
+<a class="font-caption text-caption text-on-surface-variant hover:text-primary transition-colors" href="#">Segurança</a>
+</footer>
+</div>
+</section>
+</main>
+<script>
+        // Simple micro-interaction for button feedback
+        document.querySelectorAll('button').forEach(button => {
+            button.addEventListener('mousedown', () => {
+                button.classList.add('scale-95');
+            });
+            button.addEventListener('mouseup', () => {
+                button.classList.remove('scale-95');
+            });
+            button.addEventListener('mouseleave', () => {
+                button.classList.remove('scale-95');
+            });
+        });
+
+        // Form masking logic (Simplified simulation)
+        const phoneInput = document.querySelector('input[placeholder="(00) 00000-0000"]');
+        if (phoneInput) {
+            phoneInput.addEventListener('input', (e) => {
+                let x = e.target.value.replace(/\D/g, '').match(/(\d{0,2})(\d{0,5})(\d{0,4})/);
+                e.target.value = !x[2] ? x[1] : '(' + x[1] + ') ' + x[2] + (x[3] ? '-' + x[3] : '');
+            });
+        }
+    </script>
+
+
+
+
+</body></html>

@@ -31,22 +31,24 @@ export default function RootPage() {
               </div>
             </div>
 
-            {/* 3D Illustration Area */}
-            <div className="relative group transition-all duration-700 opacity-100 translate-y-0">
-              <div className="absolute -inset-4 bg-primary/10 blur-3xl rounded-full opacity-30 group-hover:opacity-50 transition-opacity"></div>
-              <div className="relative rounded-3xl overflow-hidden border border-hairline-border bg-elevated-card shadow-2xl p-2 transform md:rotate-2 hover:rotate-0 transition-transform duration-500">
-                <img alt="Pet Care Visual" className="w-full h-auto rounded-2xl object-cover" src="https://lh3.googleusercontent.com/aida/AP1WRLvMLXCHIA2NqX_ymDQsh15WqdDcOKE1qd_R8Wlr6A_9PNHPLtkJU3EiGNs0cPH0FHtHTKb3s1WsM_xw_cwDukwjogtOcwUMWu3en2r4kLsMYvM-cNWDyryt8ZO3Ioo2wtldRPSjLlv5J5o0wzZDDR2aFHbrUaJzc5p69xV33nQRxvaSlt5-ch8xn9AjP2r5iAAO2pTe-Porqfnkarcjm1Qns2V3FFxsrp7Ipc4DIDVlqzMIah9CKvwZNpA" />
-              </div>
-
-
-              {/* Badge */}
-              <div className="absolute -bottom-6 -left-6 bg-surface-container-high border border-hairline-border p-4 rounded-2xl extruded-shadow hidden lg:flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary">
-                  <span className="material-symbols-outlined pulse-node">verified</span>
+            {/* Glassmorphism Card (Estilo Imagem 2) */}
+            <div className="relative group transition-all duration-700 opacity-100 translate-y-0 w-full flex justify-center">
+              <div className="absolute -inset-4 bg-primary/15 blur-3xl rounded-full opacity-40 group-hover:opacity-60 transition-opacity"></div>
+              <div className="relative w-full max-w-md rounded-[2.5rem] border border-primary/20 bg-elevated-card/90 backdrop-blur-xl p-10 md:p-14 shadow-2xl flex flex-col items-center justify-center text-center gap-6 group-hover:border-primary/40 transition-all duration-500">
+                {/* Circulo com icone */}
+                <div className="w-24 h-24 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center text-primary shadow-[0_0_35px_rgba(78,222,163,0.15)] group-hover:scale-105 transition-transform duration-500">
+                  <span className="material-symbols-outlined text-5xl">pets</span>
                 </div>
-                <div>
-                  <p className="font-label-bold text-label-bold">Clínica Verificada</p>
-                  <p className="font-caption text-caption text-on-surface-variant">Atendimento 24h</p>
+
+                {/* Titulo */}
+                <h3 className="font-headline-md text-headline-md md:text-2xl text-on-surface font-bold tracking-tight">
+                  PetShop & Estética Premium
+                </h3>
+
+                {/* Pill Badge */}
+                <div className="bg-primary/10 border border-primary/30 text-primary px-5 py-2 rounded-full inline-flex items-center gap-2 text-caption font-label-bold shadow-sm">
+                  <span className="material-symbols-outlined text-sm font-bold">check_circle</span>
+                  <span>Clínica Verificada • Atendimento 24h</span>
                 </div>
               </div>
             </div>
@@ -112,25 +114,25 @@ export default function RootPage() {
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
               <div className="flex flex-col items-center">
-                <img className="w-16 h-16 rounded-full border-2 border-primary mb-4 object-cover" alt="Ana Clara" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD-MM-db3teAlIy9gLkHY5dI9wyeKEDiu0PNc7o5cBS8B9Z04QmPexf5uzlxZ5Obn7PKNJz-LqgyFd7W-dQyQd5nmGC_nP0fUy1q15-T2gCv3MoUjrnQnBsvSDCoU3cnajWoM6H8KbYUu1pEKkEu34ZUBl_8QGdNeqssS5fYOxT4LHxa3cM7IDBNg2czgukFLgKVND5M22NwxD2UJYRAAAgsbpM2oQG8lCeZDVncQxWx2CHDnS0hx8ljTRIJob-w77Ccc7VTR7sKeo" />
+                <img className="w-16 h-16 rounded-full border-2 border-primary mb-4 object-cover" alt="Ana Clara" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80" />
                 <p className="font-label-bold text-label-bold">Ana Clara</p>
                 <p className="font-caption text-caption text-on-surface-variant">Tutor de Pipoca</p>
               </div>
 
               <div className="flex flex-col items-center">
-                <img className="w-16 h-16 rounded-full border-2 border-primary mb-4 object-cover" alt="Ricardo M." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC9CckBRhGkqDCgkblDwKv6lwGvF2FjSyGns-BvpQmnmo2TahVtGpFnf20qMXz3YuJUcdj3TTrMchKjxbdn_-rtNmDBa1KQ61fbBVkKhgTUvJMdgctvoV_ohpMhAfKm6AkQLrJ_IoV8tnkHzV8Z7KAeIRyKrWBpr9Q5pdUF3vzDEEmkR0iigh3QXqWcNrlI0GKZR9BIrGZ7i4qUsa-BTap2dT1b4uXft9FgL58XIX8LKZ8s-s1qBl-H-MfN2EwEhnPv8SIYsy6Byzg" />
+                <img className="w-16 h-16 rounded-full border-2 border-primary mb-4 object-cover" alt="Ricardo M." src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80" />
                 <p className="font-label-bold text-label-bold">Ricardo M.</p>
                 <p className="font-caption text-caption text-on-surface-variant">Tutor de Theo</p>
               </div>
 
               <div className="flex flex-col items-center">
-                <img className="w-16 h-16 rounded-full border-2 border-primary mb-4 object-cover" alt="Julia Silva" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBLayjlgk-SDOXdotztli-ouZApP72YpYcKHJ8duApYb-iclLrHe8CjWCJFiu2ekZjDHFmJn0zV43XCoMlT5d7V1qg5RFc4Eh4wViWoDE_mGOpL95z9yVoWpsLd4_4yCoesk0udaZpy3Y4YayJWQCO38LrFYT3H4mAq9axxIEzfFfAaZKvc1RUcC9ujxuJxBrpkCh94rYMUCPCpbp8aMAEEBaS8WXEtB87Tiub6268PKTpWO33T5LSFBjxldpjg8uUgqsyGvkZsi-Q" />
+                <img className="w-16 h-16 rounded-full border-2 border-primary mb-4 object-cover" alt="Julia Silva" src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&q=80" />
                 <p className="font-label-bold text-label-bold">Julia Silva</p>
                 <p className="font-caption text-caption text-on-surface-variant">Tutor de Amora</p>
               </div>
 
               <div className="flex flex-col items-center">
-                <img className="w-16 h-16 rounded-full border-2 border-primary mb-4 object-cover" alt="Bruno G." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB-66O9Qs4jMLyappdyQeq2_dpSDo7WxfcHWB1eU9fGCmF7Uwkomfw-uQuxLaNYdkjvH4iOY3Bywzhe9LjzBhv_Y8H1VF948vOu8MiH1-GYnuTbPznmeJPOeRMmIAZMPuTPS_Deu2zTEuSiyTL3mYKMuHOZgYvWcgkG4jvm6hpdDRwGHmGlZccV3-gzGM2yQ8OVRROcajLxY3tzHDIk5vPcUaArQ0mZl9K3g05r6PMPtmjzeVT48B7SXN9fS46aj-f6Wo14Rwa9Qc0" />
+                <img className="w-16 h-16 rounded-full border-2 border-primary mb-4 object-cover" alt="Bruno G." src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80" />
                 <p className="font-label-bold text-label-bold">Bruno G.</p>
                 <p className="font-caption text-caption text-on-surface-variant">Tutor de Bento</p>
               </div>
@@ -146,7 +148,7 @@ export default function RootPage() {
               Pronto para elevar o nível do cuidado com seu pet?
             </h2>
             <p className="font-body-lg text-body-lg text-on-surface-variant mb-10 max-w-2xl mx-auto relative z-10">
-              Junte-se à comunidade PetFlow e tenha todo o histórico de saúde e estética do seu pet organizado em um só lugar.
+              Junte-se à comunidade PetNexus e tenha todo o histórico de saúde e estética do seu pet organizado em um só lugar.
             </p>
             <div className="relative z-10">
               <Link href="/auth/register" className="inline-block bg-primary text-on-primary font-label-bold text-label-bold px-12 py-5 rounded-2xl extruded-shadow hover:scale-105 transition-transform text-lg">
@@ -161,9 +163,9 @@ export default function RootPage() {
       <footer className="bg-surface-container-lowest border-t border-hairline-border">
         <div className="py-stack-lg px-margin-mobile md:px-margin-desktop max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-stack-md">
           <div className="flex flex-col items-center md:items-start gap-4">
-            <div className="font-headline-md text-headline-md font-bold text-primary">SaaS Portal</div>
+            <div className="font-headline-md text-headline-md font-bold text-primary">PetNexus</div>
             <p className="font-caption text-caption text-on-surface-variant text-center md:text-left max-w-xs">
-              © 2024 SaaS Portal. All rights reserved. Precise care for your companions.
+              © 2026 PetNexus. All rights reserved. Precise care for your companions.
             </p>
           </div>
           <div className="flex flex-wrap justify-center gap-6">

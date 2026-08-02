@@ -1,15 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
 
 export default function ClientHomePage() {
   const [showLiveCameraModal, setShowLiveCameraModal] = useState(false);
   const [showAddPetModal, setShowAddPetModal] = useState(false);
   const [showVaccinesModal, setShowVaccinesModal] = useState(false);
 
+  // User & Real Pets from Supabase
+  const [userName, setUserName] = useState("Tutor");
+  const [userPets, setUserPets] = useState<any[]>([]);
+
   // Active Pet State
-  const [selectedPetId, setSelectedPetId] = useState("pet1");
+  const [selectedPetId, setSelectedPetId] = useState("");
+
+  const activePet = userPets.find((p) => p.id === selectedPetId) || userPets[0] || null;
+  const activePetPhoto = activePet?.photo_url || (activePet?.species === "Gato" ? "https://images.unsplash.com/photo-1573865526739-10659fec78a5?auto=format&fit=crop&w=300&q=80" : "https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&w=300&q=80");
 
   // Form State for New Pet Modal
   const [newPetName, setNewPetName] = useState("");
@@ -20,6 +28,35 @@ export default function ClientHomePage() {
   const [newWeight, setNewWeight] = useState("");
   const [newNotes, setNewNotes] = useState("");
   const [newPhotoPreview, setNewPhotoPreview] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function loadClientDashboard() {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (user) {
+        // Fetch Profile
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("full_name")
+          .eq("id", user.id)
+          .single();
+
+        const name = profile?.full_name || user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split("@")[0] || "Tutor";
+        setUserName(name);
+
+        // Fetch Real Pets via API Route segura
+        const petsRes = await fetch("/api/pets");
+        const petsData = await petsRes.json();
+
+        if (petsData.pets && petsData.pets.length > 0) {
+          setUserPets(petsData.pets);
+          setSelectedPetId(petsData.pets[0].id);
+        }
+      }
+    }
+    loadClientDashboard();
+  }, []);
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -64,7 +101,7 @@ export default function ClientHomePage() {
             >
               pets
             </span>
-            <h1 className="font-headline-md text-headline-md font-bold text-primary">SaaS Portal</h1>
+            <h1 className="font-headline-md text-headline-md font-bold text-primary">PetNexus</h1>
           </div>
 
           <div className="flex items-center gap-3">
@@ -88,8 +125,10 @@ export default function ClientHomePage() {
         <main className="w-full px-4 pt-4 space-y-6">
           {/* Welcome Header */}
           <section className="space-y-1">
-            <h2 className="font-headline-lg-mobile text-2xl text-on-surface font-bold">Olá, Ana! 👋</h2>
-            <p className="font-body-base text-sm text-on-surface-variant">O Thor está em ótimas mãos hoje.</p>
+            <h2 className="font-headline-lg-mobile text-2xl text-on-surface font-bold">Olá, {userName}! 👋</h2>
+            <p className="font-body-base text-sm text-on-surface-variant">
+              {userPets.length > 0 ? `O pet ${userPets[0].name} está em ótimas mãos hoje.` : "Seja bem-vindo ao portal do seu pet."}
+            </p>
           </section>
 
           {/* Featured Pet Illustration & Live Status Card */}
@@ -98,24 +137,20 @@ export default function ClientHomePage() {
               <div className="relative">
                 <div className="w-20 h-20 rounded-full border-2 border-primary/30 p-1">
                   <img
-                    src="https://images.unsplash.com/photo-1552053831-71594a27632d?auto=format&fit=crop&w=300&q=80"
-                    alt="Thor"
+                    src={userPets[0]?.photo_url || "https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&w=300&q=80"}
+                    alt={userPets[0]?.name || "Pet"}
                     className="w-full h-full object-cover rounded-full"
                   />
                 </div>
               </div>
 
               <div className="flex-1">
-                <h3 className="font-headline-md text-xl font-bold text-primary">Thor</h3>
-                <p className="font-body-base text-xs text-on-surface-variant">Golden Retriever</p>
+                <h3 className="font-headline-md text-xl font-bold text-primary">{userPets[0]?.name || "Seu Pet"}</h3>
+                <p className="font-body-base text-xs text-on-surface-variant">{userPets[0]?.breed || userPets[0]?.species || "Sem raça informada"}</p>
                 <div className="mt-2 inline-flex items-center gap-2 bg-emerald-500/10 px-3 py-1 rounded-full border border-primary/30">
                   <div className="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
                   <span className="text-[10px] font-label-bold text-primary uppercase tracking-wider">Em Andamento</span>
                 </div>
-              </div>
-
-              <div className="absolute -right-6 -top-6 opacity-10 pointer-events-none">
-                <span className="material-symbols-outlined text-[100px] text-primary">pets</span>
               </div>
             </div>
 
@@ -284,13 +319,13 @@ export default function ClientHomePage() {
               <span className="material-symbols-outlined text-base">calendar_month</span>
               Agendar Serviço
             </Link>
-            <button
-              onClick={() => setShowAddPetModal(true)}
+            <Link
+              href="/client/pets?add=true"
               className="px-4 py-2 bg-primary text-on-primary font-bold text-xs rounded-xl extruded-shadow hover:brightness-110 transition-all flex items-center gap-2 cursor-pointer"
             >
               <span className="material-symbols-outlined text-base">add</span>
               Cadastrar Pet
-            </button>
+            </Link>
           </div>
         </header>
 
@@ -305,10 +340,10 @@ export default function ClientHomePage() {
                   Login Efetuado • Unidade Jardins SP
                 </div>
                 <h1 className="text-3xl font-extrabold text-on-surface flex items-center gap-2">
-                  Bem-vinda de volta, Ana Paula! <span className="inline-block animate-bounce">👋</span>
+                  Bem-vindo(a) de volta, {userName}! <span className="inline-block animate-bounce">👋</span>
                 </h1>
                 <p className="text-base text-on-surface-variant mt-1">
-                  Seu pet <strong className="text-on-surface font-bold">Thor</strong> está atualmente na sala de tosa. Acompanhe a transmissão ao vivo ou fale com a recepção.
+                  Seu pet <strong className="text-on-surface font-bold">{userPets[0]?.name || "Thor"}</strong> está cadastrado com sucesso. Acompanhe a transmissão ao vivo ou fale com a recepção.
                 </p>
               </div>
 
@@ -377,105 +412,133 @@ export default function ClientHomePage() {
           </div>
 
           {/* Main Dashboard Grid: Left Live Status + Right Timeline */}
-          <div className="grid grid-cols-3 gap-6">
-            {/* Left Column: Pet Live Status Card */}
-            <div className="col-span-2 space-y-6">
-              {/* Pet Selector Tabs */}
-              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
-                <button
-                  onClick={() => setSelectedPetId("pet1")}
-                  className={`px-4 py-2.5 rounded-xl font-label-bold text-xs flex items-center gap-2 transition-all cursor-pointer ${
-                    selectedPetId === "pet1"
-                      ? "bg-primary text-on-primary shadow-[0_0_12px_rgba(78,222,163,0.4)]"
-                      : "bg-surface-container border border-hairline-border text-on-surface-variant hover:text-on-surface"
-                  }`}
-                >
-                  <span className="material-symbols-outlined text-sm">pets</span>
-                  Thor (Golden Retriever)
-                </button>
-                <button
-                  onClick={() => setShowAddPetModal(true)}
-                  className="px-4 py-2.5 rounded-xl font-label-bold text-xs bg-surface-container border border-dashed border-hairline-border text-on-surface-variant hover:text-primary hover:border-primary transition-all flex items-center gap-1.5 cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-sm">add</span>
-                  Adicionar Pet
-                </button>
+          {userPets.length === 0 ? (
+            <div className="bg-elevated-card border border-hairline-border rounded-2xl p-10 text-center space-y-4 extruded-shadow">
+              <div className="w-16 h-16 rounded-full bg-primary/10 text-primary border border-primary/20 flex items-center justify-center mx-auto">
+                <span className="material-symbols-outlined text-3xl">pets</span>
               </div>
+              <h3 className="text-xl font-bold text-on-surface">Nenhum Pet Cadastrado</h3>
+              <p className="text-sm text-on-surface-variant max-w-md mx-auto">
+                Você ainda não possui pets vinculados à sua conta. Cadastre seu companheiro para acompanhar banhos, tosas e vacinas em tempo real!
+              </p>
+              <Link
+                href="/client/pets?add=true"
+                className="inline-flex items-center gap-2 px-6 py-3.5 bg-primary text-on-primary font-bold text-sm rounded-xl extruded-shadow hover:brightness-110 active:scale-95 transition-all"
+              >
+                <span className="material-symbols-outlined text-lg">add</span>
+                Cadastrar Meu Primeiro Pet
+              </Link>
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-6">
+              {/* Left Column: Pet Live Status Card */}
+              <div className="col-span-2 space-y-6">
+                {/* Pet Selector Tabs */}
+                <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
+                  {userPets.map((pet) => {
+                    const isSelected = (selectedPetId && selectedPetId === pet.id) || (!selectedPetId && userPets[0]?.id === pet.id);
+                    return (
+                      <button
+                        key={pet.id}
+                        onClick={() => setSelectedPetId(pet.id)}
+                        className={`px-4 py-2.5 rounded-xl font-label-bold text-xs flex items-center gap-2 transition-all cursor-pointer ${
+                          isSelected
+                            ? "bg-primary text-on-primary shadow-[0_0_12px_rgba(78,222,163,0.4)]"
+                            : "bg-surface-container border border-hairline-border text-on-surface-variant hover:text-on-surface"
+                        }`}
+                      >
+                        <span className="material-symbols-outlined text-sm">pets</span>
+                        {pet.name} ({pet.breed || pet.species})
+                      </button>
+                    );
+                  })}
+                  <Link
+                    href="/client/pets?add=true"
+                    className="px-4 py-2.5 rounded-xl font-label-bold text-xs bg-surface-container border border-dashed border-hairline-border text-on-surface-variant hover:text-primary hover:border-primary transition-all flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-sm">add</span>
+                    Adicionar Pet
+                  </Link>
+                </div>
 
-              {/* Main Service Progress Card */}
-              <div className="bg-elevated-card border border-hairline-border rounded-2xl p-6 extruded-shadow space-y-6">
-                {/* Pet Info & Status Badge */}
-                <div className="flex items-center justify-between gap-4 border-b border-hairline-border/40 pb-5">
-                  <div className="flex items-center gap-4">
-                    <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-primary/30 relative flex-shrink-0 shadow-lg">
-                      <img
-                        src="https://images.unsplash.com/photo-1552053831-71594a27632d?auto=format&fit=crop&w=300&q=80"
-                        alt="Thor - Golden Retriever"
-                        className="w-full h-full object-cover"
-                      />
+                {/* Main Service Progress Card */}
+                <div className="bg-elevated-card border border-hairline-border rounded-2xl p-6 extruded-shadow space-y-6">
+                  {/* Pet Info & Status Badge */}
+                  <div className="flex items-center justify-between gap-4 border-b border-hairline-border/40 pb-5">
+                    <div className="flex items-center gap-4">
+                      <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-primary/30 relative flex-shrink-0 shadow-lg">
+                        <img
+                          src={activePetPhoto}
+                          alt={activePet?.name}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div>
+                        <h2 className="text-xl font-bold text-on-surface">{activePet?.name}</h2>
+                        <p className="text-sm text-on-surface-variant">
+                          {activePet?.breed ? `${activePet.breed} (${activePet.species})` : activePet?.species} • {activePet?.observations || "Sem observações"}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <h2 className="text-xl font-bold text-on-surface">Thor</h2>
-                      <p className="text-sm text-on-surface-variant">Golden Retriever • Banho + Tosa Bebê</p>
+
+                    <div className="flex flex-col items-end">
+                      <span className="px-3 py-1 bg-amber-500/10 border border-amber-500/30 text-amber-400 font-bold text-xs rounded-full flex items-center gap-1.5 uppercase tracking-wider">
+                        <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+                        EM TOSA • ETAPA 3 DE 5
+                      </span>
+                      <span className="text-xs text-on-surface-variant mt-1.5">Término previsto: 16:45</span>
                     </div>
                   </div>
 
-                  <div className="flex flex-col items-end">
-                    <span className="px-3 py-1 bg-amber-500/10 border border-amber-500/30 text-amber-400 font-bold text-xs rounded-full flex items-center gap-1.5 uppercase tracking-wider">
-                      <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
-                      EM TOSA • ETAPA 3 DE 5
-                    </span>
-                    <span className="text-xs text-on-surface-variant mt-1.5">Término previsto: 16:45</span>
+                  {/* Service Progress Bar */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs font-bold">
+                      <span className="text-on-surface-variant uppercase tracking-wider">Progresso do Serviço</span>
+                      <span className="text-primary font-mono text-sm">60% Concluído (Etapa 3 / 5)</span>
+                    </div>
+                    <div className="w-full h-3 bg-surface-container rounded-full overflow-hidden p-0.5 border border-hairline-border">
+                      <div className="h-full bg-primary rounded-full w-[60%] shadow-[0_0_12px_rgba(78,222,163,0.6)] transition-all duration-700"></div>
+                    </div>
                   </div>
+
+                  {/* 4 Stat Boxes Grid */}
+                  <div className="grid grid-cols-4 gap-3 pt-2">
+                    <div className="bg-surface-container-lowest border border-hairline-border p-4 rounded-xl space-y-1">
+                      <span className="text-[11px] font-bold text-outline uppercase tracking-wider block">ESPÉCIE</span>
+                      <span className="text-sm font-bold text-on-surface block truncate">{activePet?.species}</span>
+                    </div>
+
+                    <div className="bg-surface-container-lowest border border-hairline-border p-4 rounded-xl space-y-1">
+                      <span className="text-[11px] font-bold text-outline uppercase tracking-wider block">SEXO</span>
+                      <span className="text-sm font-bold text-on-surface block truncate">{activePet?.sex || "Macho"}</span>
+                    </div>
+
+                    <div className="bg-surface-container-lowest border border-hairline-border p-4 rounded-xl space-y-1">
+                      <span className="text-[11px] font-bold text-outline uppercase tracking-wider block">PESO</span>
+                      <span className="text-sm font-bold text-on-surface block truncate">
+                        {activePet?.weight ? `${activePet.weight} kg` : "Não inf."}
+                      </span>
+                    </div>
+
+                    <div className="bg-surface-container-lowest border border-hairline-border p-4 rounded-xl space-y-1">
+                      <span className="text-[11px] font-bold text-outline uppercase tracking-wider block">SAÚDE</span>
+                      <span className="text-sm font-bold text-primary flex items-center gap-1 block truncate">
+                        <span>💚</span> Excelente
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Live Camera CTA Button */}
+                  <button
+                    onClick={() => setShowLiveCameraModal(true)}
+                    className="w-full py-4 bg-surface-container-high border border-primary/40 text-primary font-bold text-sm rounded-xl hover:bg-primary/10 transition-all flex items-center justify-center gap-2 extruded-shadow cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-xl">videocam</span>
+                    <span>Assistir Câmera ao Vivo da Sala de Tosa (Câmera 02)</span>
+                  </button>
                 </div>
 
-                {/* Service Progress Bar */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-xs font-bold">
-                    <span className="text-on-surface-variant uppercase tracking-wider">Progresso do Serviço</span>
-                    <span className="text-primary font-mono text-sm">60% Concluído (Etapa 3 / 5)</span>
-                  </div>
-                  <div className="w-full h-3 bg-surface-container rounded-full overflow-hidden p-0.5 border border-hairline-border">
-                    <div className="h-full bg-primary rounded-full w-[60%] shadow-[0_0_12px_rgba(78,222,163,0.6)] transition-all duration-700"></div>
-                  </div>
-                </div>
-
-                {/* 4 Stat Boxes Grid */}
-                <div className="grid grid-cols-4 gap-3 pt-2">
-                  <div className="bg-surface-container-lowest border border-hairline-border p-4 rounded-xl space-y-1">
-                    <span className="text-[11px] font-bold text-outline uppercase tracking-wider block">UNIDADE</span>
-                    <span className="text-sm font-bold text-on-surface block truncate">Jardins SP</span>
-                  </div>
-
-                  <div className="bg-surface-container-lowest border border-hairline-border p-4 rounded-xl space-y-1">
-                    <span className="text-[11px] font-bold text-outline uppercase tracking-wider block">TOSADOR</span>
-                    <span className="text-sm font-bold text-on-surface block truncate">Ricardo M.</span>
-                  </div>
-
-                  <div className="bg-surface-container-lowest border border-hairline-border p-4 rounded-xl space-y-1">
-                    <span className="text-[11px] font-bold text-outline uppercase tracking-wider block">PESO</span>
-                    <span className="text-sm font-bold text-on-surface block truncate">32.4 kg</span>
-                  </div>
-
-                  <div className="bg-surface-container-lowest border border-hairline-border p-4 rounded-xl space-y-1">
-                    <span className="text-[11px] font-bold text-outline uppercase tracking-wider block">SAÚDE</span>
-                    <span className="text-sm font-bold text-primary flex items-center gap-1 block truncate">
-                      <span>💚</span> Excelente
-                    </span>
-                  </div>
-                </div>
-
-                {/* Live Camera CTA Button */}
-                <button
-                  onClick={() => setShowLiveCameraModal(true)}
-                  className="w-full py-4 bg-surface-container-high border border-primary/40 text-primary font-bold text-sm rounded-xl hover:bg-primary/10 transition-all flex items-center justify-center gap-2 extruded-shadow cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-xl">videocam</span>
-                  Assistir Câmera ao Vivo da Sala de Tosa (Câmera 02)
-                </button>
-              </div>
-
-              {/* Bento Grid Tutor Options */}
+                {/* Bento Grid Tutor Options */}
               <div className="grid grid-cols-2 gap-4">
                 <Link
                   href="/agendar"
@@ -583,20 +646,20 @@ export default function ClientHomePage() {
                 </div>
               </div>
 
-              {/* Live Camera Button */}
               <button
                 onClick={() => setShowLiveCameraModal(true)}
                 className="w-full py-3.5 bg-surface-container border border-primary/40 text-primary font-bold text-sm rounded-xl hover:bg-primary/10 transition-all flex items-center justify-center gap-2 extruded-shadow cursor-pointer"
               >
                 <span className="material-symbols-outlined text-lg">videocam</span>
-                Abrir Câmera ao Vivo
+                <span>Abrir Câmera ao Vivo</span>
               </button>
             </div>
           </div>
+        )}
         </main>
 
         <footer className="py-6 px-6 bg-matte-canvas border-t border-hairline-border text-center text-xs text-outline mt-auto">
-          © 2026 SaaS Portal. Todos os direitos reservados.
+          © 2026 PetNexus. Todos os direitos reservados.
         </footer>
       </div>
 
@@ -684,119 +747,6 @@ export default function ClientHomePage() {
             >
               Concluído
             </button>
-          </div>
-        </div>
-      )}
-
-      {/* Modal: Adicionar Novo Pet */}
-      {showAddPetModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-elevated-card border border-hairline-border rounded-2xl max-w-xl w-full p-6 md:p-8 extruded-shadow flex flex-col gap-6 relative my-auto">
-            <div className="flex items-center justify-between border-b border-hairline-border/50 pb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
-                  <span className="material-symbols-outlined text-2xl">pets</span>
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold text-on-surface">Adicionar Novo Pet</h3>
-                  <p className="text-xs text-on-surface-variant">Preencha os dados do seu companheiro</p>
-                </div>
-              </div>
-
-              <button
-                onClick={() => setShowAddPetModal(false)}
-                className="text-on-surface-variant hover:text-on-surface p-1 rounded-lg hover:bg-surface-container transition-colors cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-xl">close</span>
-              </button>
-            </div>
-
-            <form onSubmit={handleCreatePet} className="space-y-4">
-              <div className="flex flex-col items-center gap-2">
-                <input
-                  type="file"
-                  id="modal-client-pet-photo"
-                  accept="image/*"
-                  onChange={handlePhotoUpload}
-                  className="hidden"
-                />
-                <label
-                  htmlFor="modal-client-pet-photo"
-                  className="relative w-20 h-20 rounded-full bg-surface-container border-2 border-dashed border-outline-variant flex items-center justify-center cursor-pointer overflow-hidden group hover:border-primary transition-all"
-                >
-                  {newPhotoPreview ? (
-                    <img src={newPhotoPreview} alt="Preview" className="w-full h-full object-cover" />
-                  ) : (
-                    <span className="material-symbols-outlined text-outline-variant text-3xl group-hover:text-primary transition-colors">
-                      photo_camera
-                    </span>
-                  )}
-                  <div className="absolute bottom-0 right-0 w-6 h-6 bg-primary rounded-full flex items-center justify-center border border-elevated-card text-on-primary text-xs font-bold">
-                    +
-                  </div>
-                </label>
-                <span className="text-xs font-bold text-on-surface-variant">Foto do Pet</span>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="md:col-span-2 space-y-1">
-                  <label htmlFor="modal_client_pet_name" className="text-xs font-bold text-on-surface">Nome do Pet *</label>
-                  <input
-                    id="modal_client_pet_name"
-                    type="text"
-                    required
-                    value={newPetName}
-                    onChange={(e) => setNewPetName(e.target.value)}
-                    placeholder="Ex: Mel, Luna, Bob..."
-                    className="w-full bg-surface-container border border-hairline-border rounded-xl px-3 py-2.5 text-on-surface text-sm placeholder:text-outline outline-none"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label htmlFor="modal_client_species" className="text-xs font-bold text-on-surface">Espécie</label>
-                  <select
-                    id="modal_client_species"
-                    value={newSpecies}
-                    onChange={(e) => setNewSpecies(e.target.value)}
-                    className="w-full bg-surface-container border border-hairline-border rounded-xl px-3 py-2.5 text-on-surface text-sm outline-none cursor-pointer"
-                  >
-                    <option value="Cachorro">Cachorro</option>
-                    <option value="Gato">Gato</option>
-                    <option value="Ave">Ave</option>
-                    <option value="Outro">Outro</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1">
-                  <label htmlFor="modal_client_breed" className="text-xs font-bold text-on-surface">Raça</label>
-                  <input
-                    id="modal_client_breed"
-                    type="text"
-                    value={newBreed}
-                    onChange={(e) => setNewBreed(e.target.value)}
-                    placeholder="Ex: Poodle, Shih Tzu, SRD"
-                    className="w-full bg-surface-container border border-hairline-border rounded-xl px-3 py-2.5 text-on-surface text-sm placeholder:text-outline outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="pt-4 flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => setShowAddPetModal(false)}
-                  className="flex-1 bg-surface-container border border-hairline-border text-on-surface font-bold text-sm py-3 rounded-xl hover:bg-surface-variant transition-all cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 bg-primary text-on-primary font-bold text-sm py-3 rounded-xl extruded-shadow hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-lg">check_circle</span>
-                  <span>Salvar Pet</span>
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}

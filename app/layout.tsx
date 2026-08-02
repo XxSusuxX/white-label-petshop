@@ -5,8 +5,8 @@ import "./globals.css";
 const hankenGrotesk = Hanken_Grotesk({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Gestão Pet Shop",
-  description: "SaaS White-Label para Pet Shops e Clínicas Veterinárias",
+  title: "PetNexus - Gestão Inteligente para Pet Shops",
+  description: "Plataforma SaaS White-Label para Pet Shops e Clínicas Veterinárias",
 };
 
 export default function RootLayout({

@@ -1,15 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+
+interface PetItem {
+  id: string;
+  name: string;
+  breed: string;
+  image: string;
+}
 
 export default function AgendarServicoPage() {
   const router = useRouter();
 
+  // Real pets state
+  const [petsList, setPetsList] = useState<PetItem[]>([]);
+  const [isLoadingPets, setIsLoadingPets] = useState(true);
+
   // Booking Flow States
   const [activeStep, setActiveStep] = useState<number>(1);
-  const [selectedPet, setSelectedPet] = useState<string>("Max");
+  const [selectedPet, setSelectedPet] = useState<string>("");
   const [selectedService, setSelectedService] = useState<string>("Banho & Tosa");
   const [servicePrice, setServicePrice] = useState<number>(110);
   const [serviceDuration, setServiceDuration] = useState<string>("1h 30m");
@@ -21,27 +32,34 @@ export default function AgendarServicoPage() {
   const [address, setAddress] = useState<string>("");
   const [useCurrentLocation, setUseCurrentLocation] = useState<boolean>(false);
 
-  // Pets list
-  const petsList = [
-    {
-      id: "max",
-      name: "Max",
-      breed: "Golden Retriever",
-      image: "https://images.unsplash.com/photo-1552053831-71594a27632d?auto=format&fit=crop&w=300&q=80",
-    },
-    {
-      id: "luna",
-      name: "Luna",
-      breed: "Maine Coon",
-      image: "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?auto=format&fit=crop&w=300&q=80",
-    },
-    {
-      id: "bell",
-      name: "Bell",
-      breed: "Jack Russell",
-      image: "https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&w=300&q=80",
-    },
-  ];
+  useEffect(() => {
+    async function fetchRealPets() {
+      setIsLoadingPets(true);
+      try {
+        const res = await fetch("/api/pets");
+        const data = await res.json();
+        if (res.ok && data.pets) {
+          const mappedPets: PetItem[] = data.pets.map((p: any) => ({
+            id: p.id,
+            name: p.name,
+            breed: p.breed || "Vira-lata",
+            image: p.photo_url || (p.species === "Gato"
+              ? "https://images.unsplash.com/photo-1573865526739-10659fec78a5?auto=format&fit=crop&w=300&q=80"
+              : "https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&w=300&q=80"),
+          }));
+          setPetsList(mappedPets);
+          if (mappedPets.length > 0) {
+            setSelectedPet(mappedPets[0].name);
+          }
+        }
+      } catch (err) {
+        console.error("Erro ao carregar pets para agendamento:", err);
+      } finally {
+        setIsLoadingPets(false);
+      }
+    }
+    fetchRealPets();
+  }, []);
 
   // Services list
   const servicesList = [
@@ -461,7 +479,7 @@ export default function AgendarServicoPage() {
         <header className="h-16 w-full flex justify-between items-center px-5 sticky top-0 z-40 bg-[#0e1511]/90 backdrop-blur-md border-b border-[#334155]">
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-[#4edea3]">pets</span>
-            <span className="text-xl font-extrabold text-[#4edea3] tracking-tight">SaaS Portal</span>
+            <span className="text-xl font-extrabold text-[#4edea3] tracking-tight">PetNexus</span>
           </div>
 
           <div className="w-8 h-8 rounded-full bg-surface-container border border-hairline-border overflow-hidden">

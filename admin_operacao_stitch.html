@@ -1,0 +1,459 @@
+<!DOCTYPE html><html class="dark" lang="pt-BR"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Painel de Operação - PetFlow</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-tertiary": "#472a00",
+                      "warning-amber": "#f59e0b",
+                      "surface-container-highest": "#2f3632",
+                      "inverse-on-surface": "#2b322d",
+                      "error": "#ffb4ab",
+                      "matte-canvas": "#0f1419",
+                      "tertiary-container": "#e29100",
+                      "surface-bright": "#343b36",
+                      "error-container": "#93000a",
+                      "elevated-card": "#1e293b",
+                      "on-surface": "#dde4dd",
+                      "secondary-fixed-dim": "#bcc7de",
+                      "primary-container": "#10b981",
+                      "on-surface-variant": "#bbcabf",
+                      "on-tertiary-fixed-variant": "#653e00",
+                      "on-primary-fixed-variant": "#005236",
+                      "background": "#0e1511",
+                      "on-primary-fixed": "#002113",
+                      "tertiary-fixed-dim": "#ffb95f",
+                      "surface-variant": "#2f3632",
+                      "surface-tint": "#4edea3",
+                      "emerald-glow": "#064e3b",
+                      "surface": "#0e1511",
+                      "inverse-primary": "#006c49",
+                      "on-tertiary-fixed": "#2a1700",
+                      "inverse-surface": "#dde4dd",
+                      "tertiary-fixed": "#ffddb8",
+                      "on-secondary-fixed-variant": "#3c475a",
+                      "primary": "#4edea3",
+                      "on-tertiary-container": "#523200",
+                      "surface-container": "#1a211d",
+                      "on-secondary": "#263143",
+                      "error-red": "#ef4444",
+                      "on-background": "#dde4dd",
+                      "on-error-container": "#ffdad6",
+                      "surface-container-lowest": "#09100c",
+                      "hairline-border": "#334155",
+                      "on-primary-container": "#00422b",
+                      "on-secondary-container": "#aab5cc",
+                      "surface-dim": "#0e1511",
+                      "tertiary": "#ffb95f",
+                      "surface-container-high": "#242c27",
+                      "secondary": "#bcc7de",
+                      "secondary-fixed": "#d8e3fa",
+                      "primary-fixed": "#6ffbbe",
+                      "on-primary": "#003824",
+                      "outline-variant": "#3c4a42",
+                      "on-error": "#690005",
+                      "on-secondary-fixed": "#111c2d",
+                      "outline": "#86948a",
+                      "surface-container-low": "#161d19",
+                      "secondary-container": "#3c475a",
+                      "primary-fixed-dim": "#4edea3"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "stack-md": "1rem",
+                      "margin-mobile": "1.25rem",
+                      "touch-target": "3rem",
+                      "stack-lg": "2rem",
+                      "gutter": "1rem",
+                      "stack-sm": "0.5rem",
+                      "margin-desktop": "2.5rem"
+              },
+              "fontFamily": {
+                      "label-muted": [
+                              "Hanken Grotesk"
+                      ],
+                      "headline-md": [
+                              "Hanken Grotesk"
+                      ],
+                      "headline-lg": [
+                              "Hanken Grotesk"
+                      ],
+                      "caption": [
+                              "Hanken Grotesk"
+                      ],
+                      "body-lg": [
+                              "Hanken Grotesk"
+                      ],
+                      "body-base": [
+                              "Hanken Grotesk"
+                      ],
+                      "label-bold": [
+                              "Hanken Grotesk"
+                      ],
+                      "headline-lg-mobile": [
+                              "Hanken Grotesk"
+                      ]
+              },
+              "fontSize": {
+                      "label-muted": [
+                              "14px",
+                              {
+                                      "lineHeight": "1.2",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "headline-md": [
+                              "24px",
+                              {
+                                      "lineHeight": "1.3",
+                                      "letterSpacing": "-0.01em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "headline-lg": [
+                              "32px",
+                              {
+                                      "lineHeight": "1.2",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "caption": [
+                              "12px",
+                              {
+                                      "lineHeight": "1.2",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "body-lg": [
+                              "18px",
+                              {
+                                      "lineHeight": "1.5",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "body-base": [
+                              "16px",
+                              {
+                                      "lineHeight": "1.5",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "label-bold": [
+                              "14px",
+                              {
+                                      "lineHeight": "1.2",
+                                      "letterSpacing": "0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "headline-lg-mobile": [
+                              "28px",
+                              {
+                                      "lineHeight": "1.2",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ]
+              }
+            },
+          },
+        }
+      </script>
+<style>
+        body {
+            background-color: #0F1419;
+            color: #dde4dd;
+        }
+        
+        .extruded-shadow {
+            box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.05), 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+        }
+        
+        .kanban-scroll::-webkit-scrollbar {
+            height: 8px;
+            width: 8px;
+        }
+        .kanban-scroll::-webkit-scrollbar-track {
+            background: #1a211d;
+            border-radius: 4px;
+        }
+        .kanban-scroll::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+        .kanban-scroll::-webkit-scrollbar-thumb:hover {
+            background: #4edea3;
+        }
+        
+        .pulse-node {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+            70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+    </style>
+</head>
+<body class="font-body-base bg-matte-canvas text-on-surface antialiased overflow-hidden flex h-screen">
+<!-- SideNavBar -->
+<nav class="bg-surface-container dark:bg-surface-container w-64 h-screen fixed left-0 top-0 border-r border-hairline-border flex flex-col h-full py-stack-md z-50">
+<!-- Header -->
+<div class="px-6 pb-6 border-b border-hairline-border/50 flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-emerald-glow/20 flex items-center justify-center border border-primary/20">
+<span class="material-symbols-outlined text-primary" data-icon="pets" data-weight="fill" style="font-variation-settings: 'FILL' 1;">pets</span>
+</div>
+<div>
+<h1 class="text-headline-md font-headline-md font-bold text-primary">PetFlow</h1>
+<p class="text-caption font-caption text-on-surface-variant">Gestão de Pet Shop</p>
+</div>
+</div>
+<!-- CTA -->
+<div class="px-4 py-6">
+<button class="w-full bg-primary-container text-on-primary-container font-label-bold text-label-bold py-3 rounded-lg extruded-shadow flex items-center justify-center gap-2 hover:bg-primary-container/90 transition-colors">
+<span class="material-symbols-outlined" data-icon="add">add</span>
+                Novo Agendamento
+            </button>
+</div>
+<!-- Main Nav -->
+<div class="flex-1 px-4 flex flex-col gap-1 overflow-y-auto">
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="font-label-muted text-label-muted">Painel</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="group">group</span>
+<span class="font-label-muted text-label-muted">Clientes</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="pets">pets</span>
+<span class="font-label-muted text-label-muted">Pets</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="calendar_today">calendar_today</span>
+<span class="font-label-muted text-label-muted">Agenda</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-primary font-bold border-r-2 border-primary bg-emerald-glow/10 active:scale-[0.98] transition-transform" href="#">
+<span class="material-symbols-outlined text-primary" data-icon="settings_suggest" data-weight="fill" style="font-variation-settings: 'FILL' 1;">settings_suggest</span>
+<span class="font-label-bold text-label-bold">Operação</span>
+</a>
+</div>
+<!-- Footer Nav -->
+<div class="px-4 pt-4 border-t border-hairline-border/50 flex flex-col gap-1">
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="help_outline">help_outline</span>
+<span class="font-label-muted text-label-muted">Suporte</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="font-label-muted text-label-muted">Configurações</span>
+</a>
+</div>
+</nav>
+<!-- Main Content Area -->
+<main class="ml-64 flex-1 flex flex-col h-screen relative">
+<!-- TopNavBar -->
+<header class="bg-background dark:bg-background h-16 border-b border-hairline-border flex justify-between items-center px-margin-desktop z-40 sticky top-0">
+<!-- Search (Left) -->
+<div class="flex-1 max-w-md">
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" data-icon="search">search</span>
+<input class="w-full bg-elevated-card text-on-surface font-body-base text-body-base pl-10 pr-4 py-2 rounded-full border border-hairline-border focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors placeholder:text-on-surface-variant/50" placeholder="Buscar pets, clientes ou serviços..." type="text">
+</div>
+</div>
+<!-- Trailing Actions -->
+<div class="flex items-center gap-4">
+<button class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition-colors relative">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-error-red rounded-full pulse-node"></span>
+</button>
+<button class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+</button>
+<div class="w-10 h-10 rounded-full bg-elevated-card border border-hairline-border overflow-hidden ml-2 cursor-pointer hover:border-primary transition-colors">
+<img alt="Perfil do Gerente" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC-mkMO6Jqww_nXHvbwKWnyjrC_uXtzT0itAz2K60B6Cf_RQ6sl1jtbAnDSYPjZH6cE7hT4CmTxwD0OTozTHwiaSeGVGsGdMc_XdHn4-C3EZqxFiw_3vChyezEuRbN6bCpRdOg9N_keKeNxkokKGsb-cSS--Jptq6PvM0b9gDPOgylp_JIYe6jXqvLR_uZAEyQNbO5ZPV3BCeyoFRujZd-W284dmXZJvn1JOqmZRJOwIO-TcYqhAWhKGO6U2IWQaZkAt7IXVJq0RdI">
+</div>
+</div>
+</header>
+<!-- Page Header -->
+<div class="px-margin-desktop py-6 flex justify-between items-end border-b border-hairline-border/30 bg-matte-canvas">
+<div>
+<h2 class="text-headline-lg font-headline-lg text-on-surface">Painel de Operação</h2>
+<p class="text-body-base font-body-base text-on-surface-variant mt-1">Acompanhamento em tempo real dos serviços de hoje.</p>
+</div>
+<button class="bg-primary-container text-on-primary-container font-label-bold text-label-bold px-4 py-2 rounded-lg extruded-shadow flex items-center gap-2 hover:bg-primary-container/90 transition-colors">
+<span class="material-symbols-outlined" data-icon="add_task">add_task</span>
+                Nova Operação
+            </button>
+</div>
+<!-- Kanban Board -->
+<div class="flex-1 overflow-x-auto overflow-y-hidden kanban-scroll p-6 bg-matte-canvas">
+<div class="flex gap-6 h-full min-w-max pb-4">
+<!-- Column: Aguardando Coleta -->
+<div class="w-80 flex flex-col h-full bg-surface-container rounded-xl border border-hairline-border">
+<div class="p-4 border-b border-hairline-border flex justify-between items-center bg-surface-container-high rounded-t-xl">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-secondary-fixed-dim"></span>
+<h3 class="font-label-bold text-label-bold text-on-surface uppercase tracking-wider">Aguardando Coleta</h3>
+</div>
+<span class="text-caption font-caption text-on-surface-variant bg-surface px-2 py-1 rounded-full border border-hairline-border">1</span>
+</div>
+<div class="flex-1 p-3 flex flex-col gap-3 overflow-y-auto kanban-scroll">
+<!-- Card 1: Bella -->
+<div class="bg-elevated-card rounded-lg p-4 border border-hairline-border hover:border-secondary-fixed-dim transition-colors group relative extruded-shadow">
+<div class="flex justify-between items-start mb-3">
+<div>
+<h4 class="font-body-lg text-body-lg text-on-surface font-bold">Bella</h4>
+<p class="text-caption font-caption text-on-surface-variant">Poodle • Toy</p>
+</div>
+<div class="bg-surface-container-highest px-2 py-1 rounded text-caption font-label-muted text-on-surface-variant border border-hairline-border">
+                                    09:00
+                                </div>
+</div>
+<div class="flex items-center gap-2 mb-4">
+<span class="bg-emerald-glow/20 text-primary px-2 py-1 rounded text-caption font-label-bold border border-primary/20">Banho &amp; Tosa</span>
+</div>
+<div class="flex justify-between items-center pt-3 border-t border-hairline-border/50">
+<div class="relative group/tooltip cursor-help">
+<span class="material-symbols-outlined text-warning-amber text-[18px]" data-icon="info">info</span>
+<div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-inverse-surface text-inverse-on-surface text-caption p-2 rounded shadow-lg opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-10 text-center">
+                                        Alergia a shampoo comum. Usar hipoalergênico.
+                                    </div>
+</div>
+<button class="flex items-center gap-1 text-primary hover:text-primary-fixed transition-colors font-label-muted text-label-muted">
+                                    Próximo
+                                    <span class="material-symbols-outlined text-[18px]" data-icon="arrow_forward">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Column: Em Banho -->
+<div class="w-80 flex flex-col h-full bg-surface-container rounded-xl border border-hairline-border">
+<div class="p-4 border-b border-hairline-border flex justify-between items-center bg-surface-container-high rounded-t-xl border-t-2 border-t-tertiary-container">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-tertiary-container pulse-node"></span>
+<h3 class="font-label-bold text-label-bold text-on-surface uppercase tracking-wider">Em Banho</h3>
+</div>
+<span class="text-caption font-caption text-on-surface-variant bg-surface px-2 py-1 rounded-full border border-hairline-border">1</span>
+</div>
+<div class="flex-1 p-3 flex flex-col gap-3 overflow-y-auto kanban-scroll">
+<!-- Card 2: Luna -->
+<div class="bg-elevated-card rounded-lg p-4 border border-tertiary-container/30 hover:border-tertiary-container transition-colors group relative extruded-shadow">
+<div class="flex justify-between items-start mb-3">
+<div>
+<h4 class="font-body-lg text-body-lg text-on-surface font-bold">Luna</h4>
+<p class="text-caption font-caption text-on-surface-variant">Golden Retriever</p>
+</div>
+<div class="bg-tertiary-container/20 text-tertiary px-2 py-1 rounded text-caption font-label-bold border border-tertiary-container/30">
+                                    09:30 - Em Andamento
+                                </div>
+</div>
+<div class="flex items-center gap-2 mb-4">
+<span class="bg-emerald-glow/20 text-primary px-2 py-1 rounded text-caption font-label-bold border border-primary/20">Banho</span>
+<span class="bg-surface-container-highest text-on-surface-variant px-2 py-1 rounded text-caption font-label-bold border border-hairline-border">Hidratação</span>
+</div>
+<div class="flex justify-between items-center pt-3 border-t border-hairline-border/50">
+<div class="relative group/tooltip cursor-help">
+<span class="material-symbols-outlined text-on-surface-variant text-[18px]" data-icon="notes">notes</span>
+<div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-inverse-surface text-inverse-on-surface text-caption p-2 rounded shadow-lg opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-10 text-center">
+                                        Muito energética, requer cuidado calmo.
+                                    </div>
+</div>
+<button class="flex items-center gap-1 text-primary hover:text-primary-fixed transition-colors font-label-muted text-label-muted">
+                                    Próximo
+                                    <span class="material-symbols-outlined text-[18px]" data-icon="arrow_forward">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Column: Em Tosa -->
+<div class="w-80 flex flex-col h-full bg-surface-container rounded-xl border border-hairline-border">
+<div class="p-4 border-b border-hairline-border flex justify-between items-center bg-surface-container-high rounded-t-xl border-t-2 border-t-warning-amber">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-warning-amber pulse-node"></span>
+<h3 class="font-label-bold text-label-bold text-on-surface uppercase tracking-wider">Em Tosa</h3>
+</div>
+<span class="text-caption font-caption text-on-surface-variant bg-surface px-2 py-1 rounded-full border border-hairline-border">1</span>
+</div>
+<div class="flex-1 p-3 flex flex-col gap-3 overflow-y-auto kanban-scroll">
+<!-- Card 3: Thor -->
+<div class="bg-elevated-card rounded-lg p-4 border border-warning-amber/30 hover:border-warning-amber transition-colors group relative extruded-shadow">
+<div class="flex justify-between items-start mb-3">
+<div>
+<h4 class="font-body-lg text-body-lg text-on-surface font-bold">Thor</h4>
+<p class="text-caption font-caption text-on-surface-variant">Shih Tzu</p>
+</div>
+<div class="bg-warning-amber/20 text-warning-amber px-2 py-1 rounded text-caption font-label-bold border border-warning-amber/30">
+                                    08:45 - Em Andamento
+                                </div>
+</div>
+<div class="flex items-center gap-2 mb-4">
+<span class="bg-emerald-glow/20 text-primary px-2 py-1 rounded text-caption font-label-bold border border-primary/20">Tosa Máquina</span>
+</div>
+<div class="flex justify-between items-center pt-3 border-t border-hairline-border/50">
+<div class="relative group/tooltip cursor-help">
+<span class="material-symbols-outlined text-warning-amber text-[18px]" data-icon="warning">warning</span>
+<div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-inverse-surface text-inverse-on-surface text-caption p-2 rounded shadow-lg opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-10 text-center">
+                                        Não gosta que toquem nas patas.
+                                    </div>
+</div>
+<button class="flex items-center gap-1 text-primary hover:text-primary-fixed transition-colors font-label-muted text-label-muted">
+                                    Próximo
+                                    <span class="material-symbols-outlined text-[18px]" data-icon="arrow_forward">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Column: Finalizado -->
+<div class="w-80 flex flex-col h-full bg-surface-container rounded-xl border border-hairline-border opacity-70 hover:opacity-100 transition-opacity">
+<div class="p-4 border-b border-hairline-border flex justify-between items-center bg-surface-container-high rounded-t-xl">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-primary-container"></span>
+<h3 class="font-label-bold text-label-bold text-on-surface uppercase tracking-wider">Finalizado</h3>
+</div>
+<span class="text-caption font-caption text-on-surface-variant bg-surface px-2 py-1 rounded-full border border-hairline-border">0</span>
+</div>
+<div class="flex-1 p-3 flex flex-col gap-3 overflow-y-auto kanban-scroll flex items-center justify-center">
+<div class="text-center text-on-surface-variant">
+<span class="material-symbols-outlined text-4xl mb-2 opacity-50" data-icon="check_circle">check_circle</span>
+<p class="font-label-muted text-label-muted">Nenhum pet finalizado ainda.</p>
+</div>
+</div>
+</div>
+<!-- Column: Saindo para Entrega -->
+<div class="w-80 flex flex-col h-full bg-surface-container rounded-xl border border-hairline-border opacity-70 hover:opacity-100 transition-opacity">
+<div class="p-4 border-b border-hairline-border flex justify-between items-center bg-surface-container-high rounded-t-xl">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary-fixed-dim text-[16px]" data-icon="local_shipping">local_shipping</span>
+<h3 class="font-label-bold text-label-bold text-on-surface uppercase tracking-wider">Saindo p/ Entrega</h3>
+</div>
+<span class="text-caption font-caption text-on-surface-variant bg-surface px-2 py-1 rounded-full border border-hairline-border">0</span>
+</div>
+<div class="flex-1 p-3 flex flex-col gap-3 overflow-y-auto kanban-scroll flex items-center justify-center">
+<div class="text-center text-on-surface-variant">
+<span class="material-symbols-outlined text-4xl mb-2 opacity-50" data-icon="inventory_2">inventory_2</span>
+<p class="font-label-muted text-label-muted">Sem entregas pendentes.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</body></html>

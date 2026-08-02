@@ -36,7 +36,7 @@ export default function PetsPage() {
               </div>
               <div className="flex items-start gap-4 mb-5">
                 <div className="w-16 h-16 rounded-xl overflow-hidden border-2 border-hairline-border group-hover:border-primary/30 transition-colors">
-                  <img className="w-full h-full object-cover" alt="Maximus" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD6LoQ5WYhIqjOKmbQxNYV0ZalOGkzh7My77dg4m9VI36QjpqZ5BOk_l8AZNYaDJ7eZ66hdKW-6knREQuAdjK_4xy5O7cER3NNkwURFWHq09ZDentwyKJaodOB7WWrXMy39oHybLCvs-EbyTXjRsGGYBE0X273fkIift-iIBuwTx8hos3VwT-UuYaK__Y9wvhMXTBql2vKOKV7l_QZ79SryMrx5RnouUSafkZSs3CKKzDzOvrPWoEtC9E-wRR5-3v_2q1lUe6zymiw" />
+                  <img className="w-full h-full object-cover" alt="Maximus" src="https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&w=300&q=80" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2 mb-0.5">
@@ -79,7 +79,7 @@ export default function PetsPage() {
               </div>
               <div className="flex items-start gap-4 mb-5">
                 <div className="w-16 h-16 rounded-xl overflow-hidden border-2 border-hairline-border group-hover:border-primary/30 transition-colors">
-                  <img className="w-full h-full object-cover" alt="Luna" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB46q-HWzLd0l-2zfnLDshSyK7oF11OpKTdmKwO7BEdZaxKwKuXstFwVc5hue7t6dy0aDBvp01EahshqP6_VZHeXHHujuffXq6t0T9_X1KHKQn04piCszo-QdVP89BwRgNfaxUnXRO08UNi7ILLS4_Yia4ZXudH5Sfc3HmcArOlAlc3b4ozSQcohapzIgay19BDg9VzsZtr9_W1osXoRtb1OPK_1pIZuIR-qgbsBB9VjZe5IIAYfYOcNSOi0CmGOCyTwqnlEu-fCQw" />
+                  <img className="w-full h-full object-cover" alt="Luna" src="https://images.unsplash.com/photo-1552053831-71594a27632d?auto=format&fit=crop&w=300&q=80" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2 mb-0.5">
@@ -119,7 +119,7 @@ export default function PetsPage() {
                 <span className="material-symbols-outlined text-[32px]">add</span>
               </div>
               <p className="font-label-bold text-label-bold text-on-surface">Cadastrar Novo Pet</p>
-              <p className="text-caption text-on-surface-variant text-center px-4">Adicione um novo pet ao ecossistema PetFlow</p>
+              <p className="text-caption text-on-surface-variant text-center px-4">Adicione um novo pet ao ecossistema PetNexus</p>
             </button>
           </div>
         </div>
@@ -162,7 +162,7 @@ export default function PetsPage() {
         <div className="space-y-4">
           <article className="bg-elevated-card border border-hairline-border rounded-xl p-4 extruded-shadow flex gap-4 items-center">
             <div className="w-20 h-20 rounded-xl overflow-hidden flex-shrink-0 border-2 border-primary/20">
-              <img className="w-full h-full object-cover" alt="Cooper" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB99g7g7b7O2OwbeXd0v6e_awpbWJfxDo53LCicJqL3MdYgXFKUUdUj0NiHNyOTdsd6Em4EiUjvRuOz1CvG6qg3O_B_dUZ6xpvHT7cM9ax9TyNVR6RXg1i2zfGHrjnvI37TuB1loV7SJOKtH8pTb-i-pZOBzsTasE3xamub0KNIAoplrcuP9J2EDjCunLJzStY9VznECG3qJzmdCjKBglL436ItwKzB-9CmT8sOmdes-y9a7NBgAn1u-cb_zBldc11jFFLpi_A0GF8" />
+              <img className="w-full h-full object-cover" alt="Cooper" src="https://images.unsplash.com/photo-1537151625747-768eb6cf92b2?auto=format&fit=crop&w=300&q=80" />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex justify-between items-start">

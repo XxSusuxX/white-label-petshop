@@ -7,7 +7,7 @@ export default function GlobalHeader() {
     <nav className="bg-background/80 backdrop-blur-md border-b border-outline-variant sticky top-0 z-50">
       <div className="flex justify-between items-center h-20 px-margin-mobile md:px-margin-desktop max-w-7xl mx-auto">
         <Link href="/" className="font-headline-md text-headline-md font-bold text-primary">
-          SaaS Portal
+          PetNexus
         </Link>
 
         {/* Desktop Navigation */}

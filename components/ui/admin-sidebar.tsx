@@ -27,8 +27,8 @@ export function AdminSidebar() {
           </span>
         </div>
         <div>
-          <span className="text-headline-md font-headline-md font-bold text-primary block leading-none">SaaS Portal</span>
-          <span className="text-[10px] text-on-surface-variant font-label-bold uppercase tracking-widest">Painel Admin</span>
+          <span className="text-headline-md font-headline-md font-bold text-primary block leading-none">PetNexus</span>
+          <span className="text-[10px] text-on-surface-variant font-label-bold uppercase tracking-widest">Gestão Admin</span>
         </div>
       </div>
 
