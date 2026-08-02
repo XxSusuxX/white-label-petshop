@@ -1,8 +1,0 @@
-{
-  "/auth/register-google/pet/page": "app/auth/register-google/pet/page.js",
-  "/page": "app/page.js",
-  "/api/pets/route": "app/api/pets/route.js",
-  "/client/pets/page": "app/client/pets/page.js",
-  "/client/agenda/page": "app/client/agenda/page.js",
-  "/client/page": "app/client/page.js"
-}
