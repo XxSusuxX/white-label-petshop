@@ -15,10 +15,15 @@ function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isExistingAccount, setIsExistingAccount] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
     if (searchParams.get("existing") === "true") {
       setIsExistingAccount(true);
+    }
+    const err = searchParams.get("error");
+    if (err) {
+      setAuthError(err === "auth_failed" ? "Falha na autenticação. Por favor, tente novamente." : decodeURIComponent(err));
     }
   }, [searchParams]);
 
@@ -85,7 +90,14 @@ function LoginForm() {
 
             {/* Login Card */}
             <div className="bg-elevated-card rounded-xl p-8 border border-hairline-border extruded-shadow">
-              {isExistingAccount && (
+              {authError && (
+                <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-bold flex items-center gap-3">
+                  <span className="material-symbols-outlined text-lg">error</span>
+                  <span>{authError}</span>
+                </div>
+              )}
+
+              {isExistingAccount && !authError && (
                 <div className="mb-6 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-bold flex items-center gap-3">
                   <span className="material-symbols-outlined text-lg">warning</span>
                   <span>Sua conta do Google já possui um cadastro ativo! Por favor, faça login para continuar.</span>

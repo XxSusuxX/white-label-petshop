@@ -236,30 +236,53 @@ export default function AgendarServicoPage() {
                 </Link>
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
-                {petsList.map((pet) => {
-                  const isSelected = selectedPet === pet.name;
-                  return (
-                    <div
-                      key={pet.id}
-                      onClick={() => setSelectedPet(pet.name)}
-                      className={`bg-[#1e293b] border rounded-2xl p-5 flex flex-col items-center gap-3 transition-all cursor-pointer ${
-                        isSelected
-                          ? "border-[#4edea3] ring-2 ring-[#4edea3]/50 shadow-[0_0_15px_rgba(78,222,163,0.2)]"
-                          : "border-[#334155] opacity-60 hover:opacity-100"
-                      }`}
-                    >
-                      <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-[#4edea3]/40">
-                        <img src={pet.image} alt={pet.name} className="w-full h-full object-cover" />
-                      </div>
-                      <div className="text-center">
-                        <h3 className="font-bold text-sm text-on-surface">{pet.name}</h3>
-                        <p className="text-xs text-on-surface-variant">{pet.breed}</p>
-                      </div>
+              {isLoadingPets ? (
+                <div className="grid grid-cols-3 gap-4">
+                  {[1, 2].map((i) => (
+                    <div key={i} className="bg-[#1e293b] border border-[#334155] rounded-2xl p-5 flex flex-col items-center gap-3 animate-pulse">
+                      <div className="w-16 h-16 rounded-full bg-surface-container-highest"></div>
+                      <div className="h-4 w-20 bg-surface-container-highest rounded"></div>
                     </div>
-                  );
-                })}
-              </div>
+                  ))}
+                </div>
+              ) : petsList.length === 0 ? (
+                <div className="bg-[#1e293b] border border-[#334155] rounded-2xl p-6 text-center flex flex-col items-center gap-3">
+                  <span className="material-symbols-outlined text-[#4edea3] text-4xl">pets</span>
+                  <div>
+                    <p className="font-bold text-on-surface">Nenhum pet cadastrado ainda</p>
+                    <p className="text-xs text-on-surface-variant mt-1">Cadastre o seu primeiro pet para realizar agendamentos.</p>
+                  </div>
+                  <Link href="/client/pets" className="bg-[#4edea3] text-[#003824] px-4 py-2 rounded-xl text-xs font-bold hover:brightness-110 transition-all flex items-center gap-1.5 mt-2">
+                    <span className="material-symbols-outlined text-sm">add</span>
+                    Cadastrar Meu Pet
+                  </Link>
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-4">
+                  {petsList.map((pet) => {
+                    const isSelected = selectedPet === pet.name;
+                    return (
+                      <div
+                        key={pet.id}
+                        onClick={() => setSelectedPet(pet.name)}
+                        className={`bg-[#1e293b] border rounded-2xl p-5 flex flex-col items-center gap-3 transition-all cursor-pointer ${
+                          isSelected
+                            ? "border-[#4edea3] ring-2 ring-[#4edea3]/50 shadow-[0_0_15px_rgba(78,222,163,0.2)]"
+                            : "border-[#334155] opacity-60 hover:opacity-100"
+                        }`}
+                      >
+                        <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-[#4edea3]/40">
+                          <img src={pet.image} alt={pet.name} className="w-full h-full object-cover" />
+                        </div>
+                        <div className="text-center">
+                          <h3 className="font-bold text-sm text-on-surface">{pet.name}</h3>
+                          <p className="text-xs text-on-surface-variant">{pet.breed}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </section>
 
             {/* Section 2: Escolha o Serviço */}
@@ -541,27 +564,46 @@ export default function AgendarServicoPage() {
             </div>
 
             {/* Horizontal Pets Cards */}
-            <div className="flex items-center gap-3 overflow-x-auto custom-scrollbar pb-1">
-              {petsList.map((pet) => {
-                const isSelected = selectedPet === pet.name;
-                return (
-                  <div
-                    key={pet.id}
-                    onClick={() => setSelectedPet(pet.name)}
-                    className={`min-w-[100px] bg-[#1e293b] border rounded-2xl p-3 flex flex-col items-center gap-2 transition-all cursor-pointer ${
-                      isSelected
-                        ? "border-[#4edea3] ring-2 ring-[#4edea3]/50"
-                        : "border-[#334155] opacity-60"
-                    }`}
-                  >
-                    <div className="w-12 h-12 rounded-full overflow-hidden border border-[#4edea3]/40">
-                      <img src={pet.image} alt={pet.name} className="w-full h-full object-cover" />
-                    </div>
-                    <span className="text-xs font-bold text-on-surface">{pet.name}</span>
+            {isLoadingPets ? (
+              <div className="flex items-center gap-3 overflow-x-auto pb-1">
+                {[1, 2].map((i) => (
+                  <div key={i} className="min-w-[100px] bg-[#1e293b] border border-[#334155] rounded-2xl p-3 flex flex-col items-center gap-2 animate-pulse">
+                    <div className="w-12 h-12 rounded-full bg-surface-container-highest"></div>
+                    <div className="h-3 w-12 bg-surface-container-highest rounded"></div>
                   </div>
-                );
-              })}
-            </div>
+                ))}
+              </div>
+            ) : petsList.length === 0 ? (
+              <div className="bg-[#1e293b] border border-[#334155] rounded-2xl p-4 text-center flex flex-col items-center gap-2">
+                <span className="material-symbols-outlined text-[#4edea3] text-2xl">pets</span>
+                <p className="text-xs font-bold text-on-surface">Nenhum pet cadastrado</p>
+                <Link href="/client/pets" className="text-xs text-[#4edea3] font-bold underline">
+                  + Cadastrar Pet
+                </Link>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3 overflow-x-auto custom-scrollbar pb-1">
+                {petsList.map((pet) => {
+                  const isSelected = selectedPet === pet.name;
+                  return (
+                    <div
+                      key={pet.id}
+                      onClick={() => setSelectedPet(pet.name)}
+                      className={`min-w-[100px] bg-[#1e293b] border rounded-2xl p-3 flex flex-col items-center gap-2 transition-all cursor-pointer ${
+                        isSelected
+                          ? "border-[#4edea3] ring-2 ring-[#4edea3]/50"
+                          : "border-[#334155] opacity-60"
+                      }`}
+                    >
+                      <div className="w-12 h-12 rounded-full overflow-hidden border border-[#4edea3]/40">
+                        <img src={pet.image} alt={pet.name} className="w-full h-full object-cover" />
+                      </div>
+                      <span className="text-xs font-bold text-on-surface">{pet.name}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </section>
 
           {/* Endereço de Coleta (Pet Táxi) */}
