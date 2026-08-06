@@ -12,21 +12,25 @@ export function ClientHeader() {
 
   useEffect(() => {
     async function loadUserProfile() {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
 
-      if (user) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("full_name, avatar_url")
-          .eq("id", user.id)
-          .single();
+        if (user) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("full_name, avatar_url")
+            .eq("id", user.id)
+            .maybeSingle();
 
-        const name = profile?.full_name || user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split("@")[0] || "Tutor";
-        const avatar = profile?.avatar_url || user.user_metadata?.avatar_url || user.user_metadata?.picture || null;
+          const name = profile?.full_name || user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split("@")[0] || "Tutor";
+          const avatar = profile?.avatar_url || user.user_metadata?.avatar_url || user.user_metadata?.picture || null;
 
-        setUserName(name);
-        if (avatar) setUserAvatar(avatar);
+          setUserName(name);
+          if (avatar) setUserAvatar(avatar);
+        }
+      } catch (err) {
+        console.warn("Aviso ao carregar perfil em ClientHeader:", err);
       }
     }
     loadUserProfile();

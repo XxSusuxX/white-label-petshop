@@ -82,3 +82,44 @@ export async function GET() {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
+
+export async function POST(request: Request) {
+  try {
+    const adminSupabase = createAdminClient();
+    const body = await request.json();
+
+    const { full_name, phone, email } = body;
+
+    if (!full_name) {
+      return NextResponse.json(
+        { error: "Nome completo é obrigatório" },
+        { status: 400 }
+      );
+    }
+
+    // Generate a deterministic UUID for the profile (since we may not have an auth user)
+    const profileId = crypto.randomUUID();
+
+    const { data: profile, error: insertErr } = await adminSupabase
+      .from("profiles")
+      .insert({
+        id: profileId,
+        full_name: full_name,
+        phone: phone || null,
+        role: "client",
+        pet_shop_id: "00000000-0000-0000-0000-000000000001",
+      })
+      .select()
+      .single();
+
+    if (insertErr) {
+      console.error("Erro ao inserir perfil:", insertErr);
+      return NextResponse.json({ error: insertErr.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true, profile });
+  } catch (err: any) {
+    console.error("Erro em POST /api/admin/clients:", err);
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}

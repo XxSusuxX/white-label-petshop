@@ -13,34 +13,38 @@ export function AdminHeader() {
 
   useEffect(() => {
     async function loadAdminProfile() {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
 
-      if (user) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("full_name, avatar_url, role")
-          .eq("id", user.id)
-          .single();
+        if (user) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("full_name, avatar_url, role")
+            .eq("id", user.id)
+            .maybeSingle();
 
-        const name =
-          profile?.full_name ||
-          user.user_metadata?.full_name ||
-          user.user_metadata?.name ||
-          user.email?.split("@")[0] ||
-          "Gestor Admin";
+          const name =
+            profile?.full_name ||
+            user.user_metadata?.full_name ||
+            user.user_metadata?.name ||
+            user.email?.split("@")[0] ||
+            "Gestor Admin";
 
-        const avatar =
-          profile?.avatar_url ||
-          user.user_metadata?.avatar_url ||
-          user.user_metadata?.picture ||
-          null;
+          const avatar =
+            profile?.avatar_url ||
+            user.user_metadata?.avatar_url ||
+            user.user_metadata?.picture ||
+            null;
 
-        setUserName(name);
-        if (profile?.role) {
-          setUserRole(profile.role === "admin" ? "Gestor Geral" : "Operador Admin");
+          setUserName(name);
+          if (profile?.role) {
+            setUserRole(profile.role === "admin" ? "Administrador" : profile.role);
+          }
+          if (avatar) setUserAvatar(avatar);
         }
-        if (avatar) setUserAvatar(avatar);
+      } catch (err) {
+        console.warn("Aviso ao carregar perfil em AdminHeader:", err);
       }
     }
     loadAdminProfile();
@@ -83,10 +87,11 @@ export function AdminHeader() {
           title: "Módulo Veterinário",
           subtitle: "Fichas clínicas completas, prescrições e vacinas",
         };
+      case "/admin/whatsapp":
       case "/admin/automacoes":
         return {
-          title: "Zap Notifica",
-          subtitle: "Lembretes de 24h, novidades e alertas via WhatsApp",
+          title: "Zap Notifica / Central do WhatsApp",
+          subtitle: "Gerenciamento da conexão, automações de mensagens e lembretes",
         };
       case "/admin/dashboard":
       default:

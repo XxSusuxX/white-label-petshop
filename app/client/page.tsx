@@ -11,6 +11,7 @@ export default function ClientHomePage() {
 
   // User & Real Pets from Supabase
   const [userName, setUserName] = useState("Tutor");
+  const [userAvatar, setUserAvatar] = useState<string | null>(null);
   const [userPets, setUserPets] = useState<any[]>([]);
 
   // Active Pet State
@@ -31,28 +32,35 @@ export default function ClientHomePage() {
 
   useEffect(() => {
     async function loadClientDashboard() {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
 
-      if (user) {
-        // Fetch Profile
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("full_name")
-          .eq("id", user.id)
-          .single();
+        if (user) {
+          // Fetch Profile
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("full_name, avatar_url")
+            .eq("id", user.id)
+            .maybeSingle();
 
-        const name = profile?.full_name || user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split("@")[0] || "Tutor";
-        setUserName(name);
+          const name = profile?.full_name || user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split("@")[0] || "Tutor";
+          setUserName(name);
 
-        // Fetch Real Pets via API Route segura
-        const petsRes = await fetch("/api/pets");
-        const petsData = await petsRes.json();
+          const avatar = profile?.avatar_url || user.user_metadata?.avatar_url || user.user_metadata?.picture || null;
+          if (avatar) setUserAvatar(avatar);
 
-        if (petsData.pets && petsData.pets.length > 0) {
-          setUserPets(petsData.pets);
-          setSelectedPetId(petsData.pets[0].id);
+          // Fetch Real Pets via API Route segura
+          const petsRes = await fetch("/api/pets");
+          const petsData = await petsRes.json();
+
+          if (petsData.pets && petsData.pets.length > 0) {
+            setUserPets(petsData.pets);
+            setSelectedPetId(petsData.pets[0].id);
+          }
         }
+      } catch (err) {
+        console.warn("Aviso ao carregar dashboard do cliente:", err);
       }
     }
     loadClientDashboard();
@@ -68,22 +76,59 @@ export default function ClientHomePage() {
     }
   };
 
-  const handleCreatePet = (e: React.FormEvent) => {
+  const [isSavingPet, setIsSavingPet] = useState(false);
+
+  const handleCreatePet = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPetName.trim()) {
       alert("Por favor, informe o nome do pet.");
       return;
     }
 
-    setNewPetName("");
-    setNewBreed("");
-    setNewAge("");
-    setNewWeight("");
-    setNewNotes("");
-    setNewPhotoPreview(null);
-    setShowAddPetModal(false);
+    setIsSavingPet(true);
+    try {
+      const res = await fetch("/api/pets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newPetName.trim(),
+          species: newSpecies,
+          breed: newBreed.trim() || "Vira-lata",
+          sex: newSex,
+          weight: newWeight || null,
+          observations: newNotes || null,
+          photo_url: null,
+        }),
+      });
 
-    alert(`🎉 Pet "${newPetName}" cadastrado com sucesso!`);
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        // Recarregar lista de pets do Supabase
+        const petsRes = await fetch("/api/pets");
+        const petsData = await petsRes.json();
+        if (petsData.pets && petsData.pets.length > 0) {
+          setUserPets(petsData.pets);
+          setSelectedPetId(data.pet?.id || petsData.pets[0].id);
+        }
+
+        setNewPetName("");
+        setNewBreed("");
+        setNewAge("");
+        setNewWeight("");
+        setNewNotes("");
+        setNewPhotoPreview(null);
+        setShowAddPetModal(false);
+        alert(`🎉 Pet "${newPetName}" cadastrado com sucesso no sistema!`);
+      } else {
+        alert(`Erro ao cadastrar pet: ${data.error || "Tente novamente."}`);
+      }
+    } catch (err) {
+      console.error("Erro ao salvar pet:", err);
+      alert("Erro de conexão ao cadastrar pet. Verifique sua internet.");
+    } finally {
+      setIsSavingPet(false);
+    }
   };
 
   return (
@@ -111,12 +156,16 @@ export default function ClientHomePage() {
             >
               <span className="material-symbols-outlined">notifications</span>
             </button>
-            <div className="w-8 h-8 rounded-full overflow-hidden border border-primary/20">
-              <img
-                className="w-full h-full object-cover"
-                alt="Ana Paula"
-                src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80"
-              />
+            <div className="w-8 h-8 rounded-full overflow-hidden border border-primary/20 bg-primary/20 flex items-center justify-center">
+              {userAvatar ? (
+                <img
+                  className="w-full h-full object-cover"
+                  alt={userName}
+                  src={userAvatar}
+                />
+              ) : (
+                <span className="text-primary font-bold text-[10px]">{userName.substring(0, 2).toUpperCase()}</span>
+              )}
             </div>
           </div>
         </header>

@@ -2,8 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { AdminSidebar } from "@/components/ui/admin-sidebar";
-import { AdminBottomNav } from "@/components/ui/admin-bottom-nav";
 
 export default function ProntuarioAdminPage() {
   const [selectedPet, setSelectedPet] = useState({
@@ -101,10 +99,7 @@ export default function ProntuarioAdminPage() {
   };
 
   return (
-    <div className="bg-matte-canvas text-on-surface font-body-base antialiased min-h-screen flex flex-col md:flex-row">
-      <AdminSidebar />
-
-      <main className="flex-1 md:ml-64 p-4 md:p-8 pb-24 md:pb-8 flex flex-col gap-6 max-w-7xl mx-auto w-full">
+    <main className="p-4 md:p-8 space-y-6 max-w-7xl mx-auto w-full">
         {/* Header */}
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-surface-container border border-hairline-border p-6 rounded-2xl extruded-shadow">
           <div>
@@ -384,8 +379,5 @@ Dr. Carlos Eduardo (CRMV 48192)`}
           </div>
         )}
       </main>
-
-      <AdminBottomNav />
-    </div>
   );
 }

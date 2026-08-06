@@ -1,9 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { AdminSidebar } from "@/components/ui/admin-sidebar";
-import { AdminBottomNav } from "@/components/ui/admin-bottom-nav";
 
 interface CartItem {
   id: string;
@@ -29,22 +27,49 @@ export default function PdvAdminPage() {
   const [showReceiptModal, setShowReceiptModal] = useState<boolean>(false);
   const [lastSaleTotal, setLastSaleTotal] = useState<number>(0);
 
-  // Available catalog
-  const catalog: CatalogItem[] = [
-    { id: "1", name: "Banho & Tosa Completo (Cão Porte M)", category: "service", price: 85.0 },
-    { id: "2", name: "Higienização Auricular & Corte de Unhas", category: "service", price: 35.0 },
-    { id: "3", name: "Consulta Veterinária Geral", category: "service", price: 150.0 },
-    { id: "4", name: "Pacote Banho Mensal 4x", category: "package", price: 149.9 },
-    { id: "5", name: "Plano Premium Anual (Estética + Vet)", category: "package", price: 299.9 },
-    { id: "6", name: "Ração Premium Cães Adultos 15kg", category: "product", price: 189.9 },
-    { id: "7", name: "Shampoo Hipoalergênico Pet 500ml", category: "product", price: 42.0 },
-    { id: "8", name: "Brinquedo Mordedor Resistente", category: "product", price: 28.5 },
-  ];
+  const [cart, setCart] = useState<CartItem[]>([]);
 
-  const [cart, setCart] = useState<CartItem[]>([
-    { id: "1", name: "Banho & Tosa Completo (Cão Porte M)", category: "service", price: 85.0, qty: 1 },
-    { id: "7", name: "Shampoo Hipoalergênico Pet 500ml", category: "product", price: 42.0, qty: 1 },
-  ]);
+  // Dynamic catalog and clients from Supabase
+  const [catalog, setCatalog] = useState<CatalogItem[]>([]);
+  const [clientsList, setClientsList] = useState<{id: string; label: string}[]>([]);
+  const [isLoadingCatalog, setIsLoadingCatalog] = useState(true);
+
+  useEffect(() => {
+    async function loadPdvData() {
+      setIsLoadingCatalog(true);
+      try {
+        // Load catalog from services API
+        const servicesRes = await fetch("/api/admin/services");
+        const servicesData = await servicesRes.json();
+        if (servicesData.services) {
+          setCatalog(servicesData.services.map((s: any) => ({
+            id: s.id,
+            name: s.name,
+            category: s.category as "product" | "service" | "package",
+            price: s.price,
+          })));
+        }
+
+        // Load real clients
+        const clientsRes = await fetch("/api/admin/clients");
+        const clientsData = await clientsRes.json();
+        if (clientsData.clients) {
+          setClientsList([
+            { id: "avulso", label: "Tutor Avulso (Balcão)" },
+            ...clientsData.clients.map((c: any) => ({
+              id: c.id,
+              label: `${c.full_name}${c.pets.length > 0 ? ` (Pet: ${c.pets.map((p: any) => p.name).join(", ")})` : ""}`,
+            })),
+          ]);
+        }
+      } catch (err) {
+        console.error("Erro ao carregar dados do PDV:", err);
+      } finally {
+        setIsLoadingCatalog(false);
+      }
+    }
+    loadPdvData();
+  }, []);
 
   const addToCart = (item: CatalogItem) => {
     setCart((prev) => {
@@ -95,10 +120,7 @@ export default function PdvAdminPage() {
   });
 
   return (
-    <div className="bg-matte-canvas text-on-surface font-body-base antialiased min-h-screen flex flex-col md:flex-row">
-      <AdminSidebar />
-
-      <main className="flex-1 md:ml-64 p-4 md:p-8 pb-24 md:pb-8 flex flex-col gap-6 max-w-7xl mx-auto w-full">
+    <main className="p-4 md:p-8 space-y-6 max-w-7xl mx-auto w-full">
         {/* Header Bar */}
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-surface-container border border-hairline-border p-6 rounded-2xl extruded-shadow">
           <div>
@@ -221,10 +243,13 @@ export default function PdvAdminPage() {
                 onChange={(e) => setSelectedClient(e.target.value)}
                 className="w-full bg-surface-container border border-hairline-border rounded-xl px-4 py-2.5 text-on-surface text-body-sm outline-none focus:border-primary transition-all cursor-pointer"
               >
-                <option value="Tutor Avulso (Balcão)">Tutor Avulso (Balcão)</option>
-                <option value="Carlos Eduardo (Pet: Thor)">Carlos Eduardo (Pet: Thor)</option>
-                <option value="Mariana Costa (Pet: Mel)">Mariana Costa (Pet: Mel)</option>
-                <option value="Welington Souza (Pet: Bidu)">Welington Souza (Pet: Bidu)</option>
+                {clientsList.length === 0 ? (
+                  <option value="Tutor Avulso (Balcão)">Tutor Avulso (Balcão)</option>
+                ) : (
+                  clientsList.map((c) => (
+                    <option key={c.id} value={c.label}>{c.label}</option>
+                  ))
+                )}
               </select>
             </div>
 
@@ -330,7 +355,6 @@ export default function PdvAdminPage() {
             </button>
           </section>
         </div>
-      </main>
 
       {/* Success Receipt Modal */}
       {showReceiptModal && (
@@ -363,8 +387,6 @@ export default function PdvAdminPage() {
           </div>
         </div>
       )}
-
-      <AdminBottomNav />
-    </div>
+    </main>
   );
 }

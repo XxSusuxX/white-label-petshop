@@ -1,10 +1,54 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 
 export function AdminSidebar() {
   const pathname = usePathname();
+  const [userName, setUserName] = useState("Gestor Admin");
+  const [userRole, setUserRole] = useState("Administrador");
+  const [userAvatar, setUserAvatar] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function loadAdminProfile() {
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (user) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("full_name, avatar_url, role")
+            .eq("id", user.id)
+            .maybeSingle();
+
+          const name =
+            profile?.full_name ||
+            user.user_metadata?.full_name ||
+            user.user_metadata?.name ||
+            user.email?.split("@")[0] ||
+            "Gestor Admin";
+
+          const avatar =
+            profile?.avatar_url ||
+            user.user_metadata?.avatar_url ||
+            user.user_metadata?.picture ||
+            null;
+
+          setUserName(name);
+          if (profile?.role) {
+            setUserRole(profile.role === "admin" ? "Gestora Geral" : "Operadora Admin");
+          }
+          if (avatar) setUserAvatar(avatar);
+        }
+      } catch (err) {
+        console.warn("Aviso ao carregar perfil em AdminSidebar:", err);
+      }
+    }
+    loadAdminProfile();
+  }, []);
 
   const links = [
     { href: "/admin/dashboard", label: "Dashboard", icon: "dashboard" },
@@ -15,7 +59,7 @@ export function AdminSidebar() {
     { href: "/admin/servicos", label: "Serviços & Preços", icon: "price_change" },
     { href: "/admin/pdv", label: "PDV & Caixa", icon: "point_of_sale" },
     { href: "/admin/prontuario", label: "Módulo Veterinário", icon: "stethoscope" },
-    { href: "/admin/automacoes", label: "Zap Notifica", icon: "chat" },
+    { href: "/admin/whatsapp", label: "Central WhatsApp", icon: "chat" },
   ];
 
   return (
@@ -54,14 +98,23 @@ export function AdminSidebar() {
         })}
       </nav>
 
+      {/* Profile Card no Canto Inferior Esquerdo (Conectado ao Supabase) */}
       <div className="p-4 border-t border-hairline-border">
-        <div className="flex items-center gap-3 px-2 py-2 bg-surface-container-low rounded-xl border border-hairline-border">
-          <div className="w-9 h-9 rounded-full border-2 border-primary/40 overflow-hidden bg-primary/20 flex items-center justify-center text-primary font-bold">
-            A
+        <div className="flex items-center gap-3 px-2.5 py-2 bg-surface-container-low rounded-xl border border-hairline-border">
+          <div className="w-9 h-9 rounded-full border-2 border-primary/40 overflow-hidden bg-primary/20 flex items-center justify-center text-primary font-bold text-xs flex-shrink-0">
+            {userAvatar ? (
+              <img src={userAvatar} alt={userName} className="w-full h-full object-cover" />
+            ) : (
+              userName.substring(0, 2).toUpperCase()
+            )}
           </div>
           <div className="overflow-hidden flex-1">
-            <p className="font-label-bold text-on-surface text-sm leading-none truncate">Ana Silva</p>
-            <p className="text-[10px] text-on-surface-variant truncate mt-0.5">Gestora Geral</p>
+            <p className="font-label-bold text-on-surface text-xs leading-none truncate font-bold">
+              {userName}
+            </p>
+            <p className="text-[10px] text-primary font-bold truncate mt-1">
+              {userRole}
+            </p>
           </div>
         </div>
       </div>

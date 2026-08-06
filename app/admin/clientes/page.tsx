@@ -39,6 +39,56 @@ export default function ClientesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("Todos os status");
 
+  // Detail & New Client Modal States
+  const [selectedClient, setSelectedClient] = useState<ClientUser | null>(null);
+  const [showNewClientModal, setShowNewClientModal] = useState(false);
+  const [newClientName, setNewClientName] = useState("");
+  const [newClientPhone, setNewClientPhone] = useState("");
+  const [newClientEmail, setNewClientEmail] = useState("");
+  const [isSavingClient, setIsSavingClient] = useState(false);
+
+  const handleCreateClient = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newClientName.trim()) {
+      alert("Por favor, informe o nome do cliente.");
+      return;
+    }
+    setIsSavingClient(true);
+    try {
+      const res = await fetch("/api/admin/clients", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          full_name: newClientName.trim(),
+          phone: newClientPhone.trim() || null,
+          email: newClientEmail.trim() || null,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setShowNewClientModal(false);
+        setNewClientName("");
+        setNewClientPhone("");
+        setNewClientEmail("");
+        // Reload clients
+        const reloadRes = await fetch("/api/admin/clients");
+        const reloadData = await reloadRes.json();
+        if (reloadData.clients) {
+          setClients(reloadData.clients);
+          if (reloadData.metrics) setMetrics(reloadData.metrics);
+        }
+        alert("Cliente cadastrado com sucesso!");
+      } else {
+        alert(`Erro: ${data.error || "Tente novamente."}`);
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Erro de conexão ao cadastrar cliente.");
+    } finally {
+      setIsSavingClient(false);
+    }
+  };
+
   useEffect(() => {
     async function loadAdminClients() {
       setIsLoading(true);
@@ -111,7 +161,7 @@ export default function ClientesPage() {
             </p>
           </div>
           <button
-            onClick={() => alert("Formulário de cadastro rápido de cliente em breve!")}
+            onClick={() => setShowNewClientModal(true)}
             className="bg-primary text-on-primary font-label-bold text-label-bold px-6 py-3 rounded-lg flex items-center gap-2 extruded-shadow hover:brightness-110 active:scale-95 transition-all cursor-pointer"
           >
             <span className="material-symbols-outlined text-xl">person_add</span>
@@ -307,8 +357,9 @@ export default function ClientesPage() {
                             </a>
                           )}
                           <button
-                            onClick={() => alert(`Detalhes do cliente: ${client.full_name}\nE-mail: ${client.email}\nWhatsApp: ${client.phone}`)}
+                            onClick={() => setSelectedClient(client)}
                             className="p-2 hover:bg-surface-container-highest rounded-lg transition-colors text-on-surface-variant cursor-pointer"
+                            title="Ver detalhes do cliente"
                           >
                             <span className="material-symbols-outlined text-xl">more_vert</span>
                           </button>
@@ -408,6 +459,145 @@ export default function ClientesPage() {
           )}
         </div>
       </main>
+
+      {/* ====== MODAL: Detalhes do Cliente ====== */}
+      {selectedClient && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-elevated-card border border-hairline-border rounded-2xl max-w-lg w-full p-6 space-y-5 extruded-shadow">
+            <div className="flex justify-between items-center border-b border-hairline-border pb-3">
+              <h3 className="font-bold text-lg text-on-surface flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary">person</span>
+                Detalhes do Cliente
+              </h3>
+              <button onClick={() => setSelectedClient(null)} className="text-on-surface-variant hover:text-on-surface p-1 rounded-lg bg-surface-container cursor-pointer">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-primary font-bold text-lg">
+                {getInitials(selectedClient.full_name)}
+              </div>
+              <div>
+                <h4 className="font-bold text-on-surface text-lg">{selectedClient.full_name}</h4>
+                <span className="px-2 py-0.5 bg-primary/20 text-primary border border-primary/30 rounded text-[10px] font-bold uppercase">{selectedClient.status}</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="bg-surface-container p-3 rounded-xl border border-hairline-border">
+                <span className="text-[10px] text-on-surface-variant font-bold uppercase block">Telefone</span>
+                <span className="text-on-surface font-bold">{selectedClient.phone}</span>
+              </div>
+              <div className="bg-surface-container p-3 rounded-xl border border-hairline-border">
+                <span className="text-[10px] text-on-surface-variant font-bold uppercase block">E-mail</span>
+                <span className="text-on-surface font-bold text-xs">{selectedClient.email}</span>
+              </div>
+              <div className="bg-surface-container p-3 rounded-xl border border-hairline-border">
+                <span className="text-[10px] text-on-surface-variant font-bold uppercase block">Cadastro</span>
+                <span className="text-on-surface font-bold">{formatDate(selectedClient.created_at)}</span>
+              </div>
+              <div className="bg-surface-container p-3 rounded-xl border border-hairline-border">
+                <span className="text-[10px] text-on-surface-variant font-bold uppercase block">Pets</span>
+                <span className="text-on-surface font-bold">{selectedClient.pets.length} pet(s)</span>
+              </div>
+            </div>
+
+            {selectedClient.pets.length > 0 && (
+              <div className="space-y-2">
+                <h5 className="text-xs font-bold text-on-surface-variant uppercase">Pets Associados</h5>
+                {selectedClient.pets.map((pet) => (
+                  <div key={pet.id} className="flex items-center gap-3 p-3 bg-surface-container rounded-xl border border-hairline-border">
+                    <span className="material-symbols-outlined text-primary">pets</span>
+                    <div>
+                      <span className="font-bold text-on-surface text-sm">{pet.name}</span>
+                      <span className="text-xs text-on-surface-variant ml-2">{pet.breed || pet.species}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex gap-3 pt-2">
+              {selectedClient.phone && selectedClient.phone !== "Não informado" && (
+                <a
+                  href={`https://wa.me/55${selectedClient.phone.replace(/\D/g, "")}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex-1 bg-emerald-500 text-black font-bold py-3 rounded-xl text-sm text-center flex items-center justify-center gap-2 hover:brightness-110 transition-all"
+                >
+                  <span className="material-symbols-outlined text-base">chat</span>
+                  WhatsApp
+                </a>
+              )}
+              <button
+                onClick={() => setSelectedClient(null)}
+                className="flex-1 bg-surface-container-high border border-hairline-border text-on-surface font-bold py-3 rounded-xl text-sm hover:bg-surface-container-highest transition-all cursor-pointer"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ====== MODAL: Cadastro de Novo Cliente ====== */}
+      {showNewClientModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-elevated-card border border-hairline-border rounded-2xl max-w-md w-full p-6 space-y-5 extruded-shadow">
+            <div className="flex justify-between items-center border-b border-hairline-border pb-3">
+              <h3 className="font-bold text-lg text-on-surface flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary">person_add</span>
+                Cadastrar Novo Cliente
+              </h3>
+              <button onClick={() => setShowNewClientModal(false)} className="text-on-surface-variant hover:text-on-surface p-1 rounded-lg bg-surface-container cursor-pointer">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateClient} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-on-surface-variant mb-1">Nome Completo *</label>
+                <input
+                  type="text"
+                  value={newClientName}
+                  onChange={(e) => setNewClientName(e.target.value)}
+                  placeholder="Ex: Maria Silva"
+                  className="w-full bg-surface-container border border-hairline-border rounded-xl px-4 py-3 text-sm text-on-surface outline-none focus:border-primary"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-on-surface-variant mb-1">Telefone / WhatsApp</label>
+                <input
+                  type="text"
+                  value={newClientPhone}
+                  onChange={(e) => setNewClientPhone(e.target.value)}
+                  placeholder="(11) 99999-9999"
+                  className="w-full bg-surface-container border border-hairline-border rounded-xl px-4 py-3 text-sm text-on-surface outline-none focus:border-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-on-surface-variant mb-1">E-mail</label>
+                <input
+                  type="email"
+                  value={newClientEmail}
+                  onChange={(e) => setNewClientEmail(e.target.value)}
+                  placeholder="cliente@email.com"
+                  className="w-full bg-surface-container border border-hairline-border rounded-xl px-4 py-3 text-sm text-on-surface outline-none focus:border-primary"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={isSavingClient}
+                className="w-full bg-primary text-on-primary font-bold py-3 rounded-xl hover:brightness-110 transition-all extruded-shadow cursor-pointer disabled:opacity-50"
+              >
+                {isSavingClient ? "Salvando..." : "Cadastrar Cliente"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

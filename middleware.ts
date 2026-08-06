@@ -33,15 +33,22 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
-  // 1. Se NÃO ESTÁ LOGADO e tenta acessar páginas privadas (/client ou /admin), redireciona para login
-  if (!user && (pathname.startsWith("/client") || pathname.startsWith("/admin"))) {
+  const isPrivateRoute = pathname.startsWith("/client") || pathname.startsWith("/admin");
+  const isAuthRoute =
+    pathname === "/auth/register" ||
+    pathname === "/auth/login" ||
+    pathname === "/auth/register-google" ||
+    pathname === "/auth/register-admin";
+
+  // 1. Se NÃO ESTÁ LOGADO e tenta acessar páginas privadas, redireciona para login
+  if (!user && isPrivateRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/auth/login";
     return NextResponse.redirect(url);
   }
 
-  // 2. Se ESTÁ LOGADO e tenta acessar áreas privadas (/client ou /admin)
-  if (user && (pathname.startsWith("/client") || pathname.startsWith("/admin"))) {
+  // 2. Se ESTÁ LOGADO, fazer uma única consulta de perfil para todas as decisões
+  if (user && (isPrivateRoute || isAuthRoute)) {
     const { createAdminClient } = await import("@/lib/supabase/admin");
     const adminSupabase = createAdminClient();
 
@@ -51,35 +58,24 @@ export async function middleware(request: NextRequest) {
       .eq("id", user.id)
       .maybeSingle();
 
-    // Se NÃO possui perfil cadastrado em profiles -> Força o cadastro do Google
-    if (!profile) {
+    // 2a. Se não tem perfil em profiles → forçar cadastro complementar (Google)
+    if (!profile && isPrivateRoute) {
       const url = request.nextUrl.clone();
       url.pathname = "/auth/register-google";
       return NextResponse.redirect(url);
     }
 
-    // Se é CLIENTE e tenta acessar /admin -> Bloqueia e redireciona para /client
-    if (pathname.startsWith("/admin") && profile.role !== "admin") {
+    // 2b. Se é CLIENTE tentando acessar /admin → bloquear e redirecionar para /client
+    if (profile && pathname.startsWith("/admin") && profile.role !== "admin") {
       const url = request.nextUrl.clone();
-      url.pathname = "/client";
+      url.pathname = "/admin";
       return NextResponse.redirect(url);
     }
-  }
 
-  // 3. Se JÁ ESTÁ LOGADO e tem perfil, impede o acesso às telas de login/cadastro inicial (/auth/register, /auth/login, /auth/register-google)
-  if (user && (pathname === "/auth/register" || pathname === "/auth/login" || pathname === "/auth/register-google")) {
-    const { createAdminClient } = await import("@/lib/supabase/admin");
-    const adminSupabase = createAdminClient();
-
-    const { data: profile } = await adminSupabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    if (profile) {
+    // 2c. Se JÁ tem perfil e tenta acessar telas de auth → redirecionar para painel
+    if (profile && isAuthRoute) {
       const url = request.nextUrl.clone();
-      url.pathname = profile.role === "admin" ? "/admin/pets" : "/client";
+      url.pathname = profile.role === "admin" ? "/admin/dashboard" : "/client";
       return NextResponse.redirect(url);
     }
   }
