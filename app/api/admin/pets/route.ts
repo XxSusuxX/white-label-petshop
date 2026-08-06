@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   try {
     const adminSupabase = createAdminClient();
@@ -38,6 +40,8 @@ export async function GET() {
         breed: p.breed || "Vira-Lata",
         sex: p.sex || "Macho",
         weight: p.weight ? `${p.weight} kg` : "Não inf.",
+        weight_raw: p.weight ?? null,
+        birth_date: p.birth_date || null,
         coat: p.coat || "Curta",
         color: p.color || "Não inf.",
         observations: p.observations || "Sem observações",

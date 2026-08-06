@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 
 interface PetItem {
   id: string;
@@ -11,35 +12,82 @@ interface PetItem {
   image: string;
 }
 
+interface ServiceItem {
+  id: string;
+  title: string;
+  desc: string;
+  price: number;
+  durationMinutes: number;
+  duration: string;
+}
+
+interface OccupiedRange {
+  start: string;
+  end: string;
+}
+
+const STEPS = [
+  { n: 1, label: "Pet" },
+  { n: 2, label: "Endereço" },
+  { n: 3, label: "Serviço" },
+  { n: 4, label: "Data" },
+  { n: 5, label: "Resumo" },
+];
+
+const TIME_SLOTS = ["08:00", "09:00", "10:00", "11:00", "13:00", "14:00", "15:00", "16:00", "17:00"];
+
+const formatDuration = (minutes: number) => {
+  if (!minutes) return "—";
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h === 0) return `${m} min`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}m`;
+};
+
 export default function AgendarServicoPage() {
   const router = useRouter();
+  const [step, setStep] = useState(1);
 
-  // Real pets state
+  // Pet
   const [petsList, setPetsList] = useState<PetItem[]>([]);
   const [isLoadingPets, setIsLoadingPets] = useState(true);
+  const [selectedPetId, setSelectedPetId] = useState("");
 
-  // Booking Flow States
-  const [activeStep, setActiveStep] = useState<number>(1);
-  const [selectedPet, setSelectedPet] = useState<string>("");
-  const [selectedService, setSelectedService] = useState<string>("Banho & Tosa");
-  const [servicePrice, setServicePrice] = useState<number>(110);
-  const [serviceDuration, setServiceDuration] = useState<string>("1h 30m");
+  // Endereço
+  const [address, setAddress] = useState("");
+  const [isLoadingAddress, setIsLoadingAddress] = useState(true);
 
-  const [selectedDate, setSelectedDate] = useState<number>(15);
-  const [selectedMonth] = useState("Julho 2026");
-  const [selectedTime, setSelectedTime] = useState<string>("11:00");
+  // Serviço
+  const [servicesList, setServicesList] = useState<ServiceItem[]>([]);
+  const [isLoadingServices, setIsLoadingServices] = useState(true);
+  const [selectedServiceId, setSelectedServiceId] = useState("");
 
-  const [address, setAddress] = useState<string>("");
-  const [useCurrentLocation, setUseCurrentLocation] = useState<boolean>(false);
+  // Data e Horário
+  const [calendarMonth, setCalendarMonth] = useState<Date>(() => {
+    const d = new Date();
+    d.setDate(1);
+    return d;
+  });
+  const [selectedDate, setSelectedDate] = useState<number>(new Date().getDate());
+  const [selectedTime, setSelectedTime] = useState<string>("");
+  const [occupiedRanges, setOccupiedRanges] = useState<OccupiedRange[]>([]);
+  const [isLoadingSlots, setIsLoadingSlots] = useState(false);
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    async function fetchRealPets() {
+    async function loadInitialData() {
       setIsLoadingPets(true);
+      setIsLoadingServices(true);
+      setIsLoadingAddress(true);
       try {
-        const res = await fetch("/api/pets");
-        const data = await res.json();
-        if (res.ok && data.pets) {
-          const mappedPets: PetItem[] = data.pets.map((p: any) => ({
+        const [petsRes, servicesRes] = await Promise.all([fetch("/api/pets"), fetch("/api/services")]);
+        const petsData = await petsRes.json();
+        const servicesData = await servicesRes.json();
+
+        if (petsRes.ok && petsData.pets) {
+          const mappedPets: PetItem[] = petsData.pets.map((p: any) => ({
             id: p.id,
             name: p.name,
             breed: p.breed || "Vira-lata",
@@ -48,692 +96,379 @@ export default function AgendarServicoPage() {
               : "https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&w=300&q=80"),
           }));
           setPetsList(mappedPets);
-          if (mappedPets.length > 0) {
-            setSelectedPet(mappedPets[0].name);
-          }
+          if (mappedPets.length > 0) setSelectedPetId(mappedPets[0].id);
+        }
+
+        if (servicesRes.ok && servicesData.services) {
+          const mapped: ServiceItem[] = servicesData.services.map((s: any) => ({
+            id: s.id,
+            title: s.name,
+            desc: s.description || "",
+            price: Number(s.price),
+            durationMinutes: s.duration_minutes || 60,
+            duration: formatDuration(s.duration_minutes),
+          }));
+          setServicesList(mapped);
+          if (mapped.length > 0) setSelectedServiceId(mapped[0].id);
         }
       } catch (err) {
-        console.error("Erro ao carregar pets para agendamento:", err);
+        console.error("Erro ao carregar dados do agendamento:", err);
       } finally {
         setIsLoadingPets(false);
+        setIsLoadingServices(false);
+      }
+
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: profile } = await supabase.from("profiles").select("address").eq("id", user.id).maybeSingle();
+          if (profile?.address) setAddress(profile.address);
+        }
+      } catch (err) {
+        console.warn("Aviso ao carregar endereço salvo:", err);
+      } finally {
+        setIsLoadingAddress(false);
       }
     }
-    fetchRealPets();
+    loadInitialData();
   }, []);
 
-  // Services list
-  const servicesList = [
-    {
-      id: "banho_completo",
-      title: "Banho Completo",
-      desc: "Higienização, limpeza de ouvidos e corte de unhas.",
-      price: 68,
-      duration: "45 min",
-      popular: false,
-    },
-    {
-      id: "banho_tosa",
-      title: "Banho & Tosa",
-      desc: "Inclui tosa higiênica ou completa conforme a raça.",
-      price: 110,
-      duration: "1h 30m",
-      popular: true,
-    },
-    {
-      id: "spa_premium",
-      title: "Spa Premium",
-      desc: "Hidratação profunda, massagem e kit mimos.",
-      price: 180,
-      duration: "2h 15m",
-      popular: false,
-    },
-  ];
+  const selectedPet = petsList.find((p) => p.id === selectedPetId);
+  const selectedService = servicesList.find((s) => s.id === selectedServiceId);
 
-  // Available Time Slots
-  const timeSlots = ["08:00", "09:30", "11:00", "13:30", "15:00", "16:30"];
+  // Grade real do mês selecionado
+  const monthGridCells = useMemo(() => {
+    const year = calendarMonth.getFullYear();
+    const month = calendarMonth.getMonth();
+    const firstWeekday = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const daysInPrevMonth = new Date(year, month, 0).getDate();
+    const cells: { day: number; inCurrentMonth: boolean }[] = [];
+    for (let i = firstWeekday - 1; i >= 0; i--) cells.push({ day: daysInPrevMonth - i, inCurrentMonth: false });
+    for (let d = 1; d <= daysInMonth; d++) cells.push({ day: d, inCurrentMonth: true });
+    let nextDay = 1;
+    while (cells.length % 7 !== 0) cells.push({ day: nextDay++, inCurrentMonth: false });
+    return cells;
+  }, [calendarMonth]);
 
-  const handleSelectService = (title: string, price: number, duration: string) => {
-    setSelectedService(title);
-    setServicePrice(price);
-    setServiceDuration(duration);
+  const monthLabel = calendarMonth.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+  const selectedDateObj = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), selectedDate);
+  const selectedDateLabel = selectedDateObj.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" });
+  const isPastDate = (day: number) => {
+    const d = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), day);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return d < today;
   };
 
-  const handleGetLocation = () => {
-    setUseCurrentLocation(true);
-    setAddress("Av. Paulista, 1000 - Bela Vista, São Paulo - SP");
+  const handlePrevMonth = () => {
+    const d = new Date(calendarMonth);
+    d.setMonth(d.getMonth() - 1);
+    setCalendarMonth(d);
+  };
+  const handleNextMonth = () => {
+    const d = new Date(calendarMonth);
+    d.setMonth(d.getMonth() + 1);
+    setCalendarMonth(d);
   };
 
-  const handleConfirmBooking = () => {
-    alert(`🎉 Agendamento realizado com sucesso para o pet ${selectedPet}!\n\nServiço: ${selectedService}\nData/Hora: ${selectedDate} de Julho às ${selectedTime}\nValor Total: R$ ${servicePrice},00`);
-    router.push("/client");
+  // Buscar horários ocupados sempre que a data selecionada mudar
+  useEffect(() => {
+    if (step !== 4) return;
+    async function loadAvailability() {
+      setIsLoadingSlots(true);
+      setSelectedTime("");
+      try {
+        const dateStr = `${calendarMonth.getFullYear()}-${String(calendarMonth.getMonth() + 1).padStart(2, "0")}-${String(selectedDate).padStart(2, "0")}`;
+        const res = await fetch(`/api/appointments/availability?date=${dateStr}`);
+        const data = await res.json();
+        if (res.ok) setOccupiedRanges(data.occupied || []);
+      } catch (err) {
+        console.error("Erro ao carregar disponibilidade:", err);
+      } finally {
+        setIsLoadingSlots(false);
+      }
+    }
+    loadAvailability();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDate, calendarMonth, step]);
+
+  const isSlotTaken = (time: string) => {
+    const [h, m] = time.split(":").map(Number);
+    const slotStart = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), selectedDate, h, m, 0, 0);
+    const duration = selectedService?.durationMinutes || 60;
+    const slotEnd = new Date(slotStart.getTime() + duration * 60000);
+    return occupiedRanges.some((r) => {
+      const rStart = new Date(r.start);
+      const rEnd = new Date(r.end);
+      return slotStart < rEnd && rStart < slotEnd;
+    });
+  };
+
+  const canProceed = () => {
+    if (step === 1) return !!selectedPetId;
+    if (step === 2) return address.trim().length > 3;
+    if (step === 3) return !!selectedServiceId;
+    if (step === 4) return !!selectedTime && !isPastDate(selectedDate);
+    return true;
+  };
+
+  const goNext = () => {
+    if (!canProceed()) return;
+    setStep((s) => Math.min(5, s + 1));
+  };
+  const goBack = () => setStep((s) => Math.max(1, s - 1));
+
+  const handleConfirmBooking = async () => {
+    if (!selectedPet || !selectedService || !selectedTime) return;
+    setIsSubmitting(true);
+    try {
+      const scheduledAt = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), selectedDate);
+      const [h, m] = selectedTime.split(":").map(Number);
+      scheduledAt.setHours(h, m, 0, 0);
+
+      const res = await fetch("/api/appointments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pet_id: selectedPet.id,
+          service_id: selectedService.id,
+          service_type: selectedService.title,
+          service_date: scheduledAt.toISOString(),
+          price: selectedService.price,
+          address,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Erro ao criar agendamento.");
+
+      router.push("/client?agendado=1");
+    } catch (err: any) {
+      console.error("Erro ao confirmar agendamento:", err);
+      alert(err.message || "Não foi possível concluir o agendamento. Tente novamente.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
-    <>
-      {/* ========================================================================= */}
-      {/* 🖥️ DESKTOP VIEW (Visible on md screens and above: md:flex) */}
-      {/* ========================================================================= */}
-      <div className="hidden md:flex min-h-screen flex-1">
-        {/* Desktop Main Workspace */}
-        <div className="flex-1 flex flex-col min-h-screen">
-          {/* Top Header Bar */}
-          <header className="h-16 w-full flex justify-between items-center px-8 sticky top-0 z-30 bg-[#0e1511]/90 backdrop-blur-md border-b border-[#334155]">
-            <div className="flex items-center gap-2 text-sm text-on-surface-variant">
-              <span>Portal do Cliente</span>
-              <span>/</span>
-              <span className="text-on-surface font-bold">Agendamento de Serviço</span>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <span className="px-3 py-1 bg-[#4edea3]/10 border border-[#4edea3]/30 text-[#4edea3] font-bold text-xs rounded-full flex items-center gap-1.5 uppercase">
-                <span className="w-2 h-2 rounded-full bg-[#4edea3] animate-pulse"></span>
-                Horários Disponíveis
-              </span>
-            </div>
-          </header>
-
-          {/* Stepper Progress Bar */}
-          <div className="px-8 py-6 bg-[#161d19] border-b border-[#334155]">
-            <div className="max-w-4xl mx-auto flex items-center justify-between relative">
-              <div className="absolute top-1/2 left-0 w-full h-[2px] bg-[#334155] -translate-y-1/2 z-0"></div>
-
-              {/* Step 1: Pet */}
-              <div
-                onClick={() => setActiveStep(1)}
-                className="relative z-10 flex flex-col items-center gap-1 cursor-pointer"
-              >
-                <div className="w-9 h-9 rounded-full bg-[#4edea3] text-[#003824] flex items-center justify-center font-bold text-sm shadow-[0_0_12px_rgba(78,222,163,0.5)]">
-                  1
-                </div>
-                <span className="text-xs font-bold text-[#4edea3]">Pet</span>
-              </div>
-
-              {/* Step 2: Serviço */}
-              <div
-                onClick={() => setActiveStep(2)}
-                className="relative z-10 flex flex-col items-center gap-1 cursor-pointer"
-              >
-                <div
-                  className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm border transition-all ${
-                    activeStep >= 2
-                      ? "bg-[#4edea3] text-[#003824] border-[#4edea3] shadow-[0_0_12px_rgba(78,222,163,0.5)]"
-                      : "bg-[#2f3632] text-on-surface-variant border-[#334155]"
-                  }`}
-                >
-                  2
-                </div>
-                <span
-                  className={`text-xs font-bold ${
-                    activeStep >= 2 ? "text-[#4edea3]" : "text-on-surface-variant"
-                  }`}
-                >
-                  Serviço
-                </span>
-              </div>
-
-              {/* Step 3: Horário */}
-              <div
-                onClick={() => setActiveStep(3)}
-                className="relative z-10 flex flex-col items-center gap-1 cursor-pointer"
-              >
-                <div
-                  className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm border transition-all ${
-                    activeStep >= 3
-                      ? "bg-[#4edea3] text-[#003824] border-[#4edea3] shadow-[0_0_12px_rgba(78,222,163,0.5)]"
-                      : "bg-[#2f3632] text-on-surface-variant border-[#334155]"
-                  }`}
-                >
-                  3
-                </div>
-                <span
-                  className={`text-xs font-bold ${
-                    activeStep >= 3 ? "text-[#4edea3]" : "text-on-surface-variant"
-                  }`}
-                >
-                  Horário
-                </span>
-              </div>
-
-              {/* Step 4: Confirmação */}
-              <div
-                onClick={() => setActiveStep(4)}
-                className="relative z-10 flex flex-col items-center gap-1 cursor-pointer"
-              >
-                <div
-                  className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm border transition-all ${
-                    activeStep >= 4
-                      ? "bg-[#4edea3] text-[#003824] border-[#4edea3] shadow-[0_0_12px_rgba(78,222,163,0.5)]"
-                      : "bg-[#2f3632] text-on-surface-variant border-[#334155]"
-                  }`}
-                >
-                  4
-                </div>
-                <span
-                  className={`text-xs font-bold ${
-                    activeStep >= 4 ? "text-[#4edea3]" : "text-on-surface-variant"
-                  }`}
-                >
-                  Confirmação
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Desktop Content View */}
-          <main className="flex-1 p-8 space-y-8 max-w-4xl w-full mx-auto">
-            {/* Section 1: Selecione o Pet */}
-            <section className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-on-surface flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[#4edea3]">pets</span>
-                  Selecione o Pet
-                </h2>
-                <Link
-                  href="/client/pets"
-                  className="text-xs font-bold text-[#4edea3] hover:underline flex items-center gap-1"
-                >
-                  <span className="material-symbols-outlined text-sm">add</span> + Novo Pet
-                </Link>
-              </div>
-
-              {isLoadingPets ? (
-                <div className="grid grid-cols-3 gap-4">
-                  {[1, 2].map((i) => (
-                    <div key={i} className="bg-[#1e293b] border border-[#334155] rounded-2xl p-5 flex flex-col items-center gap-3 animate-pulse">
-                      <div className="w-16 h-16 rounded-full bg-surface-container-highest"></div>
-                      <div className="h-4 w-20 bg-surface-container-highest rounded"></div>
-                    </div>
-                  ))}
-                </div>
-              ) : petsList.length === 0 ? (
-                <div className="bg-[#1e293b] border border-[#334155] rounded-2xl p-6 text-center flex flex-col items-center gap-3">
-                  <span className="material-symbols-outlined text-[#4edea3] text-4xl">pets</span>
-                  <div>
-                    <p className="font-bold text-on-surface">Nenhum pet cadastrado ainda</p>
-                    <p className="text-xs text-on-surface-variant mt-1">Cadastre o seu primeiro pet para realizar agendamentos.</p>
-                  </div>
-                  <Link href="/client/pets" className="bg-[#4edea3] text-[#003824] px-4 py-2 rounded-xl text-xs font-bold hover:brightness-110 transition-all flex items-center gap-1.5 mt-2">
-                    <span className="material-symbols-outlined text-sm">add</span>
-                    Cadastrar Meu Pet
-                  </Link>
-                </div>
-              ) : (
-                <div className="grid grid-cols-3 gap-4">
-                  {petsList.map((pet) => {
-                    const isSelected = selectedPet === pet.name;
-                    return (
-                      <div
-                        key={pet.id}
-                        onClick={() => setSelectedPet(pet.name)}
-                        className={`bg-[#1e293b] border rounded-2xl p-5 flex flex-col items-center gap-3 transition-all cursor-pointer ${
-                          isSelected
-                            ? "border-[#4edea3] ring-2 ring-[#4edea3]/50 shadow-[0_0_15px_rgba(78,222,163,0.2)]"
-                            : "border-[#334155] opacity-60 hover:opacity-100"
-                        }`}
-                      >
-                        <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-[#4edea3]/40">
-                          <img src={pet.image} alt={pet.name} className="w-full h-full object-cover" />
-                        </div>
-                        <div className="text-center">
-                          <h3 className="font-bold text-sm text-on-surface">{pet.name}</h3>
-                          <p className="text-xs text-on-surface-variant">{pet.breed}</p>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </section>
-
-            {/* Section 2: Escolha o Serviço */}
-            <section className="space-y-4">
-              <h2 className="text-lg font-bold text-on-surface flex items-center gap-2">
-                <span className="material-symbols-outlined text-[#4edea3]">content_cut</span>
-                Escolha o Serviço
-              </h2>
-
-              <div className="grid grid-cols-3 gap-4">
-                {servicesList.map((serv) => {
-                  const isSelected = selectedService === serv.title;
-                  return (
-                    <div
-                      key={serv.id}
-                      onClick={() => handleSelectService(serv.title, serv.price, serv.duration)}
-                      className={`bg-[#1e293b] border rounded-2xl p-5 flex flex-col justify-between space-y-3 relative transition-all cursor-pointer ${
-                        isSelected
-                          ? "border-[#4edea3] ring-2 ring-[#4edea3]/50 shadow-[0_0_15px_rgba(78,222,163,0.2)]"
-                          : "border-[#334155] hover:border-[#4edea3]/50"
-                      }`}
-                    >
-                      {serv.popular && (
-                        <span className="absolute top-3 right-3 px-2 py-0.5 bg-[#4edea3]/20 border border-[#4edea3]/40 text-[#4edea3] text-[9px] font-black uppercase rounded">
-                          POPULAR
-                        </span>
-                      )}
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="material-symbols-outlined text-[#4edea3]">water_drop</span>
-                          <span className="font-extrabold text-sm text-[#4edea3]">R$ {serv.price}</span>
-                        </div>
-                        <h3 className="font-bold text-sm text-on-surface">{serv.title}</h3>
-                        <p className="text-xs text-on-surface-variant mt-1 leading-relaxed">{serv.desc}</p>
-                      </div>
-
-                      <div className="flex items-center gap-1 text-[11px] text-outline pt-2 border-t border-[#334155]/40 font-mono">
-                        <span className="material-symbols-outlined text-xs">schedule</span>
-                        <span>{serv.duration}</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-
-            {/* Section 3: Data e Horário */}
-            <section className="space-y-4">
-              <h2 className="text-lg font-bold text-on-surface flex items-center gap-2">
-                <span className="material-symbols-outlined text-[#4edea3]">calendar_today</span>
-                Data e Horário
-              </h2>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-[#1e293b] border border-[#334155] p-6 rounded-2xl">
-                {/* Full Calendar Grid */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-on-surface">{selectedMonth}</span>
-                    <div className="flex gap-1">
-                      <span className="material-symbols-outlined text-sm text-outline cursor-pointer">chevron_left</span>
-                      <span className="material-symbols-outlined text-sm text-outline cursor-pointer">chevron_right</span>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-7 text-center text-[10px] font-bold text-outline">
-                    <div>DOM</div><div>SEG</div><div>TER</div><div>QUA</div><div>QUI</div><div>SEX</div><div>SÁB</div>
-                  </div>
-
-                  <div className="grid grid-cols-7 text-center gap-1">
-                    <div className="py-1.5 text-xs text-outline/30 font-bold">27</div>
-                    <div className="py-1.5 text-xs text-outline/30 font-bold">28</div>
-                    <div className="py-1.5 text-xs text-outline/30 font-bold">29</div>
-                    <div className="py-1.5 text-xs text-outline/30 font-bold">30</div>
-                    <div className="py-1.5 text-xs text-outline/30 font-bold">31</div>
-
-                    {Array.from({ length: 30 }, (_, i) => i + 1).map((d) => {
-                      const isSel = d === selectedDate;
-                      return (
-                        <button
-                          key={d}
-                          type="button"
-                          onClick={() => setSelectedDate(d)}
-                          className={`py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                            isSel
-                              ? "bg-[#4edea3] text-[#003824] shadow-[0_0_10px_rgba(78,222,163,0.6)] font-extrabold"
-                              : "text-on-surface hover:bg-[#242c27]"
-                          }`}
-                        >
-                          {d}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Time Slots Grid */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-on-surface">Terça-feira, {selectedDate} de Jul</span>
-                    <span className="text-[10px] font-mono text-[#4edea3]">6 horários disponíveis</span>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-2">
-                    {timeSlots.map((t) => {
-                      const isSel = selectedTime === t;
-                      return (
-                        <button
-                          key={t}
-                          onClick={() => setSelectedTime(t)}
-                          className={`py-2 text-xs font-bold rounded-xl border transition-all cursor-pointer ${
-                            isSel
-                              ? "bg-[#4edea3] text-[#003824] border-[#4edea3] shadow-[0_0_10px_rgba(78,222,163,0.4)]"
-                              : "bg-[#161d19] border-[#334155] text-on-surface hover:border-[#4edea3]/50"
-                          }`}
-                        >
-                          {t}
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  <p className="text-[11px] text-warning-amber mt-3 flex items-center gap-1 leading-tight">
-                    <span className="material-symbols-outlined text-xs">info</span>
-                    Serviços de tosa no período da manhã podem demorar um pouco mais...
-                  </p>
-                </div>
-              </div>
-            </section>
-
-            {/* Section 4: Endereço de Coleta (Pet Táxi) */}
-            <section className="space-y-4">
-              <h2 className="text-lg font-bold text-on-surface flex items-center gap-2">
-                <span className="material-symbols-outlined text-[#4edea3]">local_shipping</span>
-                Endereço de Coleta (Pet Táxi)
-              </h2>
-
-              <div className="bg-[#1e293b] border border-[#334155] p-5 rounded-2xl space-y-3">
-                <div className="relative">
-                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-sm">
-                    location_on
-                  </span>
-                  <input
-                    type="text"
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    placeholder="Digite o endereço para coleta do seu pet..."
-                    className="w-full bg-[#161d19] border border-[#334155] rounded-xl pl-9 pr-4 py-2.5 text-xs text-on-surface outline-none placeholder:text-outline"
-                  />
-                </div>
-
-                <button
-                  type="button"
-                  onClick={handleGetLocation}
-                  className="w-full py-2.5 bg-[#161d19] border border-[#4edea3]/30 text-[#4edea3] font-bold text-xs rounded-xl hover:bg-[#4edea3]/10 transition-all flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-sm">my_location</span>
-                  <span>Usar minha localização atual</span>
-                </button>
-              </div>
-            </section>
-
-            {/* Section 5: Resumo do Agendamento & Checkout */}
-            <section className="bg-[#1e293b] border border-[#334155] p-6 rounded-2xl space-y-4 shadow-xl">
-              <h3 className="font-bold text-base text-on-surface border-b border-[#334155]/50 pb-3">
-                Resumo do Agendamento
-              </h3>
-
-              <div className="flex items-center justify-between text-xs">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-[#4edea3]/20 flex items-center justify-center text-[#4edea3] font-bold">
-                    {selectedPet.charAt(0)}
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-on-surface">{selectedPet}</h4>
-                    <p className="text-on-surface-variant text-[11px]">{selectedService}</p>
-                  </div>
-                </div>
-
-                <div className="text-right">
-                  <span className="text-on-surface font-bold">{selectedDate} de Julho, 2026</span>
-                  <p className="text-on-surface-variant text-[11px]">{selectedTime} às 13:30</p>
-                </div>
-              </div>
-
-              <div className="pt-3 border-t border-[#334155]/40 space-y-1.5 text-xs">
-                <div className="flex justify-between text-on-surface-variant">
-                  <span>Subtotal</span>
-                  <span className="font-bold text-on-surface">R$ {servicePrice},00</span>
-                </div>
-                <div className="flex justify-between text-on-surface-variant">
-                  <span>Taxa de Agendamento</span>
-                  <span className="font-bold text-on-surface">R$ 0,00</span>
-                </div>
-                <div className="flex justify-between text-base font-bold text-on-surface pt-2 border-t border-[#334155]/40">
-                  <span>Total Estimado</span>
-                  <span className="text-[#4edea3]">R$ {servicePrice},00</span>
-                </div>
-              </div>
-
-              <button
-                onClick={handleConfirmBooking}
-                className="w-full py-4 bg-[#4edea3] text-[#003824] font-extrabold text-sm rounded-xl shadow-[0_0_15px_rgba(78,222,163,0.4)] hover:brightness-110 active:scale-98 transition-all flex items-center justify-center gap-2 cursor-pointer mt-2"
-              >
-                <span>Confirmar Agendamento</span>
-                <span className="material-symbols-outlined text-base">arrow_forward</span>
-              </button>
-            </section>
-          </main>
+    <div className="max-w-lg mx-auto pb-28 md:pb-8">
+      {/* Indicador de Progresso */}
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs font-bold text-primary">Passo {step} de 5 — {STEPS[step - 1].label}</span>
+          {step < 5 && (
+            <span className="text-[11px] text-on-surface-variant">{STEPS.length - step} restantes</span>
+          )}
+        </div>
+        <div className="h-1.5 w-full bg-surface-container rounded-full overflow-hidden">
+          <div
+            className="h-full bg-primary rounded-full transition-all duration-300"
+            style={{ width: `${(step / 5) * 100}%` }}
+          ></div>
         </div>
       </div>
 
-      {/* ========================================================================= */}
-      {/* 📱 MOBILE VIEW (Visible on mobile screens below md: block md:hidden) */}
-      {/* ========================================================================= */}
-      <div className="block md:hidden min-h-screen flex-1 flex flex-col">
-        {/* Mobile Top Bar */}
-        <header className="h-16 w-full flex justify-between items-center px-5 sticky top-0 z-40 bg-[#0e1511]/90 backdrop-blur-md border-b border-[#334155]">
-          <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-[#4edea3]">pets</span>
-            <span className="text-xl font-extrabold text-[#4edea3] tracking-tight">PetNexus</span>
+      {/* ===================== STEP 1: PET ===================== */}
+      {step === 1 && (
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-bold text-on-surface flex items-center gap-2">
+              <span className="material-symbols-outlined text-primary">pets</span>
+              Selecione o Pet
+            </h2>
+            <Link href="/client/pets" className="text-xs font-bold text-primary hover:underline flex items-center gap-1">
+              <span className="material-symbols-outlined text-sm">add</span> Novo Pet
+            </Link>
           </div>
 
-          <div className="w-8 h-8 rounded-full bg-surface-container border border-hairline-border overflow-hidden">
-            <img
-              src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80"
-              alt="User Avatar"
-              className="w-full h-full object-cover"
-            />
-          </div>
-        </header>
-
-        {/* Mobile Stepper (1 Pet, 2 Serviço, 3 Agenda, 4 Ok) */}
-        <nav className="px-5 py-3 bg-[#161d19] border-b border-[#334155]">
-          <div className="flex items-center justify-between relative">
-            <div className="absolute top-1/2 left-0 w-full h-[2px] bg-[#334155] -translate-y-1/2 z-0"></div>
-
-            <div className="relative z-10 flex flex-col items-center gap-0.5">
-              <div className="w-7 h-7 rounded-full bg-[#4edea3] text-[#003824] flex items-center justify-center font-bold text-xs">
-                1
-              </div>
-              <span className="text-[10px] font-bold text-[#4edea3]">Pet</span>
+          {isLoadingPets ? (
+            <div className="grid grid-cols-2 gap-3">
+              {[1, 2].map((i) => (
+                <div key={i} className="bg-surface-container border border-hairline-border rounded-2xl p-4 h-28 animate-pulse"></div>
+              ))}
             </div>
-
-            <div className="relative z-10 flex flex-col items-center gap-0.5">
-              <div className="w-7 h-7 rounded-full bg-[#2f3632] text-on-surface-variant flex items-center justify-center font-bold text-xs border border-[#334155]">
-                2
-              </div>
-              <span className="text-[10px] font-bold text-on-surface-variant">Serviço</span>
-            </div>
-
-            <div className="relative z-10 flex flex-col items-center gap-0.5">
-              <div className="w-7 h-7 rounded-full bg-[#2f3632] text-on-surface-variant flex items-center justify-center font-bold text-xs border border-[#334155]">
-                3
-              </div>
-              <span className="text-[10px] font-bold text-on-surface-variant">Agenda</span>
-            </div>
-
-            <div className="relative z-10 flex flex-col items-center gap-0.5">
-              <div className="w-7 h-7 rounded-full bg-[#2f3632] text-on-surface-variant flex items-center justify-center font-bold text-xs border border-[#334155]">
-                4
-              </div>
-              <span className="text-[10px] font-bold text-on-surface-variant">Ok</span>
-            </div>
-          </div>
-        </nav>
-
-        {/* Mobile Main Body with plenty of bottom padding (pb-64) so scrolling is completely clear of bottom bars */}
-        <main className="flex-1 p-4 max-w-xl w-full mx-auto space-y-6 pb-64">
-          {/* Seleção de Pet */}
-          <section className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-bold text-on-surface flex items-center gap-1.5">
-                <span className="material-symbols-outlined text-[#4edea3] text-base">pets</span>
-                Selecione o Pet
-              </h2>
-              <Link href="/client/pets" className="text-xs font-bold text-[#4edea3] flex items-center gap-1">
-                + Adicionar
+          ) : petsList.length === 0 ? (
+            <div className="bg-surface-container border border-hairline-border rounded-2xl p-6 text-center space-y-3">
+              <span className="material-symbols-outlined text-primary text-4xl">pets</span>
+              <p className="font-bold text-on-surface text-sm">Nenhum pet cadastrado ainda</p>
+              <p className="text-xs text-on-surface-variant">Cadastre seu pet para agendar um serviço.</p>
+              <Link href="/client/pets" className="inline-flex items-center gap-1.5 bg-primary text-on-primary px-4 py-2.5 rounded-xl text-xs font-bold">
+                <span className="material-symbols-outlined text-sm">add</span> Cadastrar Meu Pet
               </Link>
             </div>
-
-            {/* Horizontal Pets Cards */}
-            {isLoadingPets ? (
-              <div className="flex items-center gap-3 overflow-x-auto pb-1">
-                {[1, 2].map((i) => (
-                  <div key={i} className="min-w-[100px] bg-[#1e293b] border border-[#334155] rounded-2xl p-3 flex flex-col items-center gap-2 animate-pulse">
-                    <div className="w-12 h-12 rounded-full bg-surface-container-highest"></div>
-                    <div className="h-3 w-12 bg-surface-container-highest rounded"></div>
-                  </div>
-                ))}
-              </div>
-            ) : petsList.length === 0 ? (
-              <div className="bg-[#1e293b] border border-[#334155] rounded-2xl p-4 text-center flex flex-col items-center gap-2">
-                <span className="material-symbols-outlined text-[#4edea3] text-2xl">pets</span>
-                <p className="text-xs font-bold text-on-surface">Nenhum pet cadastrado</p>
-                <Link href="/client/pets" className="text-xs text-[#4edea3] font-bold underline">
-                  + Cadastrar Pet
-                </Link>
-              </div>
-            ) : (
-              <div className="flex items-center gap-3 overflow-x-auto custom-scrollbar pb-1">
-                {petsList.map((pet) => {
-                  const isSelected = selectedPet === pet.name;
-                  return (
-                    <div
-                      key={pet.id}
-                      onClick={() => setSelectedPet(pet.name)}
-                      className={`min-w-[100px] bg-[#1e293b] border rounded-2xl p-3 flex flex-col items-center gap-2 transition-all cursor-pointer ${
-                        isSelected
-                          ? "border-[#4edea3] ring-2 ring-[#4edea3]/50"
-                          : "border-[#334155] opacity-60"
-                      }`}
-                    >
-                      <div className="w-12 h-12 rounded-full overflow-hidden border border-[#4edea3]/40">
-                        <img src={pet.image} alt={pet.name} className="w-full h-full object-cover" />
-                      </div>
-                      <span className="text-xs font-bold text-on-surface">{pet.name}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </section>
-
-          {/* Endereço de Coleta (Pet Táxi) */}
-          <section className="space-y-3">
-            <div className="bg-[#1e293b] border border-[#334155] p-4 rounded-2xl space-y-2">
-              <div className="flex items-center gap-2 text-xs font-bold text-[#4edea3]">
-                <span className="material-symbols-outlined text-base">location_on</span>
-                <span>Endereço de Coleta</span>
-              </div>
-              <input
-                type="text"
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                placeholder="Buscar endereço..."
-                className="w-full bg-[#161d19] border border-[#334155] rounded-xl px-3 py-2 text-xs text-on-surface outline-none"
-              />
-              <button
-                type="button"
-                onClick={handleGetLocation}
-                className="w-full py-2 bg-[#161d19] border border-[#4edea3]/30 text-[#4edea3] font-bold text-[11px] rounded-xl flex items-center justify-center gap-1.5 cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-xs">my_location</span>
-                <span>Usar minha localização atual</span>
-              </button>
-            </div>
-          </section>
-
-          {/* Escolha o Serviço */}
-          <section className="space-y-3">
-            <h2 className="text-sm font-bold text-on-surface flex items-center gap-1.5">
-              <span className="material-symbols-outlined text-[#4edea3] text-base">content_cut</span>
-              Escolha o Serviço
-            </h2>
-
-            <div className="space-y-2.5">
-              {servicesList.map((serv) => {
-                const isSelected = selectedService === serv.title;
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              {petsList.map((pet) => {
+                const isSelected = selectedPetId === pet.id;
                 return (
-                  <div
-                    key={serv.id}
-                    onClick={() => handleSelectService(serv.title, serv.price, serv.duration)}
-                    className={`bg-[#1e293b] border rounded-2xl p-4 flex items-center justify-between transition-all cursor-pointer ${
-                      isSelected
-                        ? "border-[#4edea3] ring-1 ring-[#4edea3]"
-                        : "border-[#334155]"
+                  <button
+                    key={pet.id}
+                    onClick={() => setSelectedPetId(pet.id)}
+                    className={`bg-surface-container border rounded-2xl p-4 flex flex-col items-center gap-2 transition-all cursor-pointer min-h-[112px] ${
+                      isSelected ? "border-primary ring-2 ring-primary/40 bg-primary/5" : "border-hairline-border hover:border-primary/40"
                     }`}
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-[#4edea3]/10 flex items-center justify-center text-[#4edea3]">
-                        <span className="material-symbols-outlined">water_drop</span>
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-xs text-on-surface">{serv.title}</h4>
-                        <p className="text-[10px] text-outline">{serv.duration} • Táxi incluído</p>
-                      </div>
+                    <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-primary/30">
+                      <img src={pet.image} alt={pet.name} className="w-full h-full object-cover" />
                     </div>
-
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-xs text-[#4edea3]">R$ {serv.price},00</span>
-                      {isSelected && (
-                        <span className="material-symbols-outlined text-[#4edea3] text-lg">check_circle</span>
-                      )}
+                    <div className="text-center">
+                      <h3 className="font-bold text-sm text-on-surface">{pet.name}</h3>
+                      <p className="text-[11px] text-on-surface-variant">{pet.breed}</p>
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
-          </section>
+          )}
+        </section>
+      )}
 
-          {/* Data e Horário (Mobile Full Calendar Grid + Time Slots) */}
-          <section className="space-y-3">
-            <h2 className="text-sm font-bold text-on-surface flex items-center gap-1.5">
-              <span className="material-symbols-outlined text-[#4edea3] text-base">calendar_today</span>
-              Data e Horário
-            </h2>
+      {/* ===================== STEP 2: ENDEREÇO ===================== */}
+      {step === 2 && (
+        <section className="space-y-4">
+          <h2 className="text-base font-bold text-on-surface flex items-center gap-2">
+            <span className="material-symbols-outlined text-primary">location_on</span>
+            Endereço de Coleta
+          </h2>
+          {isLoadingAddress ? (
+            <div className="h-24 bg-surface-container border border-hairline-border rounded-2xl animate-pulse"></div>
+          ) : (
+            <div className="bg-surface-container border border-hairline-border rounded-2xl p-4 space-y-2">
+              <label className="text-xs font-bold text-on-surface-variant block">Endereço completo</label>
+              <textarea
+                rows={3}
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                placeholder="Rua, número, bairro, cidade..."
+                autoFocus
+                className="w-full bg-matte-canvas border border-hairline-border rounded-xl px-3 py-3 text-sm text-on-surface outline-none focus:border-primary placeholder:text-outline resize-none"
+              />
+              <p className="text-[11px] text-on-surface-variant">Esse endereço fica salvo no seu perfil para os próximos agendamentos.</p>
+            </div>
+          )}
+        </section>
+      )}
 
-            <div className="bg-[#1e293b] border border-[#334155] p-4 rounded-2xl space-y-4">
-              {/* Full Month Mobile Calendar Grid */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-xs font-bold text-on-surface">
-                  <span>{selectedMonth}</span>
-                  <span className="text-[10px] text-[#4edea3]">Dia {selectedDate} selecionado</span>
-                </div>
+      {/* ===================== STEP 3: SERVIÇO ===================== */}
+      {step === 3 && (
+        <section className="space-y-4">
+          <h2 className="text-base font-bold text-on-surface flex items-center gap-2">
+            <span className="material-symbols-outlined text-primary">content_cut</span>
+            Escolha o Serviço
+          </h2>
+          {isLoadingServices ? (
+            <div className="space-y-2.5">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="bg-surface-container border border-hairline-border rounded-2xl h-20 animate-pulse"></div>
+              ))}
+            </div>
+          ) : servicesList.length === 0 ? (
+            <p className="text-sm text-on-surface-variant text-center py-8">Nenhum serviço disponível no momento.</p>
+          ) : (
+            <div className="space-y-2.5">
+              {servicesList.map((serv) => {
+                const isSelected = selectedServiceId === serv.id;
+                return (
+                  <button
+                    key={serv.id}
+                    onClick={() => setSelectedServiceId(serv.id)}
+                    className={`w-full text-left bg-surface-container border rounded-2xl p-4 flex items-center justify-between gap-3 transition-all cursor-pointer min-h-[64px] ${
+                      isSelected ? "border-primary ring-2 ring-primary/30 bg-primary/5" : "border-hairline-border hover:border-primary/40"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                        <span className="material-symbols-outlined">water_drop</span>
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="font-bold text-sm text-on-surface truncate">{serv.title}</h4>
+                        <p className="text-[11px] text-on-surface-variant">{serv.duration}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="font-bold text-sm text-primary">R$ {serv.price.toFixed(2)}</span>
+                      {isSelected && <span className="material-symbols-outlined text-primary">check_circle</span>}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      )}
 
-                <div className="grid grid-cols-7 text-center text-[10px] font-bold text-outline">
-                  <div>D</div><div>S</div><div>T</div><div>Q</div><div>Q</div><div>S</div><div>S</div>
-                </div>
+      {/* ===================== STEP 4: DATA E HORÁRIO ===================== */}
+      {step === 4 && (
+        <section className="space-y-4">
+          <h2 className="text-base font-bold text-on-surface flex items-center gap-2">
+            <span className="material-symbols-outlined text-primary">calendar_today</span>
+            Data e Horário
+          </h2>
 
-                <div className="grid grid-cols-7 text-center gap-1">
-                  <div className="py-1 text-xs text-outline/30 font-bold">27</div>
-                  <div className="py-1 text-xs text-outline/30 font-bold">28</div>
-                  <div className="py-1 text-xs text-outline/30 font-bold">29</div>
-                  <div className="py-1 text-xs text-outline/30 font-bold">30</div>
-                  <div className="py-1 text-xs text-outline/30 font-bold">31</div>
+          <div className="bg-surface-container border border-hairline-border rounded-2xl p-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <button onClick={handlePrevMonth} className="p-1.5 rounded-lg hover:bg-surface-container-high cursor-pointer">
+                <span className="material-symbols-outlined text-on-surface-variant">chevron_left</span>
+              </button>
+              <span className="text-sm font-bold text-on-surface capitalize">{monthLabel}</span>
+              <button onClick={handleNextMonth} className="p-1.5 rounded-lg hover:bg-surface-container-high cursor-pointer">
+                <span className="material-symbols-outlined text-on-surface-variant">chevron_right</span>
+              </button>
+            </div>
 
-                  {Array.from({ length: 30 }, (_, i) => i + 1).map((d) => {
-                    const isSel = d === selectedDate;
-                    return (
-                      <button
-                        key={d}
-                        type="button"
-                        onClick={() => setSelectedDate(d)}
-                        className={`py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                          isSel
-                            ? "bg-[#4edea3] text-[#003824] shadow-[0_0_8px_rgba(78,222,163,0.6)] font-extrabold"
-                            : "text-on-surface hover:bg-[#242c27]"
-                        }`}
-                      >
-                        {d}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+            <div className="grid grid-cols-7 text-center text-[10px] font-bold text-outline">
+              <div>D</div><div>S</div><div>T</div><div>Q</div><div>Q</div><div>S</div><div>S</div>
+            </div>
+            <div className="grid grid-cols-7 gap-1 text-center">
+              {monthGridCells.map((cell, idx) =>
+                !cell.inCurrentMonth ? (
+                  <div key={`out-${idx}`} className="py-2 text-xs text-outline/30 font-bold">{cell.day}</div>
+                ) : (
+                  <button
+                    key={`day-${cell.day}`}
+                    disabled={isPastDate(cell.day)}
+                    onClick={() => setSelectedDate(cell.day)}
+                    className={`py-2 text-xs font-bold rounded-lg transition-all min-h-[36px] ${
+                      isPastDate(cell.day)
+                        ? "text-outline/30 cursor-not-allowed"
+                        : cell.day === selectedDate
+                        ? "bg-primary text-on-primary shadow-md cursor-pointer"
+                        : "text-on-surface hover:bg-surface-container-high cursor-pointer"
+                    }`}
+                  >
+                    {cell.day}
+                  </button>
+                )
+              )}
+            </div>
 
-              {/* Time Slots Options */}
-              <div className="pt-3 border-t border-[#334155]/40 space-y-2">
-                <span className="text-xs font-bold text-on-surface block">Horários Disponíveis</span>
+            <div className="pt-3 border-t border-hairline-border/50 space-y-2">
+              <span className="text-xs font-bold text-on-surface capitalize block">{selectedDateLabel}</span>
+              {isLoadingSlots ? (
                 <div className="grid grid-cols-3 gap-2">
-                  {timeSlots.map((t) => {
+                  {[1, 2, 3, 4, 5, 6].map((i) => (
+                    <div key={i} className="h-10 bg-matte-canvas border border-hairline-border rounded-xl animate-pulse"></div>
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-2">
+                  {TIME_SLOTS.map((t) => {
+                    const taken = isSlotTaken(t);
                     const isSel = selectedTime === t;
                     return (
                       <button
                         key={t}
-                        type="button"
+                        disabled={taken}
                         onClick={() => setSelectedTime(t)}
-                        className={`py-2 text-xs font-bold rounded-xl border transition-all cursor-pointer ${
-                          isSel
-                            ? "bg-[#4edea3] text-[#003824] border-[#4edea3] font-extrabold shadow-[0_0_8px_rgba(78,222,163,0.4)]"
-                            : "bg-[#161d19] border-[#334155] text-on-surface"
+                        className={`py-2.5 text-xs font-bold rounded-xl border transition-all min-h-[42px] ${
+                          taken
+                            ? "bg-matte-canvas border-hairline-border/50 text-outline/40 cursor-not-allowed line-through"
+                            : isSel
+                            ? "bg-primary text-on-primary border-primary shadow-md cursor-pointer"
+                            : "bg-matte-canvas border-hairline-border text-on-surface hover:border-primary/50 cursor-pointer"
                         }`}
                       >
                         {t}
@@ -741,29 +476,104 @@ export default function AgendarServicoPage() {
                     );
                   })}
                 </div>
-              </div>
+              )}
+              {!isLoadingSlots && TIME_SLOTS.every((t) => isSlotTaken(t)) && (
+                <p className="text-[11px] text-amber-400 text-center pt-1">Não há horários livres neste dia. Escolha outra data.</p>
+              )}
             </div>
-          </section>
-        </main>
+          </div>
+        </section>
+      )}
 
-        {/* Mobile Sticky Bottom Summary Bar */}
-        <div className="fixed bottom-14 left-0 right-0 z-40 bg-[#1e293b] border-t border-[#334155] p-4 flex flex-col gap-2 shadow-2xl">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-on-surface-variant font-medium">
-              {selectedPet} • {selectedService} ({selectedDate} de Jul, {selectedTime})
-            </span>
-            <span className="font-extrabold text-[#4edea3] text-sm">R$ {servicePrice},00</span>
+      {/* ===================== STEP 5: RESUMO ===================== */}
+      {step === 5 && (
+        <section className="space-y-4">
+          <h2 className="text-base font-bold text-on-surface flex items-center gap-2">
+            <span className="material-symbols-outlined text-primary">receipt_long</span>
+            Resumo do Agendamento
+          </h2>
+
+          <div className="bg-surface-container border border-hairline-border rounded-2xl divide-y divide-hairline-border/60 overflow-hidden">
+            <SummaryRow icon="pets" label="Pet" value={selectedPet?.name || "—"} onEdit={() => setStep(1)} />
+            <SummaryRow icon="location_on" label="Endereço" value={address || "—"} onEdit={() => setStep(2)} multiline />
+            <SummaryRow icon="content_cut" label="Serviço" value={selectedService?.title || "—"} onEdit={() => setStep(3)} />
+            <SummaryRow
+              icon="calendar_today"
+              label="Data e Horário"
+              value={`${selectedDateLabel}, ${selectedTime}`}
+              onEdit={() => setStep(4)}
+            />
+            <div className="flex items-center justify-between px-4 py-4 bg-primary/5">
+              <span className="text-sm font-bold text-on-surface">Valor Total</span>
+              <span className="text-lg font-extrabold text-primary">R$ {(selectedService?.price || 0).toFixed(2)}</span>
+            </div>
           </div>
 
+          <p className="text-[11px] text-on-surface-variant text-center px-4">
+            Ao confirmar, seu agendamento será enviado para a equipe e você receberá uma notificação de confirmação.
+          </p>
+        </section>
+      )}
+
+      {/* ===================== BARRA DE AÇÕES (fixa no mobile) ===================== */}
+      <div className="fixed md:sticky bottom-16 md:bottom-0 left-0 right-0 md:mt-6 bg-matte-canvas/95 md:bg-transparent backdrop-blur-lg md:backdrop-blur-none border-t md:border-t-0 border-hairline-border p-4 md:p-0 flex gap-3 z-30">
+        {step > 1 && (
           <button
-            onClick={handleConfirmBooking}
-            className="w-full py-3.5 bg-[#4edea3] text-[#003824] font-extrabold text-sm rounded-xl shadow-lg active:scale-98 transition-all flex items-center justify-center gap-2 cursor-pointer"
+            onClick={goBack}
+            className="flex-1 md:flex-none md:px-8 py-3.5 bg-surface-container border border-hairline-border text-on-surface font-bold text-sm rounded-xl hover:bg-surface-container-high transition-all cursor-pointer"
           >
-            <span>Confirmar Agendamento</span>
+            Voltar
+          </button>
+        )}
+        {step < 5 ? (
+          <button
+            onClick={goNext}
+            disabled={!canProceed()}
+            className="flex-[2] md:flex-none md:px-10 py-3.5 bg-primary text-on-primary font-bold text-sm rounded-xl extruded-shadow hover:brightness-110 active:scale-[0.98] transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            Continuar
             <span className="material-symbols-outlined text-base">arrow_forward</span>
           </button>
+        ) : (
+          <button
+            onClick={handleConfirmBooking}
+            disabled={isSubmitting}
+            className="flex-[2] md:flex-none md:px-10 py-3.5 bg-primary text-on-primary font-bold text-sm rounded-xl extruded-shadow hover:brightness-110 active:scale-[0.98] transition-all cursor-pointer disabled:opacity-60 flex items-center justify-center gap-2"
+          >
+            {isSubmitting ? "Confirmando..." : "Confirmar Agendamento"}
+            <span className="material-symbols-outlined text-base">check_circle</span>
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SummaryRow({
+  icon,
+  label,
+  value,
+  onEdit,
+  multiline,
+}: {
+  icon: string;
+  label: string;
+  value: string;
+  onEdit: () => void;
+  multiline?: boolean;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-3 px-4 py-3.5">
+      <div className="flex items-start gap-3 min-w-0">
+        <span className="material-symbols-outlined text-primary text-lg mt-0.5">{icon}</span>
+        <div className="min-w-0">
+          <p className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wide">{label}</p>
+          <p className={`text-sm font-bold text-on-surface ${multiline ? "" : "truncate"}`}>{value}</p>
         </div>
       </div>
-    </>
+      <button onClick={onEdit} className="text-[11px] font-bold text-primary hover:underline shrink-0 cursor-pointer">
+        Editar
+      </button>
+    </div>
   );
 }

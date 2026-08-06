@@ -1,22 +1,31 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
 interface HistoryItem {
   id: string;
   petName: string;
-  petSpecies: string;
   petBreed: string;
   petPhoto: string;
   serviceName: string;
   date: string;
   time: string;
-  location: string;
   price: number;
   status: "completed" | "cancelled" | "in_progress";
   notes?: string;
 }
+
+const STATUS_MAP: Record<string, HistoryItem["status"] | null> = {
+  concluido: "completed",
+  cancelado: "cancelled",
+  em_atendimento: "in_progress",
+  agendado: null,
+  confirmado: null,
+  bloqueio: null,
+};
+
+const FALLBACK_PHOTO = "https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&w=300&q=80";
 
 export default function ClientHistoricoPage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -24,70 +33,60 @@ export default function ClientHistoricoPage() {
   const [selectedStatusFilter, setSelectedStatusFilter] = useState("todos");
   const [selectedItemDetail, setSelectedItemDetail] = useState<HistoryItem | null>(null);
 
-  const historyData: HistoryItem[] = [
-    {
-      id: "1",
-      petName: "Max",
-      petSpecies: "Cachorro",
-      petBreed: "Golden Retriever",
-      petPhoto: "https://images.unsplash.com/photo-1552053831-71594a27632d?auto=format&fit=crop&w=300&q=80",
-      serviceName: "Banho Completo & Hidratação",
-      date: "12 Out, 2026",
-      time: "09:30 AM",
-      location: "Unidade Jardins SP • Rua Oscar Freire, 1200",
-      price: 85,
-      status: "completed",
-      notes: "Shampoo hipoalergênico aplicado. Corte de unhas e limpeza auricular concluídos sem intercorrências.",
-    },
-    {
-      id: "2",
-      petName: "Luna",
-      petSpecies: "Gato",
-      petBreed: "Siamesa",
-      petPhoto: "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?auto=format&fit=crop&w=300&q=80",
-      serviceName: "Spa Premium & Escovação",
-      date: "28 Set, 2026",
-      time: "14:00 PM",
-      location: "Unidade Jardins SP • Av. Paulista, 1000",
-      price: 145,
-      status: "completed",
-      notes: "Hidratação de pelagem e desembolo delicado. Pet comportou-se de maneira exemplar.",
-    },
-    {
-      id: "3",
-      petName: "Thor",
-      petSpecies: "Cachorro",
-      petBreed: "Golden Retriever",
-      petPhoto: "https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?auto=format&fit=crop&w=300&q=80",
-      serviceName: "Banho + Tosa Bebê",
-      date: "28 Jul, 2026",
-      time: "15:30 PM",
-      location: "Unidade Jardins SP • Rua Oscar Freire, 1200",
-      price: 120,
-      status: "in_progress",
-      notes: "Atendimento em andamento na sala de tosa com Ricardo M.",
-    },
-    {
-      id: "4",
-      petName: "Bolt",
-      petSpecies: "Cachorro",
-      petBreed: "Jack Russell",
-      petPhoto: "https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&w=300&q=80",
-      serviceName: "Banho & Tosa Higiênica",
-      date: "15 Set, 2026",
-      time: "11:00 AM",
-      location: "Unidade Jardins SP • Rua Oscar Freire, 1200",
-      price: 110,
-      status: "cancelled",
-      notes: "Cancelado pelo tutor via aplicativo 2 horas antes do horário.",
-    },
-  ];
+  const [historyData, setHistoryData] = useState<HistoryItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const loadHistorico = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const res = await fetch("/api/appointments");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Não foi possível carregar o histórico.");
+
+      const mapped: HistoryItem[] = (data.appointments || [])
+        .map((a: any) => {
+          const status = STATUS_MAP[a.status];
+          if (!status) return null;
+          const d = new Date(a.scheduled_at);
+          return {
+            id: a.id,
+            petName: a.pet_name,
+            petBreed: a.pet_breed || "",
+            petPhoto: a.pet_photo || FALLBACK_PHOTO,
+            serviceName: a.service_type,
+            date: d.toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" }),
+            time: d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+            price: Number(a.price) || 0,
+            status,
+            notes: a.notes || undefined,
+          } as HistoryItem;
+        })
+        .filter(Boolean) as HistoryItem[];
+
+      setHistoryData(mapped);
+    } catch (err: any) {
+      console.error("Erro ao carregar histórico:", err);
+      setLoadError(err.message || "Erro ao carregar histórico.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadHistorico();
+  }, []);
+
+  const petOptions = useMemo(
+    () => Array.from(new Set(historyData.map((item) => item.petName))),
+    [historyData]
+  );
 
   const filteredItems = historyData.filter((item) => {
     const matchesSearch =
       item.petName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.serviceName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.location.toLowerCase().includes(searchTerm.toLowerCase());
+      item.serviceName.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesPet =
       selectedPetFilter === "Todos os Pets" || item.petName === selectedPetFilter;
@@ -120,7 +119,7 @@ export default function ClientHistoricoPage() {
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Ex: Banho, Max, Jardins..."
+                  placeholder="Ex: Banho, Max..."
                   className="w-full bg-elevated-card border border-hairline-border rounded-xl pl-9 pr-3 py-2.5 text-xs text-on-surface placeholder:text-outline outline-none focus:border-primary transition-colors"
                 />
               </div>
@@ -137,10 +136,11 @@ export default function ClientHistoricoPage() {
                 className="w-full bg-elevated-card border border-hairline-border rounded-xl px-3 py-2.5 text-xs text-on-surface outline-none cursor-pointer focus:border-primary transition-colors"
               >
                 <option value="Todos os Pets">Todos os Pets</option>
-                <option value="Max">Max (Golden Retriever)</option>
-                <option value="Luna">Luna (Siamesa)</option>
-                <option value="Thor">Thor (Golden Retriever)</option>
-                <option value="Bolt">Bolt (Jack Russell)</option>
+                {petOptions.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -187,7 +187,23 @@ export default function ClientHistoricoPage() {
 
         {/* History Cards List */}
         <div className="space-y-4">
-          {filteredItems.length === 0 ? (
+          {isLoading ? (
+            <div className="bg-surface-container border border-hairline-border rounded-2xl p-12 text-center space-y-3">
+              <span className="material-symbols-outlined text-4xl animate-spin text-primary">sync</span>
+              <p className="font-bold text-on-surface">Carregando histórico...</p>
+            </div>
+          ) : loadError ? (
+            <div className="bg-surface-container border border-rose-500/30 rounded-2xl p-12 text-center space-y-3">
+              <span className="material-symbols-outlined text-4xl text-rose-400">error</span>
+              <p className="font-bold text-rose-400">{loadError}</p>
+              <button
+                onClick={loadHistorico}
+                className="bg-primary text-on-primary font-bold text-xs px-4 py-2 rounded-xl hover:brightness-110 cursor-pointer"
+              >
+                Tentar novamente
+              </button>
+            </div>
+          ) : filteredItems.length === 0 ? (
             <div className="bg-surface-container border border-hairline-border rounded-2xl p-12 text-center space-y-3">
               <span className="material-symbols-outlined text-4xl text-outline">history_toggle_off</span>
               <h3 className="text-base font-bold text-on-surface">Nenhum atendimento encontrado</h3>
@@ -248,7 +264,7 @@ export default function ClientHistoricoPage() {
                         {item.petName}
                       </h3>
                       <span className="text-xs text-on-surface-variant block">
-                        {item.petSpecies} • {item.petBreed}
+                        {item.petBreed}
                       </span>
                       <div className="mt-1.5">
                         {item.status === "completed" && (
@@ -273,7 +289,7 @@ export default function ClientHistoricoPage() {
                   </div>
 
                   {/* Details Grid */}
-                  <div className="flex-1 grid grid-cols-2 lg:grid-cols-4 gap-4 pt-4 lg:pt-0 border-t lg:border-t-0 border-hairline-border/50">
+                  <div className="flex-1 grid grid-cols-2 lg:grid-cols-3 gap-4 pt-4 lg:pt-0 border-t lg:border-t-0 border-hairline-border/50">
                     <div>
                       <p className="text-[10px] font-bold text-outline uppercase tracking-wider">SERVIÇO</p>
                       <p className="text-sm font-bold text-on-surface mt-0.5">{item.serviceName}</p>
@@ -283,14 +299,6 @@ export default function ClientHistoricoPage() {
                       <p className="text-[10px] font-bold text-outline uppercase tracking-wider">DATA E HORA</p>
                       <p className="text-sm font-bold text-on-surface mt-0.5">
                         {item.date} • {item.time}
-                      </p>
-                    </div>
-
-                    <div className="col-span-2 lg:col-span-1">
-                      <p className="text-[10px] font-bold text-outline uppercase tracking-wider">LOCALIZAÇÃO</p>
-                      <p className="text-xs text-on-surface-variant truncate mt-0.5 flex items-center gap-1">
-                        <span className="material-symbols-outlined text-xs">location_on</span>
-                        {item.location}
                       </p>
                     </div>
 
@@ -313,7 +321,7 @@ export default function ClientHistoricoPage() {
                     </button>
 
                     <Link
-                      href="/agendar"
+                      href="/client/agenda"
                       className="flex-1 lg:flex-initial px-4 py-2.5 bg-primary/10 border border-primary/30 hover:bg-primary/20 text-primary font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1.5"
                     >
                       <span className="material-symbols-outlined text-sm">repeat</span>
@@ -360,12 +368,12 @@ export default function ClientHistoricoPage() {
                   <div>
                     <h4 className="font-bold text-on-surface">{selectedItemDetail.petName}</h4>
                     <span className="text-[11px] text-on-surface-variant">
-                      {selectedItemDetail.petSpecies} • {selectedItemDetail.petBreed}
+                      {selectedItemDetail.petBreed}
                     </span>
                   </div>
                 </div>
                 <span className="px-2.5 py-1 bg-primary/20 text-primary font-bold text-[10px] rounded-full uppercase">
-                  {selectedItemDetail.status === "completed" ? "Concluído" : selectedItemDetail.status}
+                  {selectedItemDetail.status === "completed" ? "Concluído" : selectedItemDetail.status === "cancelled" ? "Cancelado" : "Em Andamento"}
                 </span>
               </div>
 
@@ -377,10 +385,6 @@ export default function ClientHistoricoPage() {
                 <div className="flex justify-between">
                   <span className="text-on-surface-variant">Data & Hora:</span>
                   <span className="font-bold text-on-surface">{selectedItemDetail.date} às {selectedItemDetail.time}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-on-surface-variant">Unidade:</span>
-                  <span className="font-bold text-on-surface">{selectedItemDetail.location}</span>
                 </div>
                 <div className="flex justify-between pt-2 border-t border-hairline-border/50 text-sm font-bold">
                   <span className="text-on-surface">Total Pago:</span>
@@ -404,7 +408,7 @@ export default function ClientHistoricoPage() {
                 Fechar
               </button>
               <Link
-                href="/agendar"
+                href="/client/agenda"
                 className="flex-1 bg-primary text-on-primary font-bold text-center py-3 rounded-xl extruded-shadow hover:brightness-110 transition-all"
               >
                 Reagendar Serviço

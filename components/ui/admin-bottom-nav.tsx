@@ -20,9 +20,9 @@ export function AdminBottomNav() {
         <span className="material-symbols-outlined">group</span>
         <span className="font-label-muted text-label-muted">Clients</span>
       </Link>
-      <Link className="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-all" href="/admin/configuracoes">
+      <Link className="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-all" href="/admin/servicos">
         <span className="material-symbols-outlined">settings</span>
-        <span className="font-label-muted text-label-muted">Settings</span>
+        <span className="font-label-muted text-label-muted">Serviços</span>
       </Link>
     </nav>
   );

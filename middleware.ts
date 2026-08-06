@@ -39,6 +39,30 @@ export async function middleware(request: NextRequest) {
     pathname === "/auth/login" ||
     pathname === "/auth/register-google" ||
     pathname === "/auth/register-admin";
+  const isAdminApiRoute = pathname.startsWith("/api/admin");
+
+  // 0. Rotas /api/admin/* usam a service-role key internamente, então precisam
+  // ser protegidas aqui — o prefixo "/admin" acima não cobre "/api/admin".
+  if (isAdminApiRoute) {
+    if (!user) {
+      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+    }
+
+    const { createAdminClient } = await import("@/lib/supabase/admin");
+    const adminSupabase = createAdminClient();
+
+    const { data: profile } = await adminSupabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (!profile || profile.role !== "admin") {
+      return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
+    }
+
+    return supabaseResponse;
+  }
 
   // 1. Se NÃO ESTÁ LOGADO e tenta acessar páginas privadas, redireciona para login
   if (!user && isPrivateRoute) {
@@ -68,7 +92,7 @@ export async function middleware(request: NextRequest) {
     // 2b. Se é CLIENTE tentando acessar /admin → bloquear e redirecionar para /client
     if (profile && pathname.startsWith("/admin") && profile.role !== "admin") {
       const url = request.nextUrl.clone();
-      url.pathname = "/admin";
+      url.pathname = "/client";
       return NextResponse.redirect(url);
     }
 

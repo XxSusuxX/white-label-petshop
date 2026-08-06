@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { findSchedulingConflict } from "@/lib/server/booking";
+import { createNotification, getClientIdForPet } from "@/lib/server/notifications";
+
+export const dynamic = "force-dynamic";
+
+const PET_SHOP_ID = "00000000-0000-0000-0000-000000000001";
 
 export async function GET() {
   try {
@@ -19,17 +25,19 @@ export async function GET() {
       profiles.forEach((pr) => profileMap.set(pr.id, pr));
     }
 
-    // 3. Buscar agendamentos da tabela appointments (nova) + fallback para service_history (legado)
+    // 3. Buscar agendamentos da tabela appointments (fonte de verdade).
+    // Só cai para o histórico legado (service_history) se a própria consulta falhar
+    // (ex.: tabela ainda não migrada) — uma lista real vazia continua vazia, nunca é
+    // mascarada com dados antigos de service_history como se fossem atuais.
     let appointmentsList: any[] = [];
 
-    // Tentar appointments primeiro
     const { data: appointments, error: apptErr } = await adminSupabase
       .from("appointments")
       .select("*")
       .order("scheduled_at", { ascending: false });
 
-    if (!apptErr && appointments && appointments.length > 0) {
-      appointmentsList = appointments.map((a) => {
+    if (!apptErr) {
+      appointmentsList = (appointments || []).map((a) => {
         const pet = petMap.get(a.pet_id);
         const tutor = pet ? profileMap.get(pet.client_id) : null;
 
@@ -47,22 +55,28 @@ export async function GET() {
           pet_breed: pet ? `${pet.breed || pet.species}` : "Vira-Lata",
           pet_species: pet ? pet.species : "Cachorro",
           pet_photo: pet?.photo_url || null,
+          tutor_id: pet?.client_id || null,
           tutor_name: tutor ? tutor.full_name : "Tutor Não Identificado",
           tutor_phone: tutor ? tutor.phone : "Não informado",
+          service_id: a.service_id || null,
           service_type: a.service_type || "Banho & Tosa",
           status: a.status || "agendado",
           professional: a.professional || "Não atribuído",
-          price: a.price || 85.0,
+          price: a.price ?? 85.0,
           day,
           month,
           year,
           date_iso: a.scheduled_at,
           time: `${hours}:${minutes}`,
           notes: a.notes || "",
+          address: a.address || "",
+          created_at: a.created_at,
+          updated_at: a.updated_at,
         };
       });
     } else {
-      // Fallback: ler de service_history (legado)
+      // Fallback apenas em caso de erro real na consulta (ex.: tabela indisponível)
+      console.warn("Falha ao consultar appointments, usando service_history como fallback:", apptErr.message);
       const { data: history } = await adminSupabase
         .from("service_history")
         .select("*")
@@ -86,8 +100,10 @@ export async function GET() {
           pet_breed: pet ? `${pet.breed || pet.species}` : "Vira-Lata",
           pet_species: pet ? pet.species : "Cachorro",
           pet_photo: pet?.photo_url || null,
+          tutor_id: pet?.client_id || null,
           tutor_name: tutor ? tutor.full_name : "Tutor Não Identificado",
           tutor_phone: tutor ? tutor.phone : "Não informado",
+          service_id: null,
           service_type: h.service_type || "Banho & Tosa",
           status: h.notes?.includes("cancelado")
             ? "cancelado"
@@ -104,6 +120,8 @@ export async function GET() {
           date_iso: h.service_date || h.created_at,
           time: `${hours}:${minutes}`,
           notes: h.notes || "",
+          created_at: h.created_at,
+          updated_at: h.created_at,
         };
       });
     }
@@ -119,56 +137,67 @@ export async function GET() {
   }
 }
 
-// POST: Criar novo agendamento na tabela appointments
+// POST: Criar novo agendamento na tabela appointments (feito pelo admin)
 export async function POST(request: Request) {
   try {
     const adminSupabase = createAdminClient();
     const body = await request.json();
 
-    const { pet_id, service_type, service_date, notes, professional, price } = body;
+    const { pet_id, service_id, service_type, service_date, notes, address, professional, price, force } = body;
 
-    if (!pet_id || !service_type) {
+    if (!pet_id || !service_type || !service_date) {
       return NextResponse.json(
-        { error: "pet_id e service_type são obrigatórios" },
+        { error: "pet_id, service_type e service_date são obrigatórios" },
         { status: 400 }
       );
     }
 
-    // Tentar inserir na tabela appointments (nova)
+    if (!force) {
+      const conflict = await findSchedulingConflict({
+        scheduledAt: service_date,
+        serviceId: service_id,
+        professional,
+      });
+      if (conflict) {
+        return NextResponse.json(
+          { error: "Já existe um agendamento nesse horário.", conflict },
+          { status: 409 }
+        );
+      }
+    }
+
     const { data: newRow, error: insertErr } = await adminSupabase
       .from("appointments")
       .insert({
         pet_id,
-        pet_shop_id: "00000000-0000-0000-0000-000000000001",
+        service_id: service_id || null,
+        pet_shop_id: PET_SHOP_ID,
         service_type,
-        scheduled_at: service_date || new Date().toISOString(),
+        scheduled_at: service_date,
         professional: professional || "Não atribuído",
-        price: price || 85.0,
+        price: price ?? 85.0,
         status: "agendado",
         notes: notes || "",
+        address: address || "",
       })
       .select()
       .single();
 
     if (insertErr) {
-      // Fallback: inserir em service_history (legado)
-      console.warn("Tabela appointments não disponível, usando service_history:", insertErr.message);
-      const { data: legacyRow, error: legacyErr } = await adminSupabase
-        .from("service_history")
-        .insert({
-          pet_id,
-          pet_shop_id: "00000000-0000-0000-0000-000000000001",
-          service_type,
-          service_date: service_date || new Date().toISOString(),
-          notes: notes || `Profissional: ${professional || "Groomer"}`,
-        })
-        .select()
-        .single();
+      console.error("Erro ao inserir agendamento:", insertErr);
+      return NextResponse.json({ error: insertErr.message }, { status: 500 });
+    }
 
-      if (legacyErr) {
-        return NextResponse.json({ error: legacyErr.message }, { status: 500 });
-      }
-      return NextResponse.json({ appointment: legacyRow, success: true });
+    const clientId = await getClientIdForPet(pet_id);
+    if (clientId) {
+      const dateLabel = new Date(service_date).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+      await createNotification({
+        clientId,
+        appointmentId: newRow.id,
+        type: "agendamento_confirmado",
+        title: "Agendamento confirmado",
+        body: `Seu agendamento de ${service_type} foi confirmado para ${dateLabel}.`,
+      });
     }
 
     return NextResponse.json({ appointment: newRow, success: true });
@@ -178,23 +207,53 @@ export async function POST(request: Request) {
   }
 }
 
-// PATCH: Alterar status de um agendamento existente
+// PATCH: Alterar status e/ou reagendar (data, serviço, profissional, pet, observações)
 export async function PATCH(request: Request) {
   try {
     const adminSupabase = createAdminClient();
     const body = await request.json();
 
-    const { id, status, notes } = body;
+    const { id, status, notes, address, service_date, service_id, service_type, professional, price, force } = body;
 
-    if (!id || !status) {
-      return NextResponse.json(
-        { error: "id e status são obrigatórios" },
-        { status: 400 }
-      );
+    if (!id) {
+      return NextResponse.json({ error: "id é obrigatório" }, { status: 400 });
     }
 
-    const updateData: any = { status };
+    const { data: existing, error: fetchErr } = await adminSupabase
+      .from("appointments")
+      .select("*")
+      .eq("id", id)
+      .single();
+
+    if (fetchErr || !existing) {
+      return NextResponse.json({ error: "Agendamento não encontrado" }, { status: 404 });
+    }
+
+    const isReschedule = service_date !== undefined && service_date !== existing.scheduled_at;
+    if (isReschedule && !force) {
+      const conflict = await findSchedulingConflict({
+        scheduledAt: service_date,
+        serviceId: service_id ?? existing.service_id,
+        professional: professional ?? existing.professional,
+        excludeAppointmentId: id,
+      });
+      if (conflict) {
+        return NextResponse.json(
+          { error: "Já existe um agendamento nesse horário.", conflict },
+          { status: 409 }
+        );
+      }
+    }
+
+    const updateData: Record<string, any> = { updated_at: new Date().toISOString() };
+    if (status !== undefined) updateData.status = status;
     if (notes !== undefined) updateData.notes = notes;
+    if (address !== undefined) updateData.address = address;
+    if (service_date !== undefined) updateData.scheduled_at = service_date;
+    if (service_id !== undefined) updateData.service_id = service_id;
+    if (service_type !== undefined) updateData.service_type = service_type;
+    if (professional !== undefined) updateData.professional = professional;
+    if (price !== undefined) updateData.price = price;
 
     const { data, error } = await adminSupabase
       .from("appointments")
@@ -206,6 +265,29 @@ export async function PATCH(request: Request) {
     if (error) {
       console.error("Erro ao atualizar agendamento:", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    const clientId = await getClientIdForPet(data.pet_id);
+    if (clientId) {
+      if (status !== undefined && status !== existing.status) {
+        const STATUS_MESSAGES: Record<string, { title: string; body: string; type: any }> = {
+          confirmado: { title: "Agendamento confirmado", body: `Seu agendamento de ${data.service_type} foi confirmado.`, type: "agendamento_confirmado" },
+          em_atendimento: { title: "Atendimento iniciado", body: `O atendimento de ${data.service_type} do seu pet começou agora.`, type: "agendamento_alterado" },
+          concluido: { title: "Atendimento concluído", body: `O atendimento de ${data.service_type} foi concluído.`, type: "agendamento_alterado" },
+          cancelado: { title: "Agendamento cancelado", body: `Seu agendamento de ${data.service_type} foi cancelado.`, type: "agendamento_cancelado" },
+        };
+        const msg = STATUS_MESSAGES[status];
+        if (msg) await createNotification({ clientId, appointmentId: id, ...msg });
+      } else if (isReschedule) {
+        const dateLabel = new Date(data.scheduled_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+        await createNotification({
+          clientId,
+          appointmentId: id,
+          type: "agendamento_alterado",
+          title: "Agendamento alterado",
+          body: `Seu agendamento de ${data.service_type} foi remarcado para ${dateLabel}.`,
+        });
+      }
     }
 
     return NextResponse.json({ success: true, appointment: data });

@@ -1,10 +1,53 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 
+interface DashboardData {
+  revenueToday: number;
+  revenueChangePct: number | null;
+  todaysAppointmentsCount: number;
+  breakdown: { banho: number; tosa: number; vet: number; outros: number };
+  newClientsThisWeek: number;
+  totalClients: number;
+  activeAutomations: number;
+  totalAutomations: number;
+  upcoming: { time: string; pet: string; breed: string; service: string; status: string; tutor: string }[];
+}
+
+const STATUS_LABEL: Record<string, string> = {
+  agendado: "Agendado",
+  confirmado: "Confirmado",
+  em_atendimento: "Em Atendimento",
+  concluido: "Concluído",
+  cancelado: "Cancelado",
+  bloqueio: "Bloqueio",
+};
+
 export default function AdminDashboardPage() {
-  const [activeTimeframe, setActiveTimeframe] = useState("hoje");
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const loadDashboard = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const res = await fetch("/api/admin/dashboard");
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error || "Não foi possível carregar o dashboard.");
+      setData(json);
+    } catch (err: any) {
+      console.error("Erro ao carregar dashboard:", err);
+      setLoadError(err.message || "Erro ao carregar dashboard.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadDashboard();
+  }, []);
 
   return (
     <main className="p-4 md:p-8 space-y-6 max-w-7xl mx-auto w-full">
@@ -38,7 +81,22 @@ export default function AdminDashboardPage() {
           </div>
         </header>
 
-        {/* Operational KPI Grid (Inspired by Hashiko) */}
+        {isLoading ? (
+          <div className="p-12 text-center text-on-surface-variant bg-elevated-card rounded-2xl border border-hairline-border">
+            <span className="material-symbols-outlined text-4xl animate-spin text-primary mb-2">sync</span>
+            <p className="font-bold">Carregando painel...</p>
+          </div>
+        ) : loadError ? (
+          <div className="p-12 text-center bg-elevated-card rounded-2xl border border-rose-500/30 space-y-3">
+            <span className="material-symbols-outlined text-4xl text-rose-400">error</span>
+            <p className="font-bold text-rose-400">{loadError}</p>
+            <button onClick={loadDashboard} className="bg-primary text-on-primary font-bold text-xs px-4 py-2 rounded-xl hover:brightness-110 cursor-pointer">
+              Tentar novamente
+            </button>
+          </div>
+        ) : data && (
+        <>
+        {/* Operational KPI Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* KPI 1: Financial */}
           <div className="bg-elevated-card border border-hairline-border rounded-2xl p-5 extruded-shadow flex flex-col justify-between gap-3">
@@ -51,10 +109,20 @@ export default function AdminDashboardPage() {
               </div>
             </div>
             <div>
-              <div className="text-headline-lg font-bold text-on-surface">R$ 1.850,00</div>
-              <p className="text-caption text-emerald-400 font-label-bold flex items-center gap-1 mt-1">
-                <span className="material-symbols-outlined text-sm">trending_up</span>
-                +12% vs. ontem
+              <div className="text-headline-lg font-bold text-on-surface">
+                R$ {data.revenueToday.toFixed(2).replace(".", ",")}
+              </div>
+              <p className="text-caption text-on-surface-variant mt-1">
+                {data.revenueChangePct === null
+                  ? "Sem vendas ontem para comparar"
+                  : (
+                    <span className={`font-label-bold flex items-center gap-1 ${data.revenueChangePct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                      <span className="material-symbols-outlined text-sm">
+                        {data.revenueChangePct >= 0 ? "trending_up" : "trending_down"}
+                      </span>
+                      {data.revenueChangePct >= 0 ? "+" : ""}{data.revenueChangePct}% vs. ontem
+                    </span>
+                  )}
               </p>
             </div>
           </div>
@@ -70,28 +138,30 @@ export default function AdminDashboardPage() {
               </div>
             </div>
             <div>
-              <div className="text-headline-lg font-bold text-on-surface">18 Agendamentos</div>
-              <p className="text-caption text-on-surface-variant mt-1">12 Banhos • 4 Tosas • 2 Vets</p>
+              <div className="text-headline-lg font-bold text-on-surface">{data.todaysAppointmentsCount} Agendamentos</div>
+              <p className="text-caption text-on-surface-variant mt-1">
+                {data.breakdown.banho} Banhos • {data.breakdown.tosa} Tosas • {data.breakdown.vet} Vets
+              </p>
             </div>
           </div>
 
-          {/* KPI 3: Active Subscriptions */}
+          {/* KPI 3: New clients this week */}
           <div className="bg-elevated-card border border-hairline-border rounded-2xl p-5 extruded-shadow flex flex-col justify-between gap-3">
             <div className="flex items-center justify-between">
               <span className="text-caption font-label-bold text-on-surface-variant uppercase tracking-wider">
-                Pacotes Ativos
+                Novos Clientes (7 dias)
               </span>
               <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center">
-                <span className="material-symbols-outlined text-lg">repeat</span>
+                <span className="material-symbols-outlined text-lg">group_add</span>
               </div>
             </div>
             <div>
-              <div className="text-headline-lg font-bold text-on-surface">42 Assinaturas</div>
-              <p className="text-caption text-amber-400 font-label-bold mt-1">R$ 6.250,00 recorrente/mês</p>
+              <div className="text-headline-lg font-bold text-on-surface">{data.newClientsThisWeek} novos</div>
+              <p className="text-caption text-amber-400 font-label-bold mt-1">{data.totalClients} clientes no total</p>
             </div>
           </div>
 
-          {/* KPI 4: Zap Automations */}
+          {/* KPI 4: Automations */}
           <div className="bg-elevated-card border border-hairline-border rounded-2xl p-5 extruded-shadow flex flex-col justify-between gap-3">
             <div className="flex items-center justify-between">
               <span className="text-caption font-label-bold text-on-surface-variant uppercase tracking-wider">
@@ -102,8 +172,8 @@ export default function AdminDashboardPage() {
               </div>
             </div>
             <div>
-              <div className="text-headline-lg font-bold text-on-surface">127 Enviadas</div>
-              <p className="text-caption text-primary font-label-bold mt-1">94% confirmações ativas</p>
+              <div className="text-headline-lg font-bold text-on-surface">{data.activeAutomations} Ativas</div>
+              <p className="text-caption text-primary font-label-bold mt-1">de {data.totalAutomations} automações configuradas</p>
             </div>
           </div>
         </div>
@@ -146,7 +216,7 @@ export default function AdminDashboardPage() {
 
           {/* Card 3: WhatsApp Automations */}
           <Link
-            href="/admin/automacoes"
+            href="/admin/whatsapp"
             className="bg-surface-container border border-hairline-border hover:border-primary/40 p-6 rounded-2xl transition-all duration-300 hover:scale-[1.01] flex flex-col justify-between gap-4 group extruded-shadow"
           >
             <div className="flex items-center justify-between">
@@ -173,24 +243,24 @@ export default function AdminDashboardPage() {
             </div>
 
             <div className="space-y-3">
-              {[
-                { time: "09:00", pet: "Thor", breed: "Golden Retriever", service: "Banho & Tosa Completo", status: "Em Banho", tutor: "Carlos Eduardo" },
-                { time: "10:30", pet: "Mel", breed: "Poodle Toy", service: "Hidratação de Pelagem", status: "Aguardando", tutor: "Mariana Costa" },
-                { time: "14:00", pet: "Bidu", breed: "SRD", service: "Consulta Vet + Vacina V10", status: "Confirmado", tutor: "Welington Souza" },
-              ].map((item, i) => (
-                <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-surface-container-high rounded-xl border border-hairline-border">
-                  <div className="flex items-center gap-3">
-                    <span className="font-headline-sm font-bold text-primary tabular-nums shrink-0">{item.time}</span>
-                    <div>
-                      <h4 className="font-label-bold text-on-surface text-body-sm">{item.pet} ({item.breed})</h4>
-                      <p className="text-caption text-on-surface-variant">{item.service} • Tutor: {item.tutor}</p>
+              {data.upcoming.length === 0 ? (
+                <p className="text-body-sm text-on-surface-variant text-center py-6">Nenhum atendimento agendado para hoje.</p>
+              ) : (
+                data.upcoming.map((item, i) => (
+                  <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-surface-container-high rounded-xl border border-hairline-border">
+                    <div className="flex items-center gap-3">
+                      <span className="font-headline-sm font-bold text-primary tabular-nums shrink-0">{item.time}</span>
+                      <div>
+                        <h4 className="font-label-bold text-on-surface text-body-sm">{item.pet} ({item.breed})</h4>
+                        <p className="text-caption text-on-surface-variant">{item.service} • Tutor: {item.tutor}</p>
+                      </div>
                     </div>
+                    <span className="text-caption font-label-bold bg-primary/10 text-primary px-3 py-1 rounded-full border border-primary/20 self-start sm:self-center">
+                      {STATUS_LABEL[item.status] || item.status}
+                    </span>
                   </div>
-                  <span className="text-caption font-label-bold bg-primary/10 text-primary px-3 py-1 rounded-full border border-primary/20 self-start sm:self-center">
-                    {item.status}
-                  </span>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
 
@@ -205,10 +275,6 @@ export default function AdminDashboardPage() {
               </p>
             </div>
 
-            <div className="bg-surface-container p-3 rounded-xl border border-hairline-border text-xs text-on-surface-variant font-mono">
-              hashiko.com.br/patinhas-felizes
-            </div>
-
             <Link
               href="/agendar"
               target="_blank"
@@ -219,6 +285,8 @@ export default function AdminDashboardPage() {
             </Link>
           </div>
         </div>
+        </>
+        )}
       </main>
   );
 }

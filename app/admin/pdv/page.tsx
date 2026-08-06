@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import CaixaPanel from "./CaixaPanel";
 
 interface CartItem {
   id: string;
@@ -19,13 +20,17 @@ interface CatalogItem {
 }
 
 export default function PdvAdminPage() {
+  const [activeTab, setActiveTab] = useState<"venda" | "caixa">("venda");
+  const [hasOpenSession, setHasOpenSession] = useState<boolean | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
-  const [selectedClient, setSelectedClient] = useState<string>("Tutor Avulso (Balcão)");
+  const [selectedClientId, setSelectedClientId] = useState<string>("avulso");
   const [paymentMethod, setPaymentMethod] = useState<"pix" | "credit" | "debit" | "cash">("pix");
   const [discount, setDiscount] = useState<number>(0);
   const [showReceiptModal, setShowReceiptModal] = useState<boolean>(false);
   const [lastSaleTotal, setLastSaleTotal] = useState<number>(0);
+  const [lastSaleId, setLastSaleId] = useState<string>("");
+  const [isSubmittingSale, setIsSubmittingSale] = useState(false);
 
   const [cart, setCart] = useState<CartItem[]>([]);
 
@@ -33,14 +38,16 @@ export default function PdvAdminPage() {
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
   const [clientsList, setClientsList] = useState<{id: string; label: string}[]>([]);
   const [isLoadingCatalog, setIsLoadingCatalog] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function loadPdvData() {
+  const loadPdvData = async () => {
       setIsLoadingCatalog(true);
+      setLoadError(null);
       try {
         // Load catalog from services API
         const servicesRes = await fetch("/api/admin/services");
         const servicesData = await servicesRes.json();
+        if (!servicesRes.ok) throw new Error(servicesData?.error || "Não foi possível carregar o catálogo.");
         if (servicesData.services) {
           setCatalog(servicesData.services.map((s: any) => ({
             id: s.id,
@@ -53,6 +60,7 @@ export default function PdvAdminPage() {
         // Load real clients
         const clientsRes = await fetch("/api/admin/clients");
         const clientsData = await clientsRes.json();
+        if (!clientsRes.ok) throw new Error(clientsData?.error || "Não foi possível carregar os clientes.");
         if (clientsData.clients) {
           setClientsList([
             { id: "avulso", label: "Tutor Avulso (Balcão)" },
@@ -62,16 +70,34 @@ export default function PdvAdminPage() {
             })),
           ]);
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error("Erro ao carregar dados do PDV:", err);
+        setLoadError(err.message || "Erro ao carregar dados do PDV.");
       } finally {
         setIsLoadingCatalog(false);
       }
+  };
+
+  const checkCaixaStatus = async () => {
+    try {
+      const res = await fetch("/api/admin/caixa");
+      const data = await res.json();
+      if (res.ok) setHasOpenSession(!!data.session);
+    } catch (err) {
+      console.error("Erro ao verificar status do caixa:", err);
     }
+  };
+
+  useEffect(() => {
     loadPdvData();
+    checkCaixaStatus();
   }, []);
 
   const addToCart = (item: CatalogItem) => {
+    if (item.id.startsWith("def-")) {
+      alert("Este é um item de exemplo. Cadastre-o em Serviços & Preços antes de vendê-lo.");
+      return;
+    }
     setCart((prev) => {
       const existing = prev.find((i) => i.id === item.id);
       if (existing) {
@@ -97,14 +123,45 @@ export default function PdvAdminPage() {
 
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
   const total = Math.max(0, subtotal - discount);
+  const selectedClientLabel =
+    clientsList.find((c) => c.id === selectedClientId)?.label || "Tutor Avulso (Balcão)";
 
-  const handleFinishSale = () => {
+  const handleFinishSale = async () => {
     if (cart.length === 0) {
       alert("O carrinho está vazio!");
       return;
     }
-    setLastSaleTotal(total);
-    setShowReceiptModal(true);
+    if (!hasOpenSession) {
+      alert("Abra o caixa antes de finalizar uma venda.");
+      setActiveTab("caixa");
+      return;
+    }
+    setIsSubmittingSale(true);
+    try {
+      const res = await fetch("/api/admin/pdv/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          client_id: selectedClientId === "avulso" ? null : selectedClientId,
+          payment_method: paymentMethod,
+          items: cart,
+          subtotal,
+          discount,
+          total,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Erro ao finalizar a venda.");
+
+      setLastSaleTotal(total);
+      setLastSaleId(data.sale?.id || "");
+      setShowReceiptModal(true);
+    } catch (err: any) {
+      console.error("Erro ao finalizar venda:", err);
+      alert(err.message || "Não foi possível finalizar a venda. Tente novamente.");
+    } finally {
+      setIsSubmittingSale(false);
+    }
   };
 
   const resetCart = () => {
@@ -132,10 +189,20 @@ export default function PdvAdminPage() {
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="bg-surface-container-high border border-hairline-border px-4 py-2 rounded-xl flex items-center gap-2">
-              <span className="w-2.5 h-2.5 bg-primary rounded-full animate-pulse"></span>
-              <span className="text-body-sm font-label-bold text-on-surface">Caixa Aberto</span>
-            </div>
+            {hasOpenSession !== null && (
+              <div
+                className={`px-4 py-2 rounded-xl flex items-center gap-2 border ${
+                  hasOpenSession
+                    ? "bg-emerald-500/10 border-emerald-500/30"
+                    : "bg-rose-500/10 border-rose-500/30"
+                }`}
+              >
+                <span className={`w-2.5 h-2.5 rounded-full ${hasOpenSession ? "bg-emerald-400 animate-pulse" : "bg-rose-400"}`}></span>
+                <span className={`text-body-sm font-label-bold ${hasOpenSession ? "text-emerald-400" : "text-rose-400"}`}>
+                  {hasOpenSession ? "Caixa Aberto" : "Caixa Fechado"}
+                </span>
+              </div>
+            )}
             <Link
               href="/agendar"
               target="_blank"
@@ -147,6 +214,41 @@ export default function PdvAdminPage() {
           </div>
         </header>
 
+        {/* Tabs: Venda / Caixa */}
+        <div className="flex gap-2 bg-surface-container border border-hairline-border rounded-xl p-1.5 w-fit">
+          {(["venda", "caixa"] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all cursor-pointer flex items-center gap-2 ${
+                activeTab === tab
+                  ? "bg-primary text-on-primary extruded-shadow"
+                  : "text-on-surface-variant hover:bg-surface-container-high"
+              }`}
+            >
+              <span className="material-symbols-outlined text-base">
+                {tab === "venda" ? "shopping_cart" : "point_of_sale"}
+              </span>
+              {tab === "venda" ? "Venda" : "Caixa"}
+            </button>
+          ))}
+        </div>
+
+        {activeTab === "caixa" ? (
+          <CaixaPanel onSessionChange={setHasOpenSession} />
+        ) : (
+        <>
+        {hasOpenSession === false && (
+          <div className="bg-rose-500/10 border border-rose-500/30 text-rose-400 text-sm font-bold px-4 py-3 rounded-xl flex items-center justify-between gap-3">
+            <span className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-base">warning</span>
+              Nenhum caixa aberto. Abra o caixa para começar a vender.
+            </span>
+            <button onClick={() => setActiveTab("caixa")} className="bg-rose-500 text-white px-4 py-1.5 rounded-lg text-xs font-bold hover:brightness-110 cursor-pointer">
+              Abrir Caixa
+            </button>
+          </div>
+        )}
         {/* PDV Main Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* Left Column: Catalog (7 cols) */}
@@ -189,12 +291,26 @@ export default function PdvAdminPage() {
             </div>
 
             {/* Catalog Grid */}
+            {loadError ? (
+              <div className="p-8 text-center bg-elevated-card rounded-xl border border-rose-500/30 space-y-3">
+                <span className="material-symbols-outlined text-4xl text-rose-400">error</span>
+                <p className="font-bold text-rose-400 text-sm">{loadError}</p>
+                <button
+                  onClick={loadPdvData}
+                  className="bg-primary text-on-primary font-bold text-xs px-4 py-2 rounded-xl hover:brightness-110 cursor-pointer"
+                >
+                  Tentar novamente
+                </button>
+              </div>
+            ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[520px] overflow-y-auto pr-1 custom-scrollbar">
               {filteredCatalog.map((item) => (
                 <div
                   key={item.id}
                   onClick={() => addToCart(item)}
-                  className="bg-elevated-card border border-hairline-border hover:border-primary/50 p-4 rounded-xl cursor-pointer transition-all duration-200 hover:scale-[1.02] flex flex-col justify-between gap-3 group"
+                  className={`bg-elevated-card border border-hairline-border hover:border-primary/50 p-4 rounded-xl cursor-pointer transition-all duration-200 hover:scale-[1.02] flex flex-col justify-between gap-3 group ${
+                    item.id.startsWith("def-") ? "opacity-50" : ""
+                  }`}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <span
@@ -221,6 +337,7 @@ export default function PdvAdminPage() {
                 </div>
               ))}
             </div>
+            )}
           </section>
 
           {/* Right Column: Checkout / Cart (5 cols) */}
@@ -239,15 +356,15 @@ export default function PdvAdminPage() {
             <div>
               <label className="block text-caption font-label-bold text-on-surface-variant mb-2">Vincular Cliente / Pet</label>
               <select
-                value={selectedClient}
-                onChange={(e) => setSelectedClient(e.target.value)}
+                value={selectedClientId}
+                onChange={(e) => setSelectedClientId(e.target.value)}
                 className="w-full bg-surface-container border border-hairline-border rounded-xl px-4 py-2.5 text-on-surface text-body-sm outline-none focus:border-primary transition-all cursor-pointer"
               >
                 {clientsList.length === 0 ? (
-                  <option value="Tutor Avulso (Balcão)">Tutor Avulso (Balcão)</option>
+                  <option value="avulso">Tutor Avulso (Balcão)</option>
                 ) : (
                   clientsList.map((c) => (
-                    <option key={c.id} value={c.label}>{c.label}</option>
+                    <option key={c.id} value={c.id}>{c.label}</option>
                   ))
                 )}
               </select>
@@ -348,10 +465,11 @@ export default function PdvAdminPage() {
             {/* Action Submit */}
             <button
               onClick={handleFinishSale}
-              className="w-full bg-primary text-on-primary font-label-bold text-body-lg py-4 rounded-xl extruded-shadow emerald-glow-effect hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
+              disabled={isSubmittingSale || hasOpenSession === false}
+              className="w-full bg-primary text-on-primary font-label-bold text-body-lg py-4 rounded-xl extruded-shadow emerald-glow-effect hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <span className="material-symbols-outlined">check_circle</span>
-              Finalizar Venda & Emitir Comprovante
+              {isSubmittingSale ? "Finalizando..." : hasOpenSession === false ? "Abra o caixa para vender" : "Finalizar Venda & Emitir Comprovante"}
             </button>
           </section>
         </div>
@@ -367,13 +485,12 @@ export default function PdvAdminPage() {
             <h2 className="text-headline-md font-bold text-on-surface">Venda Realizada com Sucesso!</h2>
             <p className="text-body-sm text-on-surface-variant">
               Valor final: <strong className="text-primary text-lg">R$ {lastSaleTotal.toFixed(2).replace(".", ",")}</strong> <br />
-              Cliente: <strong>{selectedClient}</strong>
+              Cliente: <strong>{selectedClientLabel}</strong>
             </p>
 
             <div className="bg-surface-container p-4 rounded-2xl w-full text-left space-y-1.5 text-xs text-on-surface-variant border border-hairline-border">
-              <p className="flex justify-between"><span>Comprovante:</span> <strong className="text-on-surface">#NFCe-2026-0891</strong></p>
+              <p className="flex justify-between"><span>Venda:</span> <strong className="text-on-surface">#{lastSaleId.slice(0, 8).toUpperCase()}</strong></p>
               <p className="flex justify-between"><span>Pagamento:</span> <strong className="uppercase text-on-surface">{paymentMethod}</strong></p>
-              <p className="flex justify-between"><span>Status WhatsApp:</span> <strong className="text-primary">Recibo Enviado</strong></p>
             </div>
 
             <div className="flex gap-3 w-full mt-2">
@@ -386,6 +503,8 @@ export default function PdvAdminPage() {
             </div>
           </div>
         </div>
+      )}
+      </>
       )}
     </main>
   );

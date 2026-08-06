@@ -3,7 +3,7 @@
 -- PetNexus White-Label Petshop (Multi-Tenant)
 -- ==============================================================================
 -- Este arquivo documenta a estrutura REAL do banco conforme está no Supabase.
--- Última atualização: 2026-08-04
+-- Última atualização: 2026-08-06
 -- ==============================================================================
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
@@ -112,6 +112,7 @@ CREATE TABLE IF NOT EXISTS public.appointments (
     status VARCHAR(50) DEFAULT 'agendado' CHECK (status IN ('agendado', 'confirmado', 'em_atendimento', 'concluido', 'cancelado', 'bloqueio')),
     price DECIMAL(10,2) DEFAULT 0.00,
     notes TEXT DEFAULT '',
+    address TEXT DEFAULT '',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
@@ -136,7 +137,134 @@ CREATE TABLE IF NOT EXISTS public.leads (
 );
 
 -- ==============================================================================
--- 8. ÍNDICES DE PERFORMANCE
+-- 8. TABELAS: sales / sale_items (Checkout do PDV)
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS public.sales (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    pet_shop_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001',
+    client_id UUID,
+    payment_method VARCHAR(50) NOT NULL DEFAULT 'dinheiro',
+    subtotal DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    discount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    total DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.sale_items (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    sale_id UUID NOT NULL REFERENCES public.sales(id) ON DELETE CASCADE,
+    service_id UUID REFERENCES public.services(id) ON DELETE SET NULL,
+    name VARCHAR(255) NOT NULL,
+    quantity INTEGER NOT NULL DEFAULT 1,
+    unit_price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- ==============================================================================
+-- 9. TABELA: medical_records (Consultas do Prontuário Veterinário)
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS public.medical_records (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    pet_shop_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001',
+    pet_id UUID NOT NULL,
+    vet_name VARCHAR(255) DEFAULT '',
+    diagnosis TEXT DEFAULT '',
+    treatment TEXT DEFAULT '',
+    prescription TEXT DEFAULT '',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- ==============================================================================
+-- 10. TABELA: vaccine_records (Carteira de Vacinação)
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS public.vaccine_records (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    pet_shop_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001',
+    pet_id UUID NOT NULL,
+    vaccine_name VARCHAR(255) NOT NULL,
+    applied_at DATE,
+    next_due_at DATE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- ==============================================================================
+-- 11. TABELA: weight_logs (Histórico de Peso)
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS public.weight_logs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    pet_id UUID NOT NULL,
+    weight DECIMAL(5,2) NOT NULL,
+    recorded_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- ==============================================================================
+-- 12. TABELA: automation_rules (Regras de Automação do WhatsApp)
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS public.automation_rules (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    pet_shop_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001',
+    rule_key VARCHAR(100) NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    category VARCHAR(100) DEFAULT '',
+    enabled BOOLEAN DEFAULT true,
+    message_template TEXT DEFAULT '',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    UNIQUE(pet_shop_id, rule_key)
+);
+
+-- ==============================================================================
+-- 13. TABELA: notifications (Notificações do tutor/cliente)
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS public.notifications (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    pet_shop_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001',
+    client_id UUID NOT NULL,
+    appointment_id UUID,
+    type VARCHAR(50) NOT NULL DEFAULT 'mensagem' CHECK (type IN (
+        'agendamento_criado', 'agendamento_confirmado', 'agendamento_alterado',
+        'agendamento_cancelado', 'lembrete', 'mensagem'
+    )),
+    title VARCHAR(255) NOT NULL,
+    body TEXT DEFAULT '',
+    is_read BOOLEAN DEFAULT false,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- ==============================================================================
+-- 14. TABELAS: cash_sessions / cash_movements (Fluxo de Caixa)
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS public.cash_sessions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    pet_shop_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001',
+    opened_by UUID,
+    opened_by_name VARCHAR(255) DEFAULT '',
+    opened_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    opening_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    closed_by UUID,
+    closed_by_name VARCHAR(255) DEFAULT '',
+    closed_at TIMESTAMP WITH TIME ZONE,
+    expected_amount DECIMAL(10,2),
+    counted_amount DECIMAL(10,2),
+    difference_amount DECIMAL(10,2),
+    status VARCHAR(20) NOT NULL DEFAULT 'aberto' CHECK (status IN ('aberto', 'fechado')),
+    notes TEXT DEFAULT ''
+);
+
+CREATE TABLE IF NOT EXISTS public.cash_movements (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    cash_session_id UUID NOT NULL REFERENCES public.cash_sessions(id) ON DELETE CASCADE,
+    type VARCHAR(20) NOT NULL CHECK (type IN ('entrada', 'saida')),
+    payment_method VARCHAR(50) DEFAULT '',
+    amount DECIMAL(10,2) NOT NULL,
+    description VARCHAR(255) DEFAULT '',
+    sale_id UUID REFERENCES public.sales(id) ON DELETE SET NULL,
+    created_by UUID,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- ==============================================================================
+-- 15. ÍNDICES DE PERFORMANCE
 -- ==============================================================================
 CREATE INDEX IF NOT EXISTS idx_profiles_pet_shop ON public.profiles(pet_shop_id);
 CREATE INDEX IF NOT EXISTS idx_pets_client ON public.pets(client_id);
@@ -148,3 +276,13 @@ CREATE INDEX IF NOT EXISTS idx_appointments_scheduled ON public.appointments(sch
 CREATE INDEX IF NOT EXISTS idx_appointments_status ON public.appointments(status);
 CREATE INDEX IF NOT EXISTS idx_leads_pet_shop ON public.leads(pet_shop_id);
 CREATE INDEX IF NOT EXISTS idx_leads_status ON public.leads(status);
+CREATE INDEX IF NOT EXISTS idx_sales_pet_shop ON public.sales(pet_shop_id);
+CREATE INDEX IF NOT EXISTS idx_sale_items_sale ON public.sale_items(sale_id);
+CREATE INDEX IF NOT EXISTS idx_medical_records_pet ON public.medical_records(pet_id);
+CREATE INDEX IF NOT EXISTS idx_vaccine_records_pet ON public.vaccine_records(pet_id);
+CREATE INDEX IF NOT EXISTS idx_weight_logs_pet ON public.weight_logs(pet_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_client ON public.notifications(client_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_created ON public.notifications(created_at);
+CREATE INDEX IF NOT EXISTS idx_cash_sessions_pet_shop ON public.cash_sessions(pet_shop_id);
+CREATE INDEX IF NOT EXISTS idx_cash_sessions_status ON public.cash_sessions(status);
+CREATE INDEX IF NOT EXISTS idx_cash_movements_session ON public.cash_movements(cash_session_id);

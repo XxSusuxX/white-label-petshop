@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export interface WhatsAppAutomationRule {
   id: string;
+  rule_key: string;
   title: string;
   subtitle: string;
   enabled: boolean;
@@ -13,6 +14,36 @@ export interface WhatsAppAutomationRule {
   testPhone: string;
   availableTags: string[];
 }
+
+// Metadados puramente visuais (ícone, subtítulo, tags disponíveis) que não
+// precisam de persistência — o que é persistido é enabled/message_template.
+const RULE_META: Record<string, { subtitle: string; icon: string; availableTags: string[] }> = {
+  lembrete_24h: {
+    subtitle: "Envia automaticamente um lembrete no WhatsApp do tutor com horário e endereço.",
+    icon: "notifications_active",
+    availableTags: ["{tutor_name}", "{pet_name}", "{service_name}", "{time}"],
+  },
+  pet_pronto: {
+    subtitle: "Disparado com 1 clique direto no painel da operação quando o banho/tosa finaliza.",
+    icon: "pets",
+    availableTags: ["{tutor_name}", "{pet_name}"],
+  },
+  aniversario: {
+    subtitle: "Envia felicitações personalizadas com cupom de 10% OFF no dia do aniversário do pet.",
+    icon: "cake",
+    availableTags: ["{tutor_name}", "{pet_name}"],
+  },
+  pacote_vencendo: {
+    subtitle: "Avisa o tutor quando faltar apenas 1 banho ou 5 dias para o pacote renovar.",
+    icon: "autorenew",
+    availableTags: ["{tutor_name}", "{pet_name}"],
+  },
+  resumo_diario: {
+    subtitle: "Envia às 18:00 um resumo do faturamento e atendimentos do dia para o número do admin.",
+    icon: "query_stats",
+    availableTags: ["{total_today}", "{completed_count}", "{new_clients_count}"],
+  },
+};
 
 export default function CentralWhatsAppAdminPage() {
   // 1. Estado da Conexão do WhatsApp (Simulado & Preparado para Evolution/Baileys API)
@@ -24,80 +55,90 @@ export default function CentralWhatsAppAdminPage() {
   // 2. Estado do filtro de busca por regra
   const [searchFilter, setSearchFilter] = useState("");
 
-  // 3. Regras de Disparo Automático (Estrutura limpa e extensível)
-  const [automations, setAutomations] = useState<WhatsAppAutomationRule[]>([
-    {
-      id: "aut-1",
-      title: "Lembrete de Agendamento (24h antes)",
-      subtitle: "Envia automaticamente um lembrete no WhatsApp do tutor com horário e endereço.",
-      enabled: true,
-      icon: "notifications_active",
-      category: "lembrete",
-      message: "Olá {tutor_name}! Lembramos que o agendamento de {service_name} para o pet {pet_name} está confirmado para amanhã às {time}. Responda 1 para confirmar ou 2 para reagendar.",
-      testPhone: "(11) 99999-8888",
-      availableTags: ["{tutor_name}", "{pet_name}", "{service_name}", "{time}"],
-    },
-    {
-      id: "aut-2",
-      title: "Pet Pronto para Retirada (Esteira de Banho)",
-      subtitle: "Disparado com 1 clique direto no painel da operação quando o banho/tosa finaliza.",
-      enabled: true,
-      icon: "pets",
-      category: "operacao",
-      message: "Parabéns {tutor_name}! O {pet_name} já terminou o banho e está cheiroso e pronto para ser retirado na recepção! 🐾",
-      testPhone: "(11) 99999-8888",
-      availableTags: ["{tutor_name}", "{pet_name}"],
-    },
-    {
-      id: "aut-3",
-      title: "Mensagem no Aniversário do Pet",
-      subtitle: "Envia felicitações personalizadas com cupom de 10% OFF no dia do aniversário do pet.",
-      enabled: true,
-      icon: "cake",
-      category: "marketing",
-      message: "Hoje é um dia especial! 🎉 Desejamos um feliz aniversário para o fofíssimo {pet_name}! Como presente, você ganhou 10% OFF no próximo banho!",
-      testPhone: "(11) 99999-8888",
-      availableTags: ["{tutor_name}", "{pet_name}"],
-    },
-    {
-      id: "aut-4",
-      title: "Aviso de Pacote Prestes a Vencer",
-      subtitle: "Avisa o tutor quando faltar apenas 1 banho ou 5 dias para o pacote renovar.",
-      enabled: false,
-      icon: "autorenew",
-      category: "marketing",
-      message: "Olá {tutor_name}! Seu pacote mensal de banho do {pet_name} tem apenas 1 banho restante. Clique aqui para renovar com desconto exclusivo.",
-      testPhone: "(11) 99999-8888",
-      availableTags: ["{tutor_name}", "{pet_name}"],
-    },
-    {
-      id: "aut-5",
-      title: "Resumo Diário de Caixa (Para o Gestor)",
-      subtitle: "Envia às 18:00 um resumo do faturamento e atendimentos do dia para o número do admin.",
-      enabled: true,
-      icon: "query_stats",
-      category: "gestao",
-      message: "📊 Resumo Diário SaaS Petshop:\nTotal faturado hoje: R$ {total_today}\nAtendimentos concluídos: {completed_count}\nNovos clientes: {new_clients_count}",
-      testPhone: "(11) 99999-8888",
-      availableTags: ["{total_today}", "{completed_count}", "{new_clients_count}"],
-    },
-  ]);
+  // 3. Regras de Disparo Automático (persistidas em automation_rules)
+  const [automations, setAutomations] = useState<WhatsAppAutomationRule[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  // Handler para alternar ativação da automação
-  const toggleAutomation = (id: string) => {
-    setAutomations((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, enabled: !item.enabled } : item))
-    );
+  const loadAutomations = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const res = await fetch("/api/admin/automations");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Não foi possível carregar as automações.");
+
+      const mapped: WhatsAppAutomationRule[] = (data.rules || []).map((r: any) => {
+        const meta = RULE_META[r.rule_key] || { subtitle: "", icon: "notifications", availableTags: [] };
+        return {
+          id: r.id,
+          rule_key: r.rule_key,
+          title: r.title,
+          subtitle: meta.subtitle,
+          enabled: r.enabled,
+          icon: meta.icon,
+          category: r.category,
+          message: r.message_template || "",
+          testPhone: "(11) 99999-8888",
+          availableTags: meta.availableTags,
+        };
+      });
+      setAutomations(mapped);
+    } catch (err: any) {
+      console.error("Erro ao carregar automações:", err);
+      setLoadError(err.message || "Erro ao carregar automações.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  // Handler para atualizar mensagem de uma automação
+  useEffect(() => {
+    loadAutomations();
+  }, []);
+
+  // Handler para alternar ativação da automação (persiste imediatamente)
+  const toggleAutomation = async (id: string) => {
+    const rule = automations.find((a) => a.id === id);
+    if (!rule) return;
+    const newEnabled = !rule.enabled;
+    setAutomations((prev) => prev.map((item) => (item.id === id ? { ...item, enabled: newEnabled } : item)));
+    try {
+      const res = await fetch("/api/admin/automations", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rule_key: rule.rule_key, enabled: newEnabled }),
+      });
+      if (!res.ok) throw new Error("Falha ao salvar.");
+    } catch (err) {
+      console.error("Erro ao atualizar automação:", err);
+      setAutomations((prev) => prev.map((item) => (item.id === id ? { ...item, enabled: !newEnabled } : item)));
+      alert("Não foi possível salvar a alteração. Tente novamente.");
+    }
+  };
+
+  // Handler para atualizar mensagem de uma automação (estado local; salva no onBlur)
   const updateMessage = (id: string, text: string) => {
     setAutomations((prev) =>
       prev.map((item) => (item.id === id ? { ...item, message: text } : item))
     );
   };
 
-  // Handler para atualizar telefone de teste de uma regra
+  // Persiste a mensagem quando o campo perde o foco
+  const saveMessage = async (rule: WhatsAppAutomationRule) => {
+    try {
+      const res = await fetch("/api/admin/automations", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rule_key: rule.rule_key, message_template: rule.message }),
+      });
+      if (!res.ok) throw new Error("Falha ao salvar mensagem.");
+    } catch (err) {
+      console.error("Erro ao salvar mensagem da automação:", err);
+      alert("Não foi possível salvar a mensagem. Tente novamente.");
+    }
+  };
+
+  // Handler para atualizar telefone de teste de uma regra (apenas local, usado no envio manual)
   const updateTestPhone = (id: string, phone: string) => {
     setAutomations((prev) =>
       prev.map((item) => (item.id === id ? { ...item, testPhone: phone } : item))
@@ -270,6 +311,20 @@ export default function CentralWhatsAppAdminPage() {
       </div>
 
       {/* 4. Lista de Regras de Automação */}
+      {isLoading ? (
+        <div className="p-12 text-center text-on-surface-variant bg-elevated-card rounded-2xl border border-hairline-border">
+          <span className="material-symbols-outlined text-4xl animate-spin text-primary mb-2">sync</span>
+          <p className="font-bold">Carregando automações...</p>
+        </div>
+      ) : loadError ? (
+        <div className="p-12 text-center bg-elevated-card rounded-2xl border border-rose-500/30 space-y-3">
+          <span className="material-symbols-outlined text-4xl text-rose-400">error</span>
+          <p className="font-bold text-rose-400">{loadError}</p>
+          <button onClick={loadAutomations} className="bg-primary text-on-primary font-bold text-xs px-4 py-2 rounded-xl hover:brightness-110 cursor-pointer">
+            Tentar novamente
+          </button>
+        </div>
+      ) : (
       <div className="space-y-4">
         {filteredAutomations.map((item) => (
           <div
@@ -337,6 +392,7 @@ export default function CentralWhatsAppAdminPage() {
                 rows={3}
                 value={item.message}
                 onChange={(e) => updateMessage(item.id, e.target.value)}
+                onBlur={() => saveMessage(item)}
                 className="w-full bg-surface-container border border-hairline-border rounded-xl p-4 text-on-surface text-body-sm outline-none focus:border-primary resize-none"
               />
             </div>
@@ -365,6 +421,7 @@ export default function CentralWhatsAppAdminPage() {
           </div>
         ))}
       </div>
+      )}
 
       {/* 5. Modal de Conexão via QR Code Simulado */}
       {showQrModal && (

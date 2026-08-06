@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+export const dynamic = "force-dynamic";
+
 // GET: List all catalog items
 export async function GET() {
   try {
@@ -73,6 +75,69 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, item });
   } catch (err: any) {
     console.error("Erro em POST /api/admin/services:", err);
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}
+
+// PUT: Update an existing catalog item
+export async function PUT(request: Request) {
+  try {
+    const adminSupabase = createAdminClient();
+    const body = await request.json();
+    const { id, name, description, duration_minutes, price, category, is_active } = body;
+
+    if (!id) {
+      return NextResponse.json({ error: "id é obrigatório" }, { status: 400 });
+    }
+
+    const updateData: Record<string, any> = {};
+    if (name !== undefined) updateData.name = name;
+    if (description !== undefined) updateData.description = description;
+    if (duration_minutes !== undefined) updateData.duration_minutes = duration_minutes;
+    if (price !== undefined) updateData.price = parseFloat(price);
+    if (category !== undefined) updateData.category = category;
+    if (is_active !== undefined) updateData.is_active = is_active;
+
+    const { data: item, error } = await adminSupabase
+      .from("services")
+      .update(updateData)
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Erro ao atualizar serviço:", error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true, item });
+  } catch (err: any) {
+    console.error("Erro em PUT /api/admin/services:", err);
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}
+
+// DELETE: Remove a catalog item
+export async function DELETE(request: Request) {
+  try {
+    const adminSupabase = createAdminClient();
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get("id");
+
+    if (!id) {
+      return NextResponse.json({ error: "id é obrigatório" }, { status: 400 });
+    }
+
+    const { error } = await adminSupabase.from("services").delete().eq("id", id);
+
+    if (error) {
+      console.error("Erro ao remover serviço:", error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (err: any) {
+    console.error("Erro em DELETE /api/admin/services:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

@@ -1,3 +1,23 @@
 {
-  "/page": "app/page.js"
+  "/api/notifications/route": "app/api/notifications/route.js",
+  "/api/pets/route": "app/api/pets/route.js",
+  "/api/appointments/route": "app/api/appointments/route.js",
+  "/auth/login/page": "app/auth/login/page.js",
+  "/auth/register-admin/page": "app/auth/register-admin/page.js",
+  "/api/auth/register-admin/route": "app/api/auth/register-admin/route.js",
+  "/api/admin/pets/route": "app/api/admin/pets/route.js",
+  "/api/admin/clients/route": "app/api/admin/clients/route.js",
+  "/api/admin/services/route": "app/api/admin/services/route.js",
+  "/api/admin/agenda/route": "app/api/admin/agenda/route.js",
+  "/api/admin/dashboard/route": "app/api/admin/dashboard/route.js",
+  "/api/admin/caixa/route": "app/api/admin/caixa/route.js",
+  "/agendar/page": "app/agendar/page.js",
+  "/client/page": "app/client/page.js",
+  "/admin/pets/page": "app/admin/pets/page.js",
+  "/admin/clientes/page": "app/admin/clientes/page.js",
+  "/admin/agenda/page": "app/admin/agenda/page.js",
+  "/admin/operacao/page": "app/admin/operacao/page.js",
+  "/admin/dashboard/page": "app/admin/dashboard/page.js",
+  "/admin/servicos/page": "app/admin/servicos/page.js",
+  "/admin/pdv/page": "app/admin/pdv/page.js"
 }

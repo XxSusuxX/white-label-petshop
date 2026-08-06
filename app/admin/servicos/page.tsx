@@ -14,18 +14,22 @@ interface CatalogItem {
 
 export default function ServicosPage() {
   const [items, setItems] = useState<CatalogItem[]>([]);
+  const [isDefaultCatalog, setIsDefaultCatalog] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"service" | "product" | "package">("service");
   const [searchTerm, setSearchTerm] = useState("");
   const [showNewModal, setShowNewModal] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  // New item form
+  // Item form (usado tanto para criar quanto para editar)
   const [formName, setFormName] = useState("");
   const [formDescription, setFormDescription] = useState("");
   const [formDuration, setFormDuration] = useState("30");
   const [formPrice, setFormPrice] = useState("");
   const [formCategory, setFormCategory] = useState<"service" | "product" | "package">("service");
+  const [formIsActive, setFormIsActive] = useState(true);
 
   useEffect(() => {
     loadCatalog();
@@ -33,18 +37,48 @@ export default function ServicosPage() {
 
   const loadCatalog = async () => {
     setIsLoading(true);
+    setLoadError(null);
     try {
       const res = await fetch("/api/admin/services");
       const data = await res.json();
-      if (data.services) setItems(data.services);
-    } catch (err) {
+      if (!res.ok) throw new Error(data?.error || "Não foi possível carregar o catálogo.");
+      setItems(data.services || []);
+      setIsDefaultCatalog(!!data.isDefault);
+    } catch (err: any) {
       console.error("Erro ao carregar catálogo:", err);
+      setLoadError(err.message || "Erro ao carregar catálogo.");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleCreateItem = async (e: React.FormEvent) => {
+  const resetForm = () => {
+    setFormName("");
+    setFormDescription("");
+    setFormDuration("30");
+    setFormPrice("");
+    setFormCategory("service");
+    setFormIsActive(true);
+    setEditingId(null);
+  };
+
+  const openNewModal = () => {
+    resetForm();
+    setShowNewModal(true);
+  };
+
+  const openEditModal = (item: CatalogItem) => {
+    setEditingId(item.id);
+    setFormName(item.name);
+    setFormDescription(item.description || "");
+    setFormDuration(String(item.duration_minutes || 0));
+    setFormPrice(String(item.price));
+    setFormCategory(item.category);
+    setFormIsActive(item.is_active);
+    setShowNewModal(true);
+  };
+
+  const handleSaveItem = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formName.trim() || !formPrice.trim()) {
       alert("Nome e preço são obrigatórios.");
@@ -52,24 +86,31 @@ export default function ServicosPage() {
     }
     setIsSaving(true);
     try {
-      const res = await fetch("/api/admin/services", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: formName.trim(),
-          description: formDescription.trim(),
-          duration_minutes: parseInt(formDuration) || 30,
-          price: formPrice.trim(),
-          category: formCategory,
-        }),
-      });
+      const payload = {
+        name: formName.trim(),
+        description: formDescription.trim(),
+        duration_minutes: parseInt(formDuration) || 30,
+        price: formPrice.trim(),
+        category: formCategory,
+        is_active: formIsActive,
+      };
+
+      const res = editingId
+        ? await fetch("/api/admin/services", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id: editingId, ...payload }),
+          })
+        : await fetch("/api/admin/services", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+
       const data = await res.json();
       if (res.ok && data.success) {
         setShowNewModal(false);
-        setFormName("");
-        setFormDescription("");
-        setFormDuration("30");
-        setFormPrice("");
+        resetForm();
         loadCatalog();
       } else {
         alert(`Erro: ${data.error || "Tente novamente."}`);
@@ -79,6 +120,22 @@ export default function ServicosPage() {
       alert("Erro de conexão.");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleDeleteItem = async (item: CatalogItem) => {
+    if (!confirm(`Remover "${item.name}" do catálogo?`)) return;
+    try {
+      const res = await fetch(`/api/admin/services?id=${item.id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        loadCatalog();
+      } else {
+        alert(`Erro: ${data.error || "Tente novamente."}`);
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Erro de conexão ao remover item.");
     }
   };
 
@@ -122,13 +179,20 @@ export default function ServicosPage() {
           </p>
         </div>
         <button
-          onClick={() => setShowNewModal(true)}
+          onClick={openNewModal}
           className="bg-primary text-on-primary font-bold text-sm px-6 py-3 rounded-xl flex items-center gap-2 extruded-shadow hover:brightness-110 active:scale-95 transition-all cursor-pointer"
         >
           <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>add_circle</span>
           Novo Item
         </button>
       </div>
+
+      {isDefaultCatalog && !isLoading && (
+        <div className="bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-bold px-4 py-3 rounded-xl flex items-center gap-2">
+          <span className="material-symbols-outlined text-base">info</span>
+          Catálogo ainda vazio no banco — exibindo itens de exemplo (não editáveis). Cadastre um item para começar.
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex gap-2 bg-surface-container border border-hairline-border rounded-xl p-1.5">
@@ -172,6 +236,17 @@ export default function ServicosPage() {
               <div className="h-4 w-24 bg-surface-container-highest rounded"></div>
             </div>
           ))}
+        </div>
+      ) : loadError ? (
+        <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
+          <span className="material-symbols-outlined text-5xl text-rose-400">error</span>
+          <p className="font-bold text-rose-400">{loadError}</p>
+          <button
+            onClick={loadCatalog}
+            className="bg-primary text-on-primary font-bold text-xs px-4 py-2 rounded-xl hover:brightness-110 cursor-pointer"
+          >
+            Tentar novamente
+          </button>
         </div>
       ) : filteredItems.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-center">
@@ -218,26 +293,51 @@ export default function ServicosPage() {
                   R$ {item.price.toFixed(2).replace(".", ",")}
                 </span>
               </div>
+
+              {!item.id.startsWith("def-") && (
+                <div className="flex items-center gap-2 pt-3 mt-3 border-t border-hairline-border">
+                  <button
+                    onClick={() => openEditModal(item)}
+                    className="flex-1 py-2 bg-surface-container border border-hairline-border hover:border-primary/50 text-on-surface text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-sm">edit</span>
+                    Editar
+                  </button>
+                  <button
+                    onClick={() => handleDeleteItem(item)}
+                    className="flex-1 py-2 bg-rose-500/10 border border-rose-500/30 hover:bg-rose-500/20 text-rose-400 text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-sm">delete</span>
+                    Remover
+                  </button>
+                </div>
+              )}
             </div>
           ))}
         </div>
       )}
 
-      {/* ====== MODAL: Novo Item no Catálogo ====== */}
+      {/* ====== MODAL: Novo/Editar Item no Catálogo ====== */}
       {showNewModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-elevated-card border border-hairline-border rounded-2xl max-w-md w-full p-6 space-y-5 extruded-shadow">
             <div className="flex justify-between items-center border-b border-hairline-border pb-3">
               <h3 className="font-bold text-lg text-on-surface flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary">add_circle</span>
-                Novo Item no Catálogo
+                <span className="material-symbols-outlined text-primary">{editingId ? "edit" : "add_circle"}</span>
+                {editingId ? "Editar Item do Catálogo" : "Novo Item no Catálogo"}
               </h3>
-              <button onClick={() => setShowNewModal(false)} className="text-on-surface-variant hover:text-on-surface p-1 rounded-lg bg-surface-container cursor-pointer">
+              <button
+                onClick={() => {
+                  setShowNewModal(false);
+                  resetForm();
+                }}
+                className="text-on-surface-variant hover:text-on-surface p-1 rounded-lg bg-surface-container cursor-pointer"
+              >
                 <span className="material-symbols-outlined">close</span>
               </button>
             </div>
 
-            <form onSubmit={handleCreateItem} className="space-y-4">
+            <form onSubmit={handleSaveItem} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-on-surface-variant mb-1">Categoria *</label>
                 <div className="grid grid-cols-3 gap-2">
@@ -308,12 +408,27 @@ export default function ServicosPage() {
                 </div>
               </div>
 
+              {editingId && (
+                <button
+                  type="button"
+                  onClick={() => setFormIsActive((v) => !v)}
+                  className={`w-full py-2.5 rounded-xl text-xs font-bold border cursor-pointer transition-all flex items-center justify-center gap-1.5 ${
+                    formIsActive
+                      ? "bg-primary/10 border-primary/30 text-primary"
+                      : "bg-rose-500/10 border-rose-500/30 text-rose-400"
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-sm">{formIsActive ? "toggle_on" : "toggle_off"}</span>
+                  {formIsActive ? "Item Ativo (visível na agenda/PDV)" : "Item Inativo (oculto)"}
+                </button>
+              )}
+
               <button
                 type="submit"
                 disabled={isSaving}
                 className="w-full bg-primary text-on-primary font-bold py-3 rounded-xl hover:brightness-110 transition-all extruded-shadow cursor-pointer disabled:opacity-50"
               >
-                {isSaving ? "Salvando..." : "Cadastrar Item"}
+                {isSaving ? "Salvando..." : editingId ? "Salvar Alterações" : "Cadastrar Item"}
               </button>
             </form>
           </div>

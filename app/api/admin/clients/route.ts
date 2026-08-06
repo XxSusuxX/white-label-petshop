@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   try {
     const adminSupabase = createAdminClient();
@@ -16,19 +18,44 @@ export async function GET() {
       return NextResponse.json({ error: profileErr.message }, { status: 500 });
     }
 
-    // 2. buscar auth.users para obter email real dos clientes
-    const { data: { users }, error: usersErr } = await adminSupabase.auth.admin.listUsers();
+    // 2. buscar auth.users para obter email real dos clientes (paginado, a API do Supabase
+    // limita a listagem a uma página por chamada)
     const userEmailMap = new Map<string, string>();
-    if (users) {
-      users.forEach((u) => {
+    let page = 1;
+    const perPage = 200;
+    while (true) {
+      const { data: usersPage, error: usersErr } = await adminSupabase.auth.admin.listUsers({ page, perPage });
+      if (usersErr || !usersPage?.users) break;
+      usersPage.users.forEach((u) => {
         if (u.email) userEmailMap.set(u.id, u.email);
       });
+      if (usersPage.users.length < perPage) break;
+      page++;
     }
 
     // 3. buscar pets de todos os clientes
     const { data: pets, error: petsErr } = await adminSupabase
       .from("pets")
       .select("*");
+
+    // 3b. buscar agendamentos concluídos para calcular visitas reais por pet
+    const { data: completedAppointments } = await adminSupabase
+      .from("appointments")
+      .select("pet_id")
+      .eq("status", "concluido");
+
+    const petIdToClientId = new Map<string, string>();
+    (pets || []).forEach((p) => {
+      if (p.client_id) petIdToClientId.set(p.id, p.client_id);
+    });
+
+    const visitsByClientMap = new Map<string, number>();
+    (completedAppointments || []).forEach((a) => {
+      const clientId = petIdToClientId.get(a.pet_id);
+      if (clientId) {
+        visitsByClientMap.set(clientId, (visitsByClientMap.get(clientId) || 0) + 1);
+      }
+    });
 
     const petsByClientMap = new Map<string, any[]>();
     if (pets) {
@@ -60,6 +87,7 @@ export async function GET() {
         phone: p.phone || "Não informado",
         role: p.role,
         pets: clientPets,
+        visits: visitsByClientMap.get(p.id) || 0,
         created_at: p.created_at,
         status: "Ativo",
       };
@@ -67,6 +95,7 @@ export async function GET() {
 
     const totalPetsCount = pets ? pets.length : 0;
     const activeClientsCount = clientsList.length;
+    const totalVisits = Array.from(visitsByClientMap.values()).reduce((sum, v) => sum + v, 0);
 
     return NextResponse.json({
       clients: clientsList,
@@ -74,7 +103,7 @@ export async function GET() {
         totalClients: clientsList.length,
         activeClients: activeClientsCount,
         totalPets: totalPetsCount,
-        totalVisits: clientsList.length * 3, // Total estimado ou contabilizado
+        totalVisits,
       },
     });
   } catch (err: any) {

@@ -1,26 +1,101 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 
-export default function OperacaoPage() {
-  const [tasks, setTasks] = useState([
-    { id: "1", pet: "Thor", breed: "Golden Retriever", time: "09:00", service: "Banho & Tosa", status: "bathing", tutor: "Carlos Eduardo", phone: "(11) 99999-9999" },
-    { id: "2", pet: "Mel", breed: "Poodle Toy", time: "10:30", service: "Hidratação", status: "waiting", tutor: "Mariana Costa", phone: "(11) 98888-7777" },
-    { id: "3", pet: "Bidu", breed: "SRD", time: "14:00", service: "Consulta Vet", status: "finished", tutor: "Welington Souza", phone: "(11) 97777-6666" },
-  ]);
+interface OpTask {
+  id: string;
+  pet: string;
+  breed: string;
+  time: string;
+  service: string;
+  status: "agendado" | "confirmado" | "em_atendimento" | "concluido" | "cancelado" | "bloqueio";
+  tutor: string;
+  phone: string;
+  day: number;
+  month: number;
+  year: number;
+}
 
-  const notifyTutorWhatsApp = (task: typeof tasks[0]) => {
-    const formattedPhone = task.phone.replace(/\D/g, "");
+const isToday = (day: number, month: number, year: number) => {
+  const now = new Date();
+  return day === now.getDate() && month === now.getMonth() + 1 && year === now.getFullYear();
+};
+
+export default function OperacaoPage() {
+  const [tasks, setTasks] = useState<OpTask[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const loadTasks = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const res = await fetch("/api/admin/agenda");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Não foi possível carregar a operação.");
+
+      const mapped: OpTask[] = (data.appointments || [])
+        .filter((a: any) => isToday(a.day, a.month, a.year))
+        .filter((a: any) => a.status !== "cancelado" && a.status !== "bloqueio")
+        .map((a: any) => ({
+          id: a.id,
+          pet: a.pet_name,
+          breed: a.pet_breed,
+          time: a.time,
+          service: a.service_type,
+          status: a.status,
+          tutor: a.tutor_name,
+          phone: a.tutor_phone,
+          day: a.day,
+          month: a.month,
+          year: a.year,
+        }));
+
+      setTasks(mapped);
+    } catch (err: any) {
+      console.error("Erro ao carregar operação:", err);
+      setLoadError(err.message || "Erro ao carregar a operação.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadTasks();
+  }, []);
+
+  const notifyTutorWhatsApp = (task: OpTask) => {
+    const formattedPhone = (task.phone || "").replace(/\D/g, "");
     const msg = encodeURIComponent(
       `Olá ${task.tutor}! 🐾 Notícia boa: o(a) ${task.pet} acabou de finalizar o serviço de ${task.service} e está cheiroso e pronto para ser retirado na recepção do Petshop!`
     );
     window.open(`https://wa.me/55${formattedPhone}?text=${msg}`, "_blank");
   };
 
-  const moveTask = (id: string, newStatus: string) => {
+  const moveTask = async (id: string, newStatus: OpTask["status"]) => {
+    const prevTasks = tasks;
     setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, status: newStatus } : t)));
+    try {
+      const res = await fetch("/api/admin/agenda", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status: newStatus }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || "Falha ao atualizar status.");
+      }
+    } catch (err) {
+      console.error("Erro ao mover atendimento:", err);
+      setTasks(prevTasks);
+      alert("Não foi possível atualizar o atendimento. Tente novamente.");
+    }
   };
+
+  const waitingTasks = tasks.filter((t) => t.status === "agendado" || t.status === "confirmado");
+  const bathingTasks = tasks.filter((t) => t.status === "em_atendimento");
+  const finishedTasks = tasks.filter((t) => t.status === "concluido");
 
   return (
     <main className="p-4 md:p-8 space-y-6 max-w-7xl mx-auto w-full">
@@ -45,20 +120,38 @@ export default function OperacaoPage() {
           </div>
         </header>
 
-        {/* Kanban Columns */}
+        {isLoading ? (
+          <div className="p-12 text-center text-on-surface-variant bg-elevated-card rounded-2xl border border-hairline-border">
+            <span className="material-symbols-outlined text-4xl animate-spin text-primary mb-2">sync</span>
+            <p className="font-bold">Carregando operação do dia...</p>
+          </div>
+        ) : loadError ? (
+          <div className="p-12 text-center bg-elevated-card rounded-2xl border border-rose-500/30 space-y-3">
+            <span className="material-symbols-outlined text-4xl text-rose-400">error</span>
+            <p className="font-bold text-rose-400">{loadError}</p>
+            <button
+              onClick={loadTasks}
+              className="bg-primary text-on-primary font-bold text-xs px-4 py-2 rounded-xl hover:brightness-110 cursor-pointer"
+            >
+              Tentar novamente
+            </button>
+          </div>
+        ) : (
+        /* Kanban Columns */
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
           {/* Column 1: Aguardando Entrada */}
           <div className="bg-surface-container border border-hairline-border rounded-2xl p-5 flex flex-col gap-4">
             <div className="flex items-center justify-between border-b border-hairline-border pb-3">
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
-                <h3 className="font-label-bold text-body-sm uppercase tracking-wider text-on-surface">Aguardando (1)</h3>
+                <h3 className="font-label-bold text-body-sm uppercase tracking-wider text-on-surface">Aguardando ({waitingTasks.length})</h3>
               </div>
             </div>
 
-            {tasks
-              .filter((t) => t.status === "waiting")
-              .map((t) => (
+            {waitingTasks.length === 0 && (
+              <p className="text-caption text-on-surface-variant text-center py-6">Nenhum atendimento aguardando hoje.</p>
+            )}
+            {waitingTasks.map((t) => (
                 <div key={t.id} className="bg-elevated-card border border-hairline-border rounded-xl p-4 space-y-3 extruded-shadow">
                   <div className="flex justify-between items-start">
                     <div>
@@ -75,10 +168,10 @@ export default function OperacaoPage() {
                   </span>
 
                   <button
-                    onClick={() => moveTask(t.id, "bathing")}
-                    className="w-full bg-surface-container-high border border-hairline-border text-primary hover:bg-primary/20 py-2 rounded-lg text-caption font-label-bold flex items-center justify-center gap-1 transition-all"
+                    onClick={() => moveTask(t.id, "em_atendimento")}
+                    className="w-full bg-surface-container-high border border-hairline-border text-primary hover:bg-primary/20 py-2 rounded-lg text-caption font-label-bold flex items-center justify-center gap-1 transition-all cursor-pointer"
                   >
-                    Iniciar Banho →
+                    Iniciar Atendimento →
                   </button>
                 </div>
               ))}
@@ -89,13 +182,14 @@ export default function OperacaoPage() {
             <div className="flex items-center justify-between border-b border-hairline-border pb-3">
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-blue-400 animate-pulse"></span>
-                <h3 className="font-label-bold text-body-sm uppercase tracking-wider text-on-surface">Em Atendimento (1)</h3>
+                <h3 className="font-label-bold text-body-sm uppercase tracking-wider text-on-surface">Em Atendimento ({bathingTasks.length})</h3>
               </div>
             </div>
 
-            {tasks
-              .filter((t) => t.status === "bathing")
-              .map((t) => (
+            {bathingTasks.length === 0 && (
+              <p className="text-caption text-on-surface-variant text-center py-6">Nenhum atendimento em andamento.</p>
+            )}
+            {bathingTasks.map((t) => (
                 <div key={t.id} className="bg-elevated-card border border-blue-500/40 rounded-xl p-4 space-y-3 extruded-shadow">
                   <div className="flex justify-between items-start">
                     <div>
@@ -112,8 +206,8 @@ export default function OperacaoPage() {
                   </span>
 
                   <button
-                    onClick={() => moveTask(t.id, "finished")}
-                    className="w-full bg-primary text-on-primary py-2 rounded-lg text-caption font-label-bold flex items-center justify-center gap-1 transition-all"
+                    onClick={() => moveTask(t.id, "concluido")}
+                    className="w-full bg-primary text-on-primary py-2 rounded-lg text-caption font-label-bold flex items-center justify-center gap-1 transition-all cursor-pointer"
                   >
                     Finalizar Serviço ✓
                   </button>
@@ -126,13 +220,14 @@ export default function OperacaoPage() {
             <div className="flex items-center justify-between border-b border-hairline-border pb-3">
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
-                <h3 className="font-label-bold text-body-sm uppercase tracking-wider text-on-surface">Pronto para Busca (1)</h3>
+                <h3 className="font-label-bold text-body-sm uppercase tracking-wider text-on-surface">Pronto para Busca ({finishedTasks.length})</h3>
               </div>
             </div>
 
-            {tasks
-              .filter((t) => t.status === "finished")
-              .map((t) => (
+            {finishedTasks.length === 0 && (
+              <p className="text-caption text-on-surface-variant text-center py-6">Nenhum atendimento concluído hoje.</p>
+            )}
+            {finishedTasks.map((t) => (
                 <div key={t.id} className="bg-elevated-card border border-primary/40 rounded-xl p-4 space-y-3 extruded-shadow">
                   <div className="flex justify-between items-start">
                     <div>
@@ -155,6 +250,7 @@ export default function OperacaoPage() {
               ))}
           </div>
         </div>
+        )}
       </main>
   );
 }
