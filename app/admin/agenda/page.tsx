@@ -528,11 +528,10 @@ export default function HashikoAdminAgendaPage() {
               <button
                 key={mode}
                 onClick={() => setViewMode(mode)}
-                className={`px-4 py-1.5 rounded-lg text-xs font-bold capitalize transition-all cursor-pointer ${
-                  viewMode === mode
-                    ? "bg-primary text-on-primary shadow-sm"
-                    : "text-on-surface-variant hover:text-on-surface"
-                }`}
+                className={`px-4 py-1.5 rounded-lg text-xs font-bold capitalize transition-all cursor-pointer ${viewMode === mode
+                  ? "bg-primary text-on-primary shadow-sm"
+                  : "text-on-surface-variant hover:text-on-surface"
+                  }`}
               >
                 {mode === "mes" ? "Mês" : mode === "semana" ? "Semana" : mode === "dia" ? "Dia" : "Lista"}
               </button>
@@ -548,7 +547,7 @@ export default function HashikoAdminAgendaPage() {
             className="bg-primary text-on-primary font-bold text-xs px-5 py-2.5 rounded-xl flex items-center gap-2 extruded-shadow hover:brightness-110 active:scale-95 transition-all cursor-pointer"
           >
             <span className="material-symbols-outlined text-lg">add</span>
-            + Novo Agendamento
+            Novo Agendamento
           </button>
         </div>
       </div>
@@ -613,11 +612,10 @@ export default function HashikoAdminAgendaPage() {
           {/* Toggle Cancelados Ocultos */}
           <button
             onClick={() => setHideCanceled(!hideCanceled)}
-            className={`px-3 py-2 rounded-xl text-xs font-bold border transition-colors cursor-pointer flex items-center gap-1.5 ${
-              hideCanceled
-                ? "bg-surface-container-high border-hairline-border text-on-surface-variant"
-                : "bg-rose-500/20 border-rose-500/30 text-rose-400"
-            }`}
+            className={`px-3 py-2 rounded-xl text-xs font-bold border transition-colors cursor-pointer flex items-center gap-1.5 ${hideCanceled
+              ? "bg-surface-container-high border-hairline-border text-on-surface-variant"
+              : "bg-rose-500/20 border-rose-500/30 text-rose-400"
+              }`}
           >
             <span className="material-symbols-outlined text-sm">
               {hideCanceled ? "visibility_off" : "visibility"}
@@ -704,15 +702,13 @@ export default function HashikoAdminAgendaPage() {
                     setFormDate(`${yyyy}-${mm}-${dd}`);
                     setIsModalOpen(true);
                   }}
-                  className={`p-2 border-r border-b border-hairline-border min-h-[120px] transition-all cursor-pointer relative flex flex-col justify-between group ${
-                    isToday ? "bg-primary/5" : "hover:bg-surface-container-highest/40"
-                  }`}
+                  className={`p-2 border-r border-b border-hairline-border min-h-[120px] transition-all cursor-pointer relative flex flex-col justify-between group ${isToday ? "bg-primary/5" : "hover:bg-surface-container-highest/40"
+                    }`}
                 >
                   <div className="flex justify-between items-center mb-1">
                     <span
-                      className={`text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center ${
-                        isToday ? "bg-primary text-on-primary font-bold shadow-md" : "text-on-surface"
-                      }`}
+                      className={`text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center ${isToday ? "bg-primary text-on-primary font-bold shadow-md" : "text-on-surface"
+                        }`}
                     >
                       {dayNum}
                     </span>
@@ -1156,7 +1152,7 @@ export default function HashikoAdminAgendaPage() {
             <div className="flex justify-between items-center border-b border-hairline-border pb-3">
               <h3 className="font-bold text-lg text-on-surface flex items-center gap-2">
                 <span className="material-symbols-outlined text-primary">add_circle</span>
-                + Novo Agendamento (Admin)
+                Novo Agendamento (Admin)
               </h3>
               <button onClick={() => setIsModalOpen(false)} className="text-on-surface-variant hover:text-on-surface">
                 <span className="material-symbols-outlined">close</span>
@@ -1365,7 +1361,7 @@ export default function HashikoAdminAgendaPage() {
                 className="flex-1 bg-primary text-on-primary font-bold text-xs py-3 rounded-xl flex items-center justify-center gap-2 hover:brightness-110 transition-all cursor-pointer shadow-md"
               >
                 <span className="material-symbols-outlined text-base">add</span>
-                + Adicionar Agendamento neste dia
+                Adicionar Agendamento neste dia
               </button>
               <button
                 onClick={() => setSelectedDayDrawer(null)}

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 interface AdminPet {
@@ -21,12 +22,22 @@ interface AdminPet {
   current_status: string;
 }
 
-export default function PetsPage() {
+function PetsContent() {
+  const searchParams = useSearchParams();
+  const searchParamQuery = searchParams.get("search") || searchParams.get("pet") || "";
+  const petIdQuery = searchParams.get("id") || "";
+
   const [pets, setPets] = useState<AdminPet[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState(searchParamQuery);
   const [selectedSpeciesFilter, setSelectedSpeciesFilter] = useState("Todos");
   const [selectedPetDetail, setSelectedPetDetail] = useState<AdminPet | null>(null);
+
+  useEffect(() => {
+    if (searchParamQuery) {
+      setSearchTerm(searchParamQuery);
+    }
+  }, [searchParamQuery]);
 
   useEffect(() => {
     async function loadAdminPets() {
@@ -36,6 +47,18 @@ export default function PetsPage() {
         const data = await res.json();
         if (res.ok && data.pets) {
           setPets(data.pets);
+
+          // Se houver petIdQuery ou searchParamQuery, encontrar o pet e abrir os detalhes automaticamente
+          if (petIdQuery || searchParamQuery) {
+            const foundPet = data.pets.find(
+              (p: AdminPet) =>
+                (petIdQuery && p.id === petIdQuery) ||
+                (searchParamQuery && p.name.toLowerCase() === searchParamQuery.toLowerCase())
+            );
+            if (foundPet) {
+              setSelectedPetDetail(foundPet);
+            }
+          }
         }
       } catch (err) {
         console.error("Erro ao carregar pets do Supabase:", err);
@@ -44,7 +67,7 @@ export default function PetsPage() {
       }
     }
     loadAdminPets();
-  }, []);
+  }, [petIdQuery, searchParamQuery]);
 
   const filteredPets = pets.filter((pet) => {
     const matchesSearch =
@@ -238,14 +261,19 @@ export default function PetsPage() {
           {isLoading ? (
             <div className="p-4 text-center text-on-surface-variant">Carregando...</div>
           ) : filteredPets.map((pet) => (
-            <div key={pet.id} className="bg-elevated-card border border-hairline-border p-4 rounded-xl space-y-3">
+            <div
+              key={pet.id}
+              onClick={() => setSelectedPetDetail(pet)}
+              className="bg-elevated-card border border-hairline-border p-4 rounded-xl space-y-3 cursor-pointer"
+            >
               <div className="flex items-center gap-3">
                 <img src={pet.photo_url} alt={pet.name} className="w-14 h-14 rounded-xl object-cover border border-hairline-border" />
-                <div>
+                <div className="flex-1">
                   <h3 className="font-bold text-on-surface">{pet.name}</h3>
                   <p className="text-xs text-on-surface-variant">{pet.breed} • {pet.weight}</p>
                   <p className="text-xs text-primary font-bold mt-0.5">Tutor: {pet.tutor_name}</p>
                 </div>
+                <span className="material-symbols-outlined text-primary text-sm">arrow_forward</span>
               </div>
             </div>
           ))}
@@ -321,5 +349,13 @@ export default function PetsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function PetsPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-on-surface-variant">Carregando pets...</div>}>
+      <PetsContent />
+    </Suspense>
   );
 }

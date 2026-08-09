@@ -1,9 +1,9 @@
 {
-  "/page": "app/page.js",
+  "/api/notifications/route": "app/api/notifications/route.js",
   "/api/admin/agenda/route": "app/api/admin/agenda/route.js",
-  "/api/admin/dashboard/route": "app/api/admin/dashboard/route.js",
-  "/api/admin/services/route": "app/api/admin/services/route.js",
+  "/admin/agenda/page": "app/admin/agenda/page.js",
   "/admin/dashboard/page": "app/admin/dashboard/page.js",
-  "/admin/operacao/page": "app/admin/operacao/page.js",
-  "/admin/agenda/page": "app/admin/agenda/page.js"
+  "/admin/pets/page": "app/admin/pets/page.js",
+  "/admin/whatsapp/page": "app/admin/whatsapp/page.js",
+  "/admin/operacao/page": "app/admin/operacao/page.js"
 }

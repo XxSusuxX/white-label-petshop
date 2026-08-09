@@ -4,8 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
-// GET: Notificações persistidas do tutor + lembretes calculados na hora (agendamentos
-// próximos nas próximas 24h que ainda não foram concluídos/cancelados).
+// GET: Notificações para Tutores (Client) e Gestores (Admin)
 export async function GET() {
   try {
     const supabase = createClient();
@@ -19,6 +18,100 @@ export async function GET() {
 
     const adminSupabase = createAdminClient();
 
+    // Verificar se o usuário é Administrador ou Funcionário
+    const { data: profile } = await adminSupabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    const isAdmin = profile?.role === "admin" || profile?.role === "funcionario";
+
+    if (isAdmin) {
+      // 1. Notificações gravadas no sistema
+      const { data: stored, error } = await adminSupabase
+        .from("notifications")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(30);
+
+      if (error) {
+        console.error("Erro ao buscar notificações do admin:", error);
+      }
+
+      // 2. Alertas calculados da operação ao vivo
+      const { data: appts } = await adminSupabase
+        .from("appointments")
+        .select("id, pet_id, service_type, scheduled_at, status, notes")
+        .order("scheduled_at", { ascending: false })
+        .limit(50);
+
+      const { data: pets } = await adminSupabase.from("pets").select("id, name");
+      const petMap = new Map((pets || []).map((p) => [p.id, p.name]));
+
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const liveAlerts: any[] = [];
+
+      (appts || []).forEach((a) => {
+        const petName = petMap.get(a.pet_id) || "Pet";
+        const isToday = a.scheduled_at?.startsWith(todayStr);
+        const isReady = a.status === "pronto" || a.notes?.includes("Status: pronto");
+        const inService = a.status === "em_atendimento";
+
+        if (isReady) {
+          liveAlerts.push({
+            id: `admin-ready-${a.id}`,
+            type: "agendamento_confirmado",
+            title: "Pet Pronto para Busca",
+            body: `${petName} finalizou o atendimento de ${a.service_type} e está pronto na recepção.`,
+            appointment_id: a.id,
+            is_read: false,
+            created_at: a.scheduled_at || new Date().toISOString(),
+            computed: true,
+          });
+        } else if (inService) {
+          liveAlerts.push({
+            id: `admin-[OPERACAO]-${a.id}`,
+            type: "agendamento_alterado",
+            title: "Atendimento em Andamento",
+            body: `${petName} está na esteira de atendimento (${a.service_type}).`,
+            appointment_id: a.id,
+            is_read: false,
+            created_at: a.scheduled_at || new Date().toISOString(),
+            computed: true,
+          });
+        } else if (isToday && (a.status === "agendado" || a.status === "confirmado")) {
+          liveAlerts.push({
+            id: `admin-today-${a.id}`,
+            type: "agendamento_criado",
+            title: "Agendamento para Hoje",
+            body: `${petName} — ${a.service_type} está agendado para hoje.`,
+            appointment_id: a.id,
+            is_read: false,
+            created_at: a.scheduled_at || new Date().toISOString(),
+            computed: true,
+          });
+        }
+      });
+
+      // Evitar duplicidades e ordenar por data decrescente
+      const notifMap = new Map<string, any>();
+      [...liveAlerts, ...(stored || [])].forEach((n) => {
+        if (!notifMap.has(n.id)) notifMap.set(n.id, n);
+      });
+
+      const allNotifs = Array.from(notifMap.values()).sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+
+      const unreadCount = allNotifs.filter((n) => !n.is_read).length;
+
+      return NextResponse.json({ notifications: allNotifs, unreadCount });
+    }
+
+    // -------------------------------------------------------------
+    // FLUXO DO CLIENTE (TUTOR)
+    // -------------------------------------------------------------
     const { data: stored, error } = await adminSupabase
       .from("notifications")
       .select("*")
@@ -27,11 +120,10 @@ export async function GET() {
       .limit(50);
 
     if (error) {
-      console.error("Erro ao buscar notificações:", error);
+      console.error("Erro ao buscar notificações do tutor:", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // Lembretes calculados: próximos agendamentos do tutor nas próximas 24h
     const { data: pets } = await adminSupabase.from("pets").select("id, name").eq("client_id", user.id);
     const petIds = (pets || []).map((p) => p.id);
     const petMap = new Map((pets || []).map((p) => [p.id, p.name]));
@@ -89,28 +181,51 @@ export async function PATCH(request: Request) {
 
     const adminSupabase = createAdminClient();
 
+    const { data: profile } = await adminSupabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    const isAdmin = profile?.role === "admin" || profile?.role === "funcionario";
+
     if (markAll) {
+      if (isAdmin) {
+        const { error } = await adminSupabase
+          .from("notifications")
+          .update({ is_read: true })
+          .eq("is_read", false);
+        if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      } else {
+        const { error } = await adminSupabase
+          .from("notifications")
+          .update({ is_read: true })
+          .eq("client_id", user.id)
+          .eq("is_read", false);
+        if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+      return NextResponse.json({ success: true });
+    }
+
+    if (!id || typeof id !== "string" || id.startsWith("reminder-") || id.startsWith("admin-")) {
+      return NextResponse.json({ success: true });
+    }
+
+    if (isAdmin) {
       const { error } = await adminSupabase
         .from("notifications")
         .update({ is_read: true })
-        .eq("client_id", user.id)
-        .eq("is_read", false);
+        .eq("id", id);
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-      return NextResponse.json({ success: true });
+    } else {
+      const { error } = await adminSupabase
+        .from("notifications")
+        .update({ is_read: true })
+        .eq("id", id)
+        .eq("client_id", user.id);
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    if (!id || typeof id !== "string" || id.startsWith("reminder-")) {
-      // Lembretes calculados não são persistidos — não há o que marcar como lido.
-      return NextResponse.json({ success: true });
-    }
-
-    const { error } = await adminSupabase
-      .from("notifications")
-      .update({ is_read: true })
-      .eq("id", id)
-      .eq("client_id", user.id);
-
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ success: true });
   } catch (err: any) {
     console.error("Erro em PATCH /api/notifications:", err);

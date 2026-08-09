@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 
 interface Pet {
   id: string;
@@ -507,12 +508,26 @@ export default function ClientesPage() {
               <div className="space-y-2">
                 <h5 className="text-xs font-bold text-on-surface-variant uppercase">Pets Associados</h5>
                 {selectedClient.pets.map((pet) => (
-                  <div key={pet.id} className="flex items-center gap-3 p-3 bg-surface-container rounded-xl border border-hairline-border">
-                    <span className="material-symbols-outlined text-primary">pets</span>
-                    <div>
-                      <span className="font-bold text-on-surface text-sm">{pet.name}</span>
-                      <span className="text-xs text-on-surface-variant ml-2">{pet.breed || pet.species}</span>
+                  <div
+                    key={pet.id}
+                    className="flex items-center justify-between p-3 bg-surface-container rounded-xl border border-hairline-border hover:border-primary/40 transition-all"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="material-symbols-outlined text-primary">pets</span>
+                      <div>
+                        <span className="font-bold text-on-surface text-sm">{pet.name}</span>
+                        <span className="text-xs text-on-surface-variant ml-2">{pet.breed || pet.species}</span>
+                      </div>
                     </div>
+
+                    <Link
+                      href={`/admin/pets?search=${encodeURIComponent(pet.name)}&id=${pet.id}`}
+                      onClick={() => setSelectedClient(null)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 border border-primary/30 text-primary hover:bg-primary hover:text-on-primary text-xs font-bold rounded-lg transition-all cursor-pointer shadow-sm"
+                    >
+                      Ver Pet
+                      <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                    </Link>
                   </div>
                 ))}
               </div>

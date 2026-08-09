@@ -1323,6 +1323,9 @@ video {
 .divide-hairline-border\/60 > :not([hidden]) ~ :not([hidden]) {
   border-color: rgb(51 65 85 / 0.6);
 }
+.divide-hairline-border\/50 > :not([hidden]) ~ :not([hidden]) {
+  border-color: rgb(51 65 85 / 0.5);
+}
 .self-start {
   align-self: flex-start;
 }
@@ -1688,6 +1691,9 @@ video {
 .bg-white {
   --tw-bg-opacity: 1;
   background-color: rgb(255 255 255 / var(--tw-bg-opacity, 1));
+}
+.bg-surface-container\/50 {
+  background-color: rgb(26 33 29 / 0.5);
 }
 .bg-gradient-to-t {
   background-image: linear-gradient(to top, var(--tw-gradient-stops));
@@ -2349,6 +2355,9 @@ video {
 .duration-700 {
   transition-duration: 700ms;
 }
+.duration-150 {
+  transition-duration: 150ms;
+}
 .extruded-shadow {
     box-shadow: 4px 4px 0px 0px rgba(78, 222, 163, 0.2);
   }
@@ -2612,6 +2621,11 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
   background-color: rgb(255 255 255 / 0.05);
 }
 
+.hover\:bg-primary:hover {
+  --tw-bg-opacity: 1;
+  background-color: rgb(78 222 163 / var(--tw-bg-opacity, 1));
+}
+
 .hover\:text-on-surface:hover {
   --tw-text-opacity: 1;
   color: rgb(221 228 221 / var(--tw-text-opacity, 1));
@@ -2630,6 +2644,11 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 .hover\:text-rose-400:hover {
   --tw-text-opacity: 1;
   color: rgb(251 113 133 / var(--tw-text-opacity, 1));
+}
+
+.hover\:text-on-primary:hover {
+  --tw-text-opacity: 1;
+  color: rgb(0 56 36 / var(--tw-text-opacity, 1));
 }
 
 .hover\:underline:hover {
