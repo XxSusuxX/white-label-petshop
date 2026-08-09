@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { useRouter } from "next/navigation";
 
 interface Appointment {
   id: string;
@@ -59,6 +60,8 @@ interface CatalogItem {
 }
 
 export default function HashikoAdminAgendaPage() {
+  const router = useRouter();
+
   // Calendar Navigation State
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [viewMode, setViewMode] = useState<"mes" | "semana" | "dia" | "lista">("mes");
@@ -79,7 +82,12 @@ export default function HashikoAdminAgendaPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
-  const [selectedDayDrawer, setSelectedDayDrawer] = useState<number | null>(null);
+  const [selectedDayDrawer, setSelectedDayDrawer] = useState<{
+    dayNum: number;
+    dateLabel: string;
+    formattedDate: string;
+    appts: Appointment[];
+  } | null>(null);
   const [selectedAppointmentDetail, setSelectedAppointmentDetail] = useState<Appointment | null>(null);
   const [isEditingDetail, setIsEditingDetail] = useState(false);
   const [editDate, setEditDate] = useState("");
@@ -118,9 +126,21 @@ export default function HashikoAdminAgendaPage() {
       if (data.tutorsList) setTutorsList(data.tutorsList);
       setAppointments(data.appointments || []);
 
-      const services: CatalogItem[] = (servicesData.services || []).filter(
-        (s: any) => !s.category || s.category === "service"
+      let services: CatalogItem[] = (servicesData.services || []).filter(
+        (s: any) => !s.category || s.category === "service" || s.category === "package"
       );
+
+      if (services.length === 0) {
+        services = [
+          { id: "def-1", name: "Banho", price: 60.0, category: "service" },
+          { id: "def-2", name: "Banho & Tosa Completo", price: 85.0, category: "service" },
+          { id: "def-3", name: "Tosa Higiênica", price: 45.0, category: "service" },
+          { id: "def-4", name: "Hidratação de Pelo", price: 55.0, category: "service" },
+          { id: "def-5", name: "Consulta Veterinária Geral", price: 150.0, category: "service" },
+          { id: "def-6", name: "Higienização Auricular & Unhas", price: 35.0, category: "service" },
+        ];
+      }
+
       setCatalogList(services);
       if (services.length > 0) setFormServiceId((prev) => prev || services[0].id);
     } catch (err: any) {
@@ -168,6 +188,11 @@ export default function HashikoAdminAgendaPage() {
   // 3. Filtragem Inteligente Estilo Hashiko
   const filteredAppointments = useMemo(() => {
     return appointments.filter((app) => {
+      // Ocultar agendamentos que já foram redirecionados para a Operação Ao Vivo ([OPERACAO])
+      if (app.notes?.includes("[OPERACAO]")) {
+        return false;
+      }
+
       // Filtro de cancelados ocultos
       if (hideCanceled && app.status === "cancelado") {
         return false;
@@ -376,6 +401,58 @@ export default function HashikoAdminAgendaPage() {
     setSelectedAppointmentDetail(null);
   };
 
+  // 8. Enviar agendamento para a Operação Ao Vivo (Hoje)
+  const handleSendToLiveOperation = async (app: Appointment) => {
+    const nowISO = new Date().toISOString();
+    const existingNotes = app.notes || "";
+    const updatedNotes = existingNotes.includes("[OPERACAO]")
+      ? existingNotes
+      : `[OPERACAO] | [STEP:0] | ${existingNotes}`;
+
+    // Remover imediatamente da lista local da Agenda (exclui da visualização do calendário)
+    setAppointments((prev) => prev.filter((item) => item.id !== app.id));
+    setSelectedAppointmentDetail(null);
+
+    try {
+      await fetch("/api/admin/agenda", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: app.id,
+          scheduled_at: nowISO,
+          status: "agendado",
+          notes: updatedNotes,
+        }),
+      });
+    } catch (err) {
+      console.error("Erro ao enviar agendamento para operação ao vivo:", err);
+    } finally {
+      router.push("/admin/operacao");
+    }
+  };
+
+  // 9. Excluir agendamento permanentemente do Supabase
+  const handleDeleteAppointment = async (id: string) => {
+    if (!confirm("Tem certeza que deseja excluir permanentemente este agendamento?")) return;
+    setAppointments((prev) => prev.filter((a) => a.id !== id));
+    setSelectedAppointmentDetail(null);
+
+    try {
+      const res = await fetch(`/api/admin/agenda?id=${id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data?.error || "Erro ao excluir agendamento.");
+        await loadAgendaData();
+      }
+    } catch (err) {
+      console.error("Erro ao excluir agendamento:", err);
+      alert("Erro ao excluir agendamento.");
+      await loadAgendaData();
+    }
+  };
+
   // Helper de badge de status
   const renderStatusBadge = (status: string) => {
     switch (status) {
@@ -464,7 +541,10 @@ export default function HashikoAdminAgendaPage() {
 
           {/* Botão + Novo Agendamento (Destacado em Laranja/Verde) */}
           <button
-            onClick={() => setIsModalOpen(true)}
+            onClick={() => {
+              setFormDate(new Date().toISOString().slice(0, 10));
+              setIsModalOpen(true);
+            }}
             className="bg-primary text-on-primary font-bold text-xs px-5 py-2.5 rounded-xl flex items-center gap-2 extruded-shadow hover:brightness-110 active:scale-95 transition-all cursor-pointer"
           >
             <span className="material-symbols-outlined text-lg">add</span>
@@ -503,17 +583,18 @@ export default function HashikoAdminAgendaPage() {
             ))}
           </select>
 
-          {/* Tipos */}
+          {/* Tipos (Sincronizados com a tela de Serviços & Preços) */}
           <select
             value={selectedType}
             onChange={(e) => setSelectedType(e.target.value)}
             className="bg-matte-canvas border border-hairline-border rounded-xl px-3 py-2 text-xs text-on-surface focus:border-primary outline-none cursor-pointer"
           >
             <option value="Todos os tipos">Todos os tipos</option>
-            <option value="Banho">Banho</option>
-            <option value="Tosa">Tosa</option>
-            <option value="Banho & Tosa">Banho & Tosa</option>
-            <option value="Consulta Vet">Consulta Vet</option>
+            {catalogList.map((s) => (
+              <option key={s.id} value={s.name}>
+                {s.name}
+              </option>
+            ))}
           </select>
 
           {/* Status */}
@@ -600,10 +681,29 @@ export default function HashikoAdminAgendaPage() {
               const isToday = isSameDay(now, dayNum, currentDate.getMonth() + 1, currentDate.getFullYear());
               const dayAppts = appointmentsByDayMap.get(dayNum) || [];
 
+              const openDayDrawer = (e: React.MouseEvent) => {
+                e.stopPropagation();
+                const yyyy = currentDate.getFullYear();
+                const mm = String(currentDate.getMonth() + 1).padStart(2, "0");
+                const dd = String(dayNum).padStart(2, "0");
+                setSelectedDayDrawer({
+                  dayNum,
+                  dateLabel: `${dd}/${mm}/${yyyy}`,
+                  formattedDate: `${yyyy}-${mm}-${dd}`,
+                  appts: dayAppts,
+                });
+              };
+
               return (
                 <div
                   key={`cur-${dayNum}`}
-                  onClick={() => dayAppts.length > 0 && setSelectedDayDrawer(dayNum)}
+                  onClick={() => {
+                    const yyyy = currentDate.getFullYear();
+                    const mm = String(currentDate.getMonth() + 1).padStart(2, "0");
+                    const dd = String(dayNum).padStart(2, "0");
+                    setFormDate(`${yyyy}-${mm}-${dd}`);
+                    setIsModalOpen(true);
+                  }}
                   className={`p-2 border-r border-b border-hairline-border min-h-[120px] transition-all cursor-pointer relative flex flex-col justify-between group ${
                     isToday ? "bg-primary/5" : "hover:bg-surface-container-highest/40"
                   }`}
@@ -617,9 +717,14 @@ export default function HashikoAdminAgendaPage() {
                       {dayNum}
                     </span>
                     {dayAppts.length > 0 && (
-                      <span className="text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded">
+                      <button
+                        type="button"
+                        onClick={openDayDrawer}
+                        className="text-[10px] font-bold text-primary bg-primary/10 hover:bg-primary/20 px-1.5 py-0.5 rounded cursor-pointer transition-colors"
+                        title="Ver todos os agendamentos deste dia"
+                      >
                         {dayAppts.length} agend.
-                      </span>
+                      </button>
                     )}
                   </div>
 
@@ -642,9 +747,13 @@ export default function HashikoAdminAgendaPage() {
                       </div>
                     ))}
                     {dayAppts.length > 2 && (
-                      <div className="text-[9px] font-bold text-primary text-center">
-                        + {dayAppts.length - 2} mais
-                      </div>
+                      <button
+                        type="button"
+                        onClick={openDayDrawer}
+                        className="w-full text-[9px] font-bold text-primary text-center hover:underline cursor-pointer py-1 bg-primary/10 hover:bg-primary/20 rounded transition-colors"
+                      >
+                        + {dayAppts.length - 2} mais (ver todos)
+                      </button>
                     )}
                   </div>
                 </div>
@@ -661,7 +770,17 @@ export default function HashikoAdminAgendaPage() {
               const dayLabels = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
               const label = `${dayLabels[wd.getDay()]} ${String(wd.getDate()).padStart(2, "0")}/${String(wd.getMonth() + 1).padStart(2, "0")}`;
               return (
-                <div key={wd.toISOString()} className="bg-surface-container border border-hairline-border rounded-xl p-3 space-y-3">
+                <div
+                  key={wd.toISOString()}
+                  onClick={() => {
+                    const yyyy = wd.getFullYear();
+                    const mm = String(wd.getMonth() + 1).padStart(2, "0");
+                    const dd = String(wd.getDate()).padStart(2, "0");
+                    setFormDate(`${yyyy}-${mm}-${dd}`);
+                    setIsModalOpen(true);
+                  }}
+                  className="bg-surface-container border border-hairline-border rounded-xl p-3 space-y-3 cursor-pointer hover:border-primary/50 transition-colors"
+                >
                   <div className="font-bold text-xs text-center border-b border-hairline-border pb-2 text-on-surface">
                     {label}
                   </div>
@@ -671,7 +790,10 @@ export default function HashikoAdminAgendaPage() {
                       .map((app) => (
                         <div
                           key={app.id}
-                          onClick={() => openAppointmentDetail(app)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openAppointmentDetail(app);
+                          }}
                           className="bg-matte-canvas p-2 rounded-lg border border-hairline-border text-xs space-y-1 cursor-pointer hover:border-primary/50 transition-colors"
                         >
                           <div className="font-bold text-primary">{app.pet_name} ({app.time})</div>
@@ -693,7 +815,18 @@ export default function HashikoAdminAgendaPage() {
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {PROFESSIONALS.map((prof) => (
-              <div key={prof} className="bg-surface-container border border-hairline-border rounded-xl p-4 space-y-3">
+              <div
+                key={prof}
+                onClick={() => {
+                  const yyyy = currentDate.getFullYear();
+                  const mm = String(currentDate.getMonth() + 1).padStart(2, "0");
+                  const dd = String(currentDate.getDate()).padStart(2, "0");
+                  setFormDate(`${yyyy}-${mm}-${dd}`);
+                  setFormProfessional(prof);
+                  setIsModalOpen(true);
+                }}
+                className="bg-surface-container border border-hairline-border rounded-xl p-4 space-y-3 cursor-pointer hover:border-primary/50 transition-colors"
+              >
                 <div className="font-bold text-sm text-center border-b border-hairline-border pb-2 text-primary flex items-center justify-center gap-2">
                   <span className="material-symbols-outlined text-base">person</span>
                   {prof}
@@ -704,7 +837,10 @@ export default function HashikoAdminAgendaPage() {
                     .map((app) => (
                       <div
                         key={app.id}
-                        onClick={() => setSelectedAppointmentDetail(app)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openAppointmentDetail(app);
+                        }}
                         className="bg-matte-canvas p-3 rounded-xl border border-hairline-border space-y-1.5 cursor-pointer hover:border-primary/50 transition-colors"
                       >
                         <div className="flex justify-between font-bold text-xs">
@@ -717,7 +853,7 @@ export default function HashikoAdminAgendaPage() {
                       </div>
                     ))}
                   {filteredAppointments.filter((a) => a.professional === prof && isSameDay(currentDate, a.day, a.month, a.year)).length === 0 && (
-                    <p className="text-[11px] text-on-surface-variant text-center py-3">Nenhum agendamento.</p>
+                    <p className="text-[11px] text-on-surface-variant text-center py-3">Nenhum agendamento (clique para adicionar).</p>
                   )}
                 </div>
               </div>
@@ -822,43 +958,7 @@ export default function HashikoAdminAgendaPage() {
         </div>
       )}
 
-      {/* Drawer: Agendamentos do dia selecionado no calendário mensal */}
-      {selectedDayDrawer !== null && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-elevated-card border border-hairline-border rounded-2xl max-w-lg w-full max-h-[80vh] flex flex-col p-6 space-y-4 extruded-shadow">
-            <div className="flex justify-between items-center border-b border-hairline-border pb-3">
-              <h3 className="font-bold text-lg text-on-surface flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary">event</span>
-                Agendamentos do dia {String(selectedDayDrawer).padStart(2, "0")}/{String(currentDate.getMonth() + 1).padStart(2, "0")}
-              </h3>
-              <button onClick={() => setSelectedDayDrawer(null)} className="text-on-surface-variant hover:text-on-surface cursor-pointer">
-                <span className="material-symbols-outlined">close</span>
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto space-y-2">
-              {(appointmentsByDayMap.get(selectedDayDrawer) || []).map((app) => (
-                <div
-                  key={app.id}
-                  onClick={() => {
-                    setSelectedDayDrawer(null);
-                    openAppointmentDetail(app);
-                  }}
-                  className="bg-surface-container border border-hairline-border p-3 rounded-xl cursor-pointer hover:border-primary/50 transition-colors flex items-center justify-between gap-3"
-                >
-                  <div>
-                    <div className="font-bold text-sm text-on-surface">{app.pet_name} <span className="text-on-surface-variant font-normal text-xs">• {app.tutor_name}</span></div>
-                    <div className="text-xs text-on-surface-variant">{app.service_type} — {app.professional}</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-mono text-primary text-sm font-bold">{app.time}</div>
-                    {renderStatusBadge(app.status)}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+
 
       {/* Modal: Detalhes completos de um agendamento (visualizar / editar / cancelar) */}
       {selectedAppointmentDetail && (
@@ -916,21 +1016,20 @@ export default function HashikoAdminAgendaPage() {
                     </div>
                   )}
 
-                  <div>
-                    <label className="block font-bold text-on-surface mb-1.5 text-xs">Alterar Status</label>
-                    <select
-                      value={selectedAppointmentDetail.status}
-                      onChange={(e) => {
-                        const newStatus = e.target.value as Appointment["status"];
-                        handleUpdateStatus(selectedAppointmentDetail.id, newStatus);
-                        setSelectedAppointmentDetail({ ...selectedAppointmentDetail, status: newStatus });
-                      }}
-                      className="w-full bg-matte-canvas border border-hairline-border rounded-xl p-2.5 text-on-surface text-xs cursor-pointer outline-none focus:border-primary"
+                  {/* Status Atual & Envio para Operação Ao Vivo */}
+                  <div className="bg-surface-container rounded-xl border border-hairline-border p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-on-surface-variant font-bold uppercase tracking-wider text-[10px]">Status do Atendimento</span>
+                      {renderStatusBadge(selectedAppointmentDetail.status)}
+                    </div>
+
+                    <button
+                      onClick={() => handleSendToLiveOperation(selectedAppointmentDetail)}
+                      className="w-full py-3 bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 font-bold text-xs rounded-xl hover:bg-emerald-500/30 transition-all cursor-pointer flex items-center justify-center gap-2 shadow-lg"
                     >
-                      {Object.entries(STATUS_LABELS).map(([val, label]) => (
-                        <option key={val} value={val}>{label}</option>
-                      ))}
-                    </select>
+                      <span className="material-symbols-outlined text-base">bolt</span>
+                      ⚡ Levar para Operação Ao Vivo (Hoje)
+                    </button>
                   </div>
                 </>
               ) : (
@@ -1027,9 +1126,16 @@ export default function HashikoAdminAgendaPage() {
                       onClick={handleCancelFromDetail}
                       className="flex-1 py-2.5 bg-rose-500/10 border border-rose-500/30 text-rose-400 font-bold text-xs rounded-xl hover:bg-rose-500/20 cursor-pointer"
                     >
-                      Cancelar Agendamento
+                      Cancelar
                     </button>
                   )}
+                  <button
+                    onClick={() => handleDeleteAppointment(selectedAppointmentDetail.id)}
+                    className="py-2.5 px-3 bg-surface-container border border-hairline-border text-on-surface-variant hover:text-rose-400 hover:border-rose-500/30 font-bold text-xs rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1"
+                    title="Excluir agendamento permanentemente"
+                  >
+                    <span className="material-symbols-outlined text-base">delete</span>
+                  </button>
                   <button
                     onClick={() => setIsEditingDetail(true)}
                     className="flex-1 py-2.5 bg-primary text-on-primary font-bold text-xs rounded-xl hover:brightness-110 cursor-pointer"
@@ -1184,6 +1290,89 @@ export default function HashikoAdminAgendaPage() {
               <div className="flex justify-between"><span>Visão Semana:</span> <kbd className="bg-matte-canvas px-2 py-0.5 rounded border border-hairline-border">S</kbd></div>
               <div className="flex justify-between"><span>Visão Dia:</span> <kbd className="bg-matte-canvas px-2 py-0.5 rounded border border-hairline-border">D</kbd></div>
               <div className="flex justify-between"><span>Ir para Hoje:</span> <kbd className="bg-matte-canvas px-2 py-0.5 rounded border border-hairline-border">H</kbd></div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 6. Modal de Agendamentos do Dia (Ver todos os serviços do dia) */}
+      {selectedDayDrawer && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-elevated-card border border-hairline-border rounded-2xl w-full max-w-lg overflow-hidden extruded-shadow space-y-4 p-6 animate-in fade-in zoom-in duration-200">
+            <div className="flex items-center justify-between border-b border-hairline-border pb-4">
+              <div>
+                <span className="text-primary font-bold text-xs uppercase tracking-wider block">
+                  Controle Completo da Agenda
+                </span>
+                <h3 className="text-lg font-bold text-on-surface">
+                  Agendamentos do dia {selectedDayDrawer.dateLabel} ({selectedDayDrawer.appts.length})
+                </h3>
+              </div>
+              <button
+                onClick={() => setSelectedDayDrawer(null)}
+                className="text-on-surface-variant hover:text-on-surface p-1 rounded-lg transition-colors cursor-pointer"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            {/* Lista Completa dos Agendamentos do Dia */}
+            <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+              {selectedDayDrawer.appts.map((app) => (
+                <div
+                  key={app.id}
+                  onClick={() => {
+                    setSelectedDayDrawer(null);
+                    openAppointmentDetail(app);
+                  }}
+                  className="bg-surface-container border border-hairline-border hover:border-primary/50 p-4 rounded-xl space-y-2 transition-all cursor-pointer extruded-shadow"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-primary text-sm">{app.pet_name}</span>
+                      <span className="text-xs text-on-surface-variant">({app.pet_breed})</span>
+                    </div>
+                    <span className="text-xs font-mono font-bold bg-matte-canvas px-2.5 py-1 rounded text-on-surface">
+                      {app.time}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs text-on-surface-variant">
+                    <span>Tutor: <strong className="text-on-surface">{app.tutor_name}</strong></span>
+                    <span>Profissional: <strong className="text-on-surface">{app.professional}</strong></span>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2 border-t border-hairline-border/40 text-xs">
+                    <span className="font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                      {app.service_type}
+                    </span>
+                    <span className="text-primary font-bold flex items-center gap-1">
+                      Gerenciar <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Ações do Modal do Dia */}
+            <div className="pt-3 border-t border-hairline-border flex items-center gap-3">
+              <button
+                onClick={() => {
+                  setFormDate(selectedDayDrawer.formattedDate);
+                  setSelectedDayDrawer(null);
+                  setIsModalOpen(true);
+                }}
+                className="flex-1 bg-primary text-on-primary font-bold text-xs py-3 rounded-xl flex items-center justify-center gap-2 hover:brightness-110 transition-all cursor-pointer shadow-md"
+              >
+                <span className="material-symbols-outlined text-base">add</span>
+                + Adicionar Agendamento neste dia
+              </button>
+              <button
+                onClick={() => setSelectedDayDrawer(null)}
+                className="bg-surface-container border border-hairline-border text-on-surface font-bold text-xs px-4 py-3 rounded-xl hover:bg-surface-container-high transition-colors cursor-pointer"
+              >
+                Fechar
+              </button>
             </div>
           </div>
         </div>

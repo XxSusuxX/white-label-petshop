@@ -1,4 +1,4 @@
-// File: C:\Users\courtesy\Desktop\white-label-petshop\app\api\admin\agenda\route.ts
+// File: C:\Users\gabri\OneDrive\Documentos\Trabalhos\white-label-petshop\app\api\admin\agenda\route.ts
 import * as entry from '../../../../../../app/api/admin/agenda/route.js'
 import type { NextRequest } from 'next/server.js'
 

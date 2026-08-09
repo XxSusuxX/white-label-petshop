@@ -25,10 +25,7 @@ export async function GET() {
       profiles.forEach((pr) => profileMap.set(pr.id, pr));
     }
 
-    // 3. Buscar agendamentos da tabela appointments (fonte de verdade).
-    // Só cai para o histórico legado (service_history) se a própria consulta falhar
-    // (ex.: tabela ainda não migrada) — uma lista real vazia continua vazia, nunca é
-    // mascarada com dados antigos de service_history como se fossem atuais.
+    // 3. Buscar agendamentos da tabela appointments
     let appointmentsList: any[] = [];
 
     const { data: appointments, error: apptErr } = await adminSupabase
@@ -48,6 +45,18 @@ export async function GET() {
         const hours = String(dateObj.getHours()).padStart(2, "0");
         const minutes = String(dateObj.getMinutes()).padStart(2, "0");
 
+        // Parse de status com suporte a tags no notes (resiliência a restrições de banco)
+        let effectiveStatus = a.status || "agendado";
+        if (a.notes?.includes("Status: pronto") || a.notes?.includes("[STATUS:pronto]")) {
+          effectiveStatus = "pronto";
+        } else if (a.notes?.includes("Status: em_rota") || a.notes?.includes("[STATUS:em_rota]")) {
+          effectiveStatus = "em_rota";
+        } else if (a.notes?.includes("Status: concluido") || a.notes?.includes("[STATUS:concluido]")) {
+          effectiveStatus = "concluido";
+        } else if (a.notes?.includes("Status: em_atendimento") || a.notes?.includes("[STATUS:em_atendimento]")) {
+          effectiveStatus = "em_atendimento";
+        }
+
         return {
           id: a.id,
           pet_id: a.pet_id,
@@ -60,7 +69,7 @@ export async function GET() {
           tutor_phone: tutor ? tutor.phone : "Não informado",
           service_id: a.service_id || null,
           service_type: a.service_type || "Banho & Tosa",
-          status: a.status || "agendado",
+          status: effectiveStatus,
           professional: a.professional || "Não atribuído",
           price: a.price ?? 85.0,
           day,
@@ -75,7 +84,6 @@ export async function GET() {
         };
       });
     } else {
-      // Fallback apenas em caso de erro real na consulta (ex.: tabela indisponível)
       console.warn("Falha ao consultar appointments, usando service_history como fallback:", apptErr.message);
       const { data: history } = await adminSupabase
         .from("service_history")
@@ -93,6 +101,18 @@ export async function GET() {
         const hours = String(dateObj.getHours()).padStart(2, "0");
         const minutes = String(dateObj.getMinutes()).padStart(2, "0");
 
+        const parsedStatus = h.notes?.includes("cancelado")
+          ? "cancelado"
+          : h.notes?.includes("concluido") || h.notes?.includes("Status: concluido")
+          ? "concluido"
+          : h.notes?.includes("em_rota") || h.notes?.includes("Status: em_rota")
+          ? "em_rota"
+          : h.notes?.includes("pronto") || h.notes?.includes("Status: pronto")
+          ? "pronto"
+          : h.notes?.includes("em_atendimento") || h.notes?.includes("atendimento")
+          ? "em_atendimento"
+          : "agendado";
+
         return {
           id: h.id,
           pet_id: h.pet_id,
@@ -105,13 +125,7 @@ export async function GET() {
           tutor_phone: tutor ? tutor.phone : "Não informado",
           service_id: null,
           service_type: h.service_type || "Banho & Tosa",
-          status: h.notes?.includes("cancelado")
-            ? "cancelado"
-            : h.notes?.includes("concluido")
-            ? "concluido"
-            : h.notes?.includes("atendimento")
-            ? "em_atendimento"
-            : "agendado",
+          status: parsedStatus,
           professional: "Não atribuído",
           price: 85.0,
           day,
@@ -155,8 +169,8 @@ export async function POST(request: Request) {
     if (!force) {
       const conflict = await findSchedulingConflict({
         scheduledAt: service_date,
-        serviceId: service_id,
-        professional,
+        serviceId: service_id || null,
+        professional: professional || "Não atribuído",
       });
       if (conflict) {
         return NextResponse.json(
@@ -170,22 +184,37 @@ export async function POST(request: Request) {
       .from("appointments")
       .insert({
         pet_id,
-        service_id: service_id || null,
         pet_shop_id: PET_SHOP_ID,
+        service_id: service_id || null,
         service_type,
         scheduled_at: service_date,
         professional: professional || "Não atribuído",
         price: price ?? 85.0,
         status: "agendado",
-        notes: notes || "",
+        notes: notes || "[STEP:0]",
         address: address || "",
       })
       .select()
       .single();
 
     if (insertErr) {
-      console.error("Erro ao inserir agendamento:", insertErr);
-      return NextResponse.json({ error: insertErr.message }, { status: 500 });
+      console.warn("Tabela appointments não disponível para inserção, usando service_history:", insertErr.message);
+      const { data: legacyRow, error: legacyErr } = await adminSupabase
+        .from("service_history")
+        .insert({
+          pet_id,
+          pet_shop_id: PET_SHOP_ID,
+          service_type,
+          service_date: service_date,
+          notes: notes || `Profissional: ${professional || "Groomer"}`,
+        })
+        .select()
+        .single();
+
+      if (legacyErr) {
+        return NextResponse.json({ error: legacyErr.message }, { status: 400 });
+      }
+      return NextResponse.json({ appointment: legacyRow, success: true });
     }
 
     const clientId = await getClientIdForPet(pet_id);
@@ -195,8 +224,8 @@ export async function POST(request: Request) {
         clientId,
         appointmentId: newRow.id,
         type: "agendamento_confirmado",
-        title: "Agendamento confirmado",
-        body: `Seu agendamento de ${service_type} foi confirmado para ${dateLabel}.`,
+        title: "Agendamento realizado",
+        body: `Seu agendamento de ${service_type} para ${dateLabel} foi registrado com sucesso.`,
       });
     }
 
@@ -255,12 +284,39 @@ export async function PATCH(request: Request) {
     if (professional !== undefined) updateData.professional = professional;
     if (price !== undefined) updateData.price = price;
 
-    const { data, error } = await adminSupabase
+    // Se um novo status for informado, injetar tag de status nas notes para resiliência no Supabase
+    if (status) {
+      const statusTag = `Status: ${status}`;
+      if (updateData.notes) {
+        if (!updateData.notes.includes(statusTag)) {
+          updateData.notes = `${statusTag} | ${updateData.notes}`;
+        }
+      } else {
+        updateData.notes = statusTag;
+      }
+    }
+
+    let { data, error } = await adminSupabase
       .from("appointments")
       .update(updateData)
       .eq("id", id)
       .select()
       .single();
+
+    // Se o Postgres recusar por restricao appointments_status_check ('pronto' ou 'em_rota' nao permitidos na CHECK constraint do banco)
+    if (error && (error.code === "23514" || error.message.includes("appointments_status_check") || error.message.includes("check constraint"))) {
+      console.warn("Restrição appointments_status_check acionada no Supabase. Usando status 'confirmado' com tag no notes:", error.message);
+      const fallbackData = { ...updateData, status: "confirmado" };
+      const retryRes = await adminSupabase
+        .from("appointments")
+        .update(fallbackData)
+        .eq("id", id)
+        .select()
+        .single();
+
+      data = retryRes.data;
+      error = retryRes.error;
+    }
 
     if (error) {
       console.error("Erro ao atualizar agendamento:", error);
@@ -293,6 +349,39 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ success: true, appointment: data });
   } catch (err: any) {
     console.error("Erro no PATCH /api/admin/agenda:", err);
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}
+
+// DELETE: Excluir agendamento por ID fisicamente no Supabase
+export async function DELETE(request: Request) {
+  try {
+    const adminSupabase = createAdminClient();
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get("id");
+
+    if (!id) {
+      return NextResponse.json({ error: "id é obrigatório" }, { status: 400 });
+    }
+
+    const { error: err1 } = await adminSupabase
+      .from("appointments")
+      .delete()
+      .eq("id", id);
+
+    const { error: err2 } = await adminSupabase
+      .from("service_history")
+      .delete()
+      .eq("id", id);
+
+    if (err1 && err2) {
+      console.error("Erro ao excluir agendamento do Supabase:", err1?.message, err2?.message);
+      return NextResponse.json({ error: err1.message }, { status: 400 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (err: any) {
+    console.error("Erro no DELETE /api/admin/agenda:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

@@ -1,4 +1,4 @@
-// File: C:\Users\courtesy\Desktop\white-label-petshop\app\admin\operacao\page.tsx
+// File: C:\Users\gabri\OneDrive\Documentos\Trabalhos\white-label-petshop\app\admin\operacao\page.tsx
 import * as entry from '../../../../../app/admin/operacao/page.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 
