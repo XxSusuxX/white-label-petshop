@@ -21,20 +21,46 @@ interface ClientUser {
   status: string;
 }
 
+interface EmployeeUser {
+  id: string;
+  full_name: string;
+  email: string;
+  phone: string;
+  role: string;
+  role_label: string;
+  created_at: string;
+  status: string;
+}
+
 interface Metrics {
   totalClients: number;
   activeClients: number;
   totalPets: number;
   totalVisits: number;
+  totalEmployees?: number;
 }
 
+const ROLE_BADGE_STYLE: Record<string, { bg: string; icon: string }> = {
+  admin: { bg: "bg-emerald-500/20 text-emerald-400 border-emerald-500/40", icon: "shield_person" },
+  dono: { bg: "bg-emerald-500/20 text-emerald-400 border-emerald-500/40", icon: "workspace_premium" },
+  veterinario: { bg: "bg-sky-500/20 text-sky-400 border-sky-500/40", icon: "stethoscope" },
+  banhista_tosador: { bg: "bg-amber-500/20 text-amber-400 border-amber-500/40", icon: "content_cut" },
+  recepcionista: { bg: "bg-purple-500/20 text-purple-400 border-purple-500/40", icon: "support_agent" },
+  entregador: { bg: "bg-blue-500/20 text-blue-400 border-blue-500/40", icon: "local_shipping" },
+  auxiliar: { bg: "bg-slate-500/20 text-slate-300 border-slate-500/40", icon: "engineering" },
+  funcionario: { bg: "bg-slate-500/20 text-slate-300 border-slate-500/40", icon: "badge" },
+};
+
 export default function ClientesPage() {
+  const [activeTab, setActiveTab] = useState<"clientes" | "funcionarios">("clientes");
   const [clients, setClients] = useState<ClientUser[]>([]);
+  const [employees, setEmployees] = useState<EmployeeUser[]>([]);
   const [metrics, setMetrics] = useState<Metrics>({
     totalClients: 0,
     activeClients: 0,
     totalPets: 0,
     totalVisits: 0,
+    totalEmployees: 0,
   });
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -76,6 +102,7 @@ export default function ClientesPage() {
         const reloadData = await reloadRes.json();
         if (reloadData.clients) {
           setClients(reloadData.clients);
+          if (reloadData.employees) setEmployees(reloadData.employees);
           if (reloadData.metrics) setMetrics(reloadData.metrics);
         }
         alert("Cliente cadastrado com sucesso!");
@@ -98,12 +125,15 @@ export default function ClientesPage() {
         const data = await res.json();
         if (res.ok && data.clients) {
           setClients(data.clients);
+          if (data.employees) {
+            setEmployees(data.employees);
+          }
           if (data.metrics) {
             setMetrics(data.metrics);
           }
         }
       } catch (err) {
-        console.error("Erro ao carregar clientes reais do Supabase:", err);
+        console.error("Erro ao carregar clientes e equipe do Supabase:", err);
       } finally {
         setIsLoading(false);
       }
@@ -149,6 +179,21 @@ export default function ClientesPage() {
     return matchesSearch && matchesStatus;
   });
 
+  const filteredEmployees = employees.filter((emp) => {
+    const matchesSearch =
+      emp.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      emp.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      emp.phone.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      emp.role_label.toLowerCase().includes(searchTerm.toLowerCase());
+
+    const matchesStatus =
+      statusFilter === "Todos os status" ||
+      (statusFilter === "Ativo" && emp.status === "Ativo") ||
+      (statusFilter === "Inativo" && emp.status === "Inativo");
+
+    return matchesSearch && matchesStatus;
+  });
+
   return (
     <div className="w-full min-h-screen bg-matte-canvas text-on-surface">
       {/* Desktop Layout */}
@@ -156,18 +201,30 @@ export default function ClientesPage() {
         {/* Page Header */}
         <div className="flex items-end justify-between">
           <div>
-            <h1 className="font-headline-lg text-headline-lg text-on-surface">Clientes / Tutores</h1>
+            <h1 className="font-headline-lg text-headline-lg text-on-surface">Clientes & Equipe</h1>
             <p className="text-on-surface-variant font-label-muted mt-1">
-              {isLoading ? "Carregando clientes..." : `${clients.length} tutores cadastrados no Supabase`}
+              {isLoading
+                ? "Carregando registros..."
+                : `${clients.length} tutores e ${employees.length} colaboradores ativos no Supabase`}
             </p>
           </div>
-          <button
-            onClick={() => setShowNewClientModal(true)}
-            className="bg-primary text-on-primary font-label-bold text-label-bold px-6 py-3 rounded-lg flex items-center gap-2 extruded-shadow hover:brightness-110 active:scale-95 transition-all cursor-pointer"
-          >
-            <span className="material-symbols-outlined text-xl">person_add</span>
-            Cadastrar cliente
-          </button>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/admin/register-admin"
+              className="bg-surface-container border border-primary/40 text-primary font-label-bold text-label-bold px-5 py-3 rounded-lg flex items-center gap-2 hover:bg-primary/10 transition-all cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-xl">person_add</span>
+              Cadastrar Colaborador
+            </Link>
+
+            <button
+              onClick={() => setShowNewClientModal(true)}
+              className="bg-primary text-on-primary font-label-bold text-label-bold px-6 py-3 rounded-lg flex items-center gap-2 extruded-shadow hover:brightness-110 active:scale-95 transition-all cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-xl">group_add</span>
+              Cadastrar Cliente
+            </button>
+          </div>
         </div>
 
         {/* Bento Metrics Grid */}
@@ -180,14 +237,16 @@ export default function ClientesPage() {
             <div className="text-headline-md font-headline-md text-on-surface">{metrics.totalClients}</div>
             <div className="text-caption font-label-muted text-on-surface-variant">Total de clientes</div>
           </div>
+
           <div className="bg-elevated-card border border-hairline-border p-5 rounded-xl extruded-shadow group hover:border-primary/30 transition-colors">
             <div className="flex justify-between items-start mb-4">
-              <span className="material-symbols-outlined text-primary bg-emerald-glow/20 p-2 rounded-lg">person_check</span>
-              <span className="text-caption text-primary">Ativos</span>
+              <span className="material-symbols-outlined text-primary bg-emerald-glow/20 p-2 rounded-lg">badge</span>
+              <span className="text-caption text-primary">Equipe</span>
             </div>
-            <div className="text-headline-md font-headline-md text-on-surface">{metrics.activeClients}</div>
-            <div className="text-caption font-label-muted text-on-surface-variant">Clientes ativos</div>
+            <div className="text-headline-md font-headline-md text-on-surface">{employees.length}</div>
+            <div className="text-caption font-label-muted text-on-surface-variant">Funcionários ativos</div>
           </div>
+
           <div className="bg-elevated-card border border-hairline-border p-5 rounded-xl extruded-shadow group hover:border-primary/30 transition-colors">
             <div className="flex justify-between items-start mb-4">
               <span className="material-symbols-outlined text-primary bg-emerald-glow/20 p-2 rounded-lg">pets</span>
@@ -196,6 +255,7 @@ export default function ClientesPage() {
             <div className="text-headline-md font-headline-md text-on-surface">{metrics.totalPets}</div>
             <div className="text-caption font-label-muted text-on-surface-variant">Pets cadastrados</div>
           </div>
+
           <div className="bg-elevated-card border border-hairline-border p-5 rounded-xl extruded-shadow group hover:border-primary/30 transition-colors">
             <div className="flex justify-between items-start mb-4">
               <span className="material-symbols-outlined text-primary bg-emerald-glow/20 p-2 rounded-lg">event_available</span>
@@ -206,201 +266,347 @@ export default function ClientesPage() {
           </div>
         </div>
 
-        {/* Filter Bar */}
-        <div className="bg-surface-container border border-hairline-border p-4 rounded-xl flex flex-wrap items-center gap-4">
-          <div className="flex-1 relative min-w-[200px]">
-            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg">search</span>
-            <input
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-matte-canvas border-hairline-border border rounded-lg pl-10 pr-4 py-2.5 text-label-muted focus:ring-1 focus:ring-primary focus:border-primary outline-none text-on-surface placeholder:text-outline"
-              placeholder="Buscar por nome, email, telefone ou pet..."
-              type="text"
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="bg-matte-canvas border border-hairline-border rounded-lg px-4 py-2.5 text-label-muted text-on-surface focus:ring-1 focus:ring-primary outline-none cursor-pointer"
+        {/* Filter Bar & Tabs */}
+        <div className="space-y-4">
+          {/* Navegação entre Abas (Clientes vs Funcionários Ativos) */}
+          <div className="flex border-b border-hairline-border gap-6">
+            <button
+              onClick={() => setActiveTab("clientes")}
+              className={`pb-3 font-bold text-sm flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
+                activeTab === "clientes"
+                  ? "border-primary text-primary"
+                  : "border-transparent text-on-surface-variant hover:text-on-surface"
+              }`}
             >
-              <option value="Todos os status">Todos os status</option>
-              <option value="Ativo">Ativo</option>
-              <option value="Inativo">Inativo</option>
-            </select>
+              <span className="material-symbols-outlined text-lg">group</span>
+              Clientes / Tutores ({clients.length})
+            </button>
+            <button
+              onClick={() => setActiveTab("funcionarios")}
+              className={`pb-3 font-bold text-sm flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
+                activeTab === "funcionarios"
+                  ? "border-primary text-primary"
+                  : "border-transparent text-on-surface-variant hover:text-on-surface"
+              }`}
+            >
+              <span className="material-symbols-outlined text-lg">badge</span>
+              Funcionários Ativos & Equipe ({employees.length})
+            </button>
+          </div>
+
+          <div className="bg-surface-container border border-hairline-border p-4 rounded-xl flex flex-wrap items-center gap-4">
+            <div className="flex-1 relative min-w-[200px]">
+              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg">search</span>
+              <input
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full bg-matte-canvas border-hairline-border border rounded-lg pl-10 pr-4 py-2.5 text-label-muted focus:ring-1 focus:ring-primary focus:border-primary outline-none text-on-surface placeholder:text-outline"
+                placeholder={
+                  activeTab === "clientes"
+                    ? "Buscar cliente por nome, email, telefone ou pet..."
+                    : "Buscar colaborador por nome, e-mail ou cargo..."
+                }
+                type="text"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="bg-matte-canvas border border-hairline-border rounded-lg px-4 py-2.5 text-label-muted text-on-surface focus:ring-1 focus:ring-primary outline-none cursor-pointer"
+              >
+                <option value="Todos os status">Todos os status</option>
+                <option value="Ativo">Ativo</option>
+                <option value="Inativo">Inativo</option>
+              </select>
+            </div>
           </div>
         </div>
 
         {/* Table Section */}
         <div className="bg-elevated-card border border-hairline-border rounded-xl extruded-shadow overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-hairline-border bg-surface-container-low">
-                  <th className="px-6 py-4 text-caption font-label-bold text-on-surface-variant uppercase tracking-wider">Cliente</th>
-                  <th className="px-6 py-4 text-caption font-label-bold text-on-surface-variant uppercase tracking-wider">Contato</th>
-                  <th className="px-6 py-4 text-caption font-label-bold text-on-surface-variant uppercase tracking-wider">Pets Cadastrados</th>
-                  <th className="px-6 py-4 text-caption font-label-bold text-on-surface-variant uppercase tracking-wider">Data de Cadastro</th>
-                  <th className="px-6 py-4 text-caption font-label-bold text-on-surface-variant uppercase tracking-wider text-center">Status</th>
-                  <th className="px-6 py-4 text-caption font-label-bold text-on-surface-variant uppercase tracking-wider text-right">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-hairline-border">
-                {isLoading ? (
-                  [1, 2, 3].map((i) => (
-                    <tr key={i} className="animate-pulse">
-                      <td className="px-6 py-5">
-                        <div className="h-10 w-36 bg-surface-container-highest rounded"></div>
-                      </td>
-                      <td className="px-6 py-5">
-                        <div className="h-8 w-44 bg-surface-container-highest rounded"></div>
-                      </td>
-                      <td className="px-6 py-5">
-                        <div className="h-6 w-24 bg-surface-container-highest rounded"></div>
-                      </td>
-                      <td className="px-6 py-5">
-                        <div className="h-6 w-20 bg-surface-container-highest rounded"></div>
-                      </td>
-                      <td className="px-6 py-5 text-center">
-                        <div className="h-6 w-16 bg-surface-container-highest rounded mx-auto"></div>
-                      </td>
-                      <td className="px-6 py-5 text-right">
-                        <div className="h-6 w-8 bg-surface-container-highest rounded ml-auto"></div>
-                      </td>
-                    </tr>
-                  ))
-                ) : filteredClients.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="px-6 py-12 text-center text-on-surface-variant">
-                      <span className="material-symbols-outlined text-4xl text-outline mb-2">group_off</span>
-                      <p className="font-bold">Nenhum cliente encontrado</p>
-                      <p className="text-xs text-outline mt-1">Nenhum registro corresponde aos filtros ou busca.</p>
-                    </td>
+            {activeTab === "clientes" ? (
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-hairline-border bg-surface-container-low">
+                    <th className="px-6 py-4 text-caption font-label-bold text-on-surface-variant uppercase tracking-wider">Cliente</th>
+                    <th className="px-6 py-4 text-caption font-label-bold text-on-surface-variant uppercase tracking-wider">Contato</th>
+                    <th className="px-6 py-4 text-caption font-label-bold text-on-surface-variant uppercase tracking-wider">Pets Cadastrados</th>
+                    <th className="px-6 py-4 text-caption font-label-bold text-on-surface-variant uppercase tracking-wider">Data de Cadastro</th>
+                    <th className="px-6 py-4 text-caption font-label-bold text-on-surface-variant uppercase tracking-wider text-center">Status</th>
+                    <th className="px-6 py-4 text-caption font-label-bold text-on-surface-variant uppercase tracking-wider text-right">Ações</th>
                   </tr>
-                ) : (
-                  filteredClients.map((client) => (
-                    <tr key={client.id} className="hover:bg-surface-container-high/30 transition-colors group">
-                      {/* Nome e Avatar */}
-                      <td className="px-6 py-5">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-primary font-bold text-sm">
-                            {getInitials(client.full_name)}
-                          </div>
-                          <div>
-                            <div className="font-label-bold text-on-surface font-bold">{client.full_name}</div>
-                            <div className="text-caption text-on-surface-variant">{client.pets.length} {client.pets.length === 1 ? "pet registrado" : "pets registrados"}</div>
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* Contato (Telefone + Email real) */}
-                      <td className="px-6 py-5">
-                        <div className="flex flex-col gap-1">
-                          <div className="flex items-center gap-2 text-on-surface-variant">
-                            <span className="material-symbols-outlined text-sm text-primary">call</span>
-                            <span className="text-label-muted">{client.phone}</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-on-surface-variant/70">
-                            <span className="material-symbols-outlined text-sm">mail</span>
-                            <span className="text-caption">{client.email}</span>
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* Pets */}
-                      <td className="px-6 py-5">
-                        {client.pets.length === 0 ? (
-                          <span className="text-xs text-outline italic">Nenhum pet</span>
-                        ) : (
-                          <div className="flex flex-wrap gap-2">
-                            {client.pets.map((pet) => (
-                              <span
-                                key={pet.id}
-                                className="flex items-center gap-1.5 px-2.5 py-1 bg-surface-container-highest border border-hairline-border rounded-lg text-xs font-label-bold text-on-surface"
-                              >
-                                <span className="material-symbols-outlined text-[14px] text-primary">pets</span>
-                                {pet.name} ({pet.breed || pet.species})
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </td>
-
-                      {/* Data de Cadastro */}
-                      <td className="px-6 py-5">
-                        <div className="flex items-center gap-2 text-on-surface-variant">
-                          <span className="material-symbols-outlined text-sm">calendar_month</span>
-                          <span className="text-label-muted">{formatDate(client.created_at)}</span>
-                        </div>
-                      </td>
-
-                      {/* Status */}
-                      <td className="px-6 py-5">
-                        <div className="flex justify-center">
-                          <span className="px-3 py-1 bg-primary/20 text-primary border border-primary/30 rounded-full text-[10px] font-label-bold uppercase">
-                            {client.status}
-                          </span>
-                        </div>
-                      </td>
-
-                      {/* Ações (WhatsApp Direct Link) */}
-                      <td className="px-6 py-5 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          {client.phone && client.phone !== "Não informado" && (
-                            <a
-                              href={`https://wa.me/55${client.phone.replace(/\D/g, "")}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              title="Conversar no WhatsApp"
-                              className="p-2 hover:bg-emerald-500/20 text-emerald-400 rounded-lg transition-colors"
-                            >
-                              <span className="material-symbols-outlined text-xl">chat</span>
-                            </a>
-                          )}
-                          <button
-                            onClick={() => setSelectedClient(client)}
-                            className="p-2 hover:bg-surface-container-highest rounded-lg transition-colors text-on-surface-variant cursor-pointer"
-                            title="Ver detalhes do cliente"
-                          >
-                            <span className="material-symbols-outlined text-xl">more_vert</span>
-                          </button>
-                        </div>
+                </thead>
+                <tbody className="divide-y divide-hairline-border">
+                  {isLoading ? (
+                    [1, 2, 3].map((i) => (
+                      <tr key={i} className="animate-pulse">
+                        <td className="px-6 py-5"><div className="h-10 w-36 bg-surface-container-highest rounded"></div></td>
+                        <td className="px-6 py-5"><div className="h-8 w-44 bg-surface-container-highest rounded"></div></td>
+                        <td className="px-6 py-5"><div className="h-6 w-24 bg-surface-container-highest rounded"></div></td>
+                        <td className="px-6 py-5"><div className="h-6 w-20 bg-surface-container-highest rounded"></div></td>
+                        <td className="px-6 py-5 text-center"><div className="h-6 w-16 bg-surface-container-highest rounded mx-auto"></div></td>
+                        <td className="px-6 py-5 text-right"><div className="h-6 w-8 bg-surface-container-highest rounded ml-auto"></div></td>
+                      </tr>
+                    ))
+                  ) : filteredClients.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-6 py-12 text-center text-on-surface-variant">
+                        <span className="material-symbols-outlined text-4xl text-outline mb-2">group_off</span>
+                        <p className="font-bold">Nenhum cliente encontrado</p>
+                        <p className="text-xs text-outline mt-1">Nenhum registro corresponde aos filtros ou busca.</p>
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                  ) : (
+                    filteredClients.map((client) => (
+                      <tr key={client.id} className="hover:bg-surface-container-high/30 transition-colors group">
+                        <td className="px-6 py-5">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-primary font-bold text-sm">
+                              {getInitials(client.full_name)}
+                            </div>
+                            <div>
+                              <div className="font-label-bold text-on-surface font-bold">{client.full_name}</div>
+                              <div className="text-caption text-on-surface-variant">{client.pets.length} {client.pets.length === 1 ? "pet registrado" : "pets registrados"}</div>
+                            </div>
+                          </div>
+                        </td>
 
-          {/* Pagination */}
-          <div className="px-6 py-4 border-t border-hairline-border bg-surface-container-low flex items-center justify-between">
-            <span className="text-caption font-label-muted text-on-surface-variant">
-              Mostrando {filteredClients.length} de {clients.length} clientes
-            </span>
+                        <td className="px-6 py-5">
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-2 text-on-surface-variant">
+                              <span className="material-symbols-outlined text-sm text-primary">call</span>
+                              <span className="text-label-muted">{client.phone}</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-on-surface-variant/70">
+                              <span className="material-symbols-outlined text-sm">mail</span>
+                              <span className="text-caption">{client.email}</span>
+                            </div>
+                          </div>
+                        </td>
+
+                        <td className="px-6 py-5">
+                          {client.pets.length === 0 ? (
+                            <span className="text-xs text-outline italic">Nenhum pet</span>
+                          ) : (
+                            <div className="flex flex-wrap gap-2">
+                              {client.pets.map((pet) => (
+                                <span
+                                  key={pet.id}
+                                  className="flex items-center gap-1.5 px-2.5 py-1 bg-surface-container-highest border border-hairline-border rounded-lg text-xs font-label-bold text-on-surface"
+                                >
+                                  <span className="material-symbols-outlined text-[14px] text-primary">pets</span>
+                                  {pet.name} ({pet.breed || pet.species})
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </td>
+
+                        <td className="px-6 py-5">
+                          <div className="flex items-center gap-2 text-on-surface-variant">
+                            <span className="material-symbols-outlined text-sm">calendar_month</span>
+                            <span className="text-label-muted">{formatDate(client.created_at)}</span>
+                          </div>
+                        </td>
+
+                        <td className="px-6 py-5">
+                          <div className="flex justify-center">
+                            <span className="px-3 py-1 bg-primary/20 text-primary border border-primary/30 rounded-full text-[10px] font-label-bold uppercase">
+                              {client.status}
+                            </span>
+                          </div>
+                        </td>
+
+                        <td className="px-6 py-5 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            {client.phone && client.phone !== "Não informado" && (
+                              <a
+                                href={`https://wa.me/55${client.phone.replace(/\D/g, "")}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-colors"
+                                title="Abrir no WhatsApp"
+                              >
+                                <span className="material-symbols-outlined text-lg">chat</span>
+                              </a>
+                            )}
+                            <button
+                              onClick={() => setSelectedClient(client)}
+                              className="p-2 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface transition-colors cursor-pointer"
+                              title="Ver detalhes do cliente"
+                            >
+                              <span className="material-symbols-outlined text-lg">more_vert</span>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            ) : (
+              /* TABELA DE FUNCIONÁRIOS E EQUIPE ATIVA */
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-hairline-border bg-surface-container-low">
+                    <th className="px-6 py-4 text-caption font-label-bold text-on-surface-variant uppercase tracking-wider">Colaborador</th>
+                    <th className="px-6 py-4 text-caption font-label-bold text-on-surface-variant uppercase tracking-wider">Contato / E-mail</th>
+                    <th className="px-6 py-4 text-caption font-label-bold text-on-surface-variant uppercase tracking-wider">Cargo / Função</th>
+                    <th className="px-6 py-4 text-caption font-label-bold text-on-surface-variant uppercase tracking-wider">Data de Cadastro</th>
+                    <th className="px-6 py-4 text-caption font-label-bold text-on-surface-variant uppercase tracking-wider text-center">Status</th>
+                    <th className="px-6 py-4 text-caption font-label-bold text-on-surface-variant uppercase tracking-wider text-right">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-hairline-border">
+                  {isLoading ? (
+                    [1, 2, 3].map((i) => (
+                      <tr key={i} className="animate-pulse">
+                        <td className="px-6 py-5"><div className="h-10 w-36 bg-surface-container-highest rounded"></div></td>
+                        <td className="px-6 py-5"><div className="h-8 w-44 bg-surface-container-highest rounded"></div></td>
+                        <td className="px-6 py-5"><div className="h-6 w-24 bg-surface-container-highest rounded"></div></td>
+                        <td className="px-6 py-5"><div className="h-6 w-20 bg-surface-container-highest rounded"></div></td>
+                        <td className="px-6 py-5 text-center"><div className="h-6 w-16 bg-surface-container-highest rounded mx-auto"></div></td>
+                        <td className="px-6 py-5 text-right"><div className="h-6 w-8 bg-surface-container-highest rounded ml-auto"></div></td>
+                      </tr>
+                    ))
+                  ) : filteredEmployees.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-6 py-12 text-center text-on-surface-variant">
+                        <span className="material-symbols-outlined text-4xl text-outline mb-2">badge</span>
+                        <p className="font-bold">Nenhum funcionário encontrado</p>
+                        <p className="text-xs text-outline mt-1">Nenhum membro de equipe cadastrado ainda.</p>
+                        <Link
+                          href="/admin/register-admin"
+                          className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-primary text-on-primary rounded-lg text-xs font-bold"
+                        >
+                          <span className="material-symbols-outlined text-base">person_add</span>
+                          Cadastrar Primeiro Colaborador
+                        </Link>
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredEmployees.map((emp) => {
+                      const badgeInfo = ROLE_BADGE_STYLE[emp.role] || {
+                        bg: "bg-primary/20 text-primary border-primary/30",
+                        icon: "badge",
+                      };
+                      return (
+                        <tr key={emp.id} className="hover:bg-surface-container-high/30 transition-colors group">
+                          <td className="px-6 py-5">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-full bg-primary/20 border border-primary/40 flex items-center justify-center text-primary font-bold text-sm">
+                                {getInitials(emp.full_name)}
+                              </div>
+                              <div>
+                                <div className="font-label-bold text-on-surface font-bold">{emp.full_name}</div>
+                                <div className="text-caption text-on-surface-variant font-mono">{emp.role_label}</div>
+                              </div>
+                            </div>
+                          </td>
+
+                          <td className="px-6 py-5">
+                            <div className="flex flex-col gap-1">
+                              <div className="flex items-center gap-2 text-on-surface-variant">
+                                <span className="material-symbols-outlined text-sm text-primary">call</span>
+                                <span className="text-label-muted">{emp.phone}</span>
+                              </div>
+                              <div className="flex items-center gap-2 text-on-surface-variant/70">
+                                <span className="material-symbols-outlined text-sm">mail</span>
+                                <span className="text-caption">{emp.email}</span>
+                              </div>
+                            </div>
+                          </td>
+
+                          <td className="px-6 py-5">
+                            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${badgeInfo.bg}`}>
+                              <span className="material-symbols-outlined text-sm">{badgeInfo.icon}</span>
+                              {emp.role_label}
+                            </span>
+                          </td>
+
+                          <td className="px-6 py-5">
+                            <div className="flex items-center gap-2 text-on-surface-variant">
+                              <span className="material-symbols-outlined text-sm">calendar_month</span>
+                              <span className="text-label-muted">{formatDate(emp.created_at)}</span>
+                            </div>
+                          </td>
+
+                          <td className="px-6 py-5">
+                            <div className="flex justify-center">
+                              <span className="px-3 py-1 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-full text-[10px] font-label-bold uppercase">
+                                {emp.status}
+                              </span>
+                            </div>
+                          </td>
+
+                          <td className="px-6 py-5 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              {emp.phone && emp.phone !== "Não informado" && (
+                                <a
+                                  href={`https://wa.me/55${emp.phone.replace(/\D/g, "")}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-colors"
+                                  title="Enviar mensagem no WhatsApp"
+                                >
+                                  <span className="material-symbols-outlined text-lg">chat</span>
+                                </a>
+                              )}
+                              <Link
+                                href="/admin/register-admin"
+                                className="p-2 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface transition-colors cursor-pointer"
+                                title="Editar ou alterar cargo do colaborador"
+                              >
+                                <span className="material-symbols-outlined text-lg">edit</span>
+                              </Link>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
       </main>
 
       {/* Mobile Layout */}
-      <main className="block md:hidden px-4 pt-4 pb-24 space-y-6">
-        <div className="flex items-end justify-between">
+      <main className="block md:hidden px-5 pb-32 pt-4 space-y-6">
+        <div className="flex justify-between items-center">
           <div>
-            <h1 className="font-headline-lg-mobile text-headline-lg-mobile text-on-surface">Clientes / Tutores</h1>
-            <p className="text-on-surface-variant text-sm font-label-muted">{clients.length} tutores no banco</p>
+            <h1 className="font-headline-lg-mobile text-headline-lg-mobile text-on-surface">Clientes & Equipe</h1>
+            <p className="text-xs text-on-surface-variant">{clients.length} clientes • {employees.length} colaboradores</p>
           </div>
+          <button
+            onClick={() => setShowNewClientModal(true)}
+            className="bg-primary text-on-primary p-2.5 rounded-full extruded-shadow"
+          >
+            <span className="material-symbols-outlined text-xl">add</span>
+          </button>
         </div>
 
-        {/* Mobile Metrics Slider */}
-        <div className="flex overflow-x-auto gap-4 pb-2 custom-scrollbar -mx-4 px-4">
-          <div className="min-w-[140px] flex-1 bg-elevated-card border border-hairline-border p-4 rounded-xl extruded-shadow">
-            <div className="text-xl font-bold text-on-surface">{metrics.totalClients}</div>
-            <div className="text-[10px] font-medium text-on-surface-variant uppercase tracking-wider">Total Clientes</div>
-          </div>
-          <div className="min-w-[140px] flex-1 bg-elevated-card border border-hairline-border p-4 rounded-xl extruded-shadow">
-            <div className="text-xl font-bold text-on-surface">{metrics.totalPets}</div>
-            <div className="text-[10px] font-medium text-on-surface-variant uppercase tracking-wider">Total Pets</div>
-          </div>
+        {/* Mobile Tabs */}
+        <div className="flex border-b border-hairline-border">
+          <button
+            onClick={() => setActiveTab("clientes")}
+            className={`flex-1 py-2 text-xs font-bold border-b-2 text-center ${
+              activeTab === "clientes" ? "border-primary text-primary" : "border-transparent text-on-surface-variant"
+            }`}
+          >
+            Clientes ({clients.length})
+          </button>
+          <button
+            onClick={() => setActiveTab("funcionarios")}
+            className={`flex-1 py-2 text-xs font-bold border-b-2 text-center ${
+              activeTab === "funcionarios" ? "border-primary text-primary" : "border-transparent text-on-surface-variant"
+            }`}
+          >
+            Funcionários ({employees.length})
+          </button>
         </div>
 
         {/* Search */}
@@ -409,51 +615,48 @@ export default function ClientesPage() {
           <input
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-surface-container border-hairline-border border rounded-full pl-10 pr-4 py-2 text-sm focus:ring-1 focus:ring-primary outline-none text-on-surface placeholder:text-outline"
-            placeholder="Buscar tutor ou pet..."
-            type="text"
+            className="w-full bg-surface-container border-hairline-border border rounded-full pl-10 pr-4 py-2 text-sm text-on-surface outline-none placeholder:text-outline"
+            placeholder="Buscar..."
           />
         </div>
 
         {/* Cards List */}
-        <div className="space-y-3">
+        <div className="space-y-4">
           {isLoading ? (
             <div className="p-4 text-center text-on-surface-variant">Carregando...</div>
-          ) : filteredClients.length === 0 ? (
-            <div className="p-6 bg-elevated-card rounded-xl text-center text-outline text-xs">
-              Nenhum cliente encontrado.
-            </div>
-          ) : (
+          ) : activeTab === "clientes" ? (
             filteredClients.map((client) => (
-              <div key={client.id} className="bg-elevated-card border border-hairline-border p-4 rounded-xl flex items-center justify-between">
+              <div
+                key={client.id}
+                onClick={() => setSelectedClient(client)}
+                className="bg-elevated-card border border-hairline-border p-4 rounded-xl space-y-3 cursor-pointer"
+              >
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold">
+                  <div className="w-12 h-12 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-primary font-bold text-sm shrink-0">
                     {getInitials(client.full_name)}
                   </div>
-                  <div>
-                    <div className="font-bold text-on-surface">{client.full_name}</div>
-                    <div className="text-xs text-on-surface-variant">{client.phone}</div>
-                    <div className="flex gap-1 mt-1">
-                      {client.pets.map((p) => (
-                        <span key={p.id} className="px-1.5 py-0.5 bg-surface-container-highest rounded text-[10px] text-on-surface-variant flex items-center">
-                          <span className="material-symbols-outlined text-[12px] mr-1 text-primary">pets</span>
-                          {p.name}
-                        </span>
-                      ))}
-                    </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-bold text-on-surface truncate">{client.full_name}</h3>
+                    <p className="text-xs text-on-surface-variant">{client.phone}</p>
+                    <p className="text-[11px] text-outline truncate">{client.email}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  {client.phone && client.phone !== "Não informado" && (
-                    <a
-                      href={`https://wa.me/55${client.phone.replace(/\D/g, "")}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="w-10 h-10 flex items-center justify-center bg-primary/10 text-primary rounded-full"
-                    >
-                      <span className="material-symbols-outlined text-lg">chat</span>
-                    </a>
-                  )}
+              </div>
+            ))
+          ) : (
+            filteredEmployees.map((emp) => (
+              <div key={emp.id} className="bg-elevated-card border border-hairline-border p-4 rounded-xl space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-primary font-bold text-sm shrink-0">
+                      {getInitials(emp.full_name)}
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-on-surface">{emp.full_name}</h3>
+                      <p className="text-xs text-primary font-bold">{emp.role_label}</p>
+                    </div>
+                  </div>
+                  <span className="text-xs text-on-surface-variant">{emp.phone}</span>
                 </div>
               </div>
             ))
@@ -461,46 +664,119 @@ export default function ClientesPage() {
         </div>
       </main>
 
-      {/* ====== MODAL: Detalhes do Cliente ====== */}
-      {selectedClient && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-elevated-card border border-hairline-border rounded-2xl max-w-lg w-full p-6 space-y-5 extruded-shadow">
-            <div className="flex justify-between items-center border-b border-hairline-border pb-3">
-              <h3 className="font-bold text-lg text-on-surface flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary">person</span>
-                Detalhes do Cliente
+      {/* Modal Novo Cliente */}
+      {showNewClientModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-elevated-card border border-hairline-border rounded-2xl max-w-md w-full p-6 space-y-6 extruded-shadow animate-in fade-in">
+            <div className="flex justify-between items-center border-b border-hairline-border pb-4">
+              <h3 className="font-headline-md text-xl font-bold text-on-surface flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary">group_add</span>
+                Cadastrar Novo Cliente
               </h3>
-              <button onClick={() => setSelectedClient(null)} className="text-on-surface-variant hover:text-on-surface p-1 rounded-lg bg-surface-container cursor-pointer">
+              <button
+                onClick={() => setShowNewClientModal(false)}
+                className="text-on-surface-variant hover:text-on-surface p-1 rounded-lg bg-surface-container cursor-pointer"
+              >
                 <span className="material-symbols-outlined">close</span>
               </button>
             </div>
 
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-primary font-bold text-lg">
-                {getInitials(selectedClient.full_name)}
-              </div>
+            <form onSubmit={handleCreateClient} className="space-y-4">
               <div>
-                <h4 className="font-bold text-on-surface text-lg">{selectedClient.full_name}</h4>
-                <span className="px-2 py-0.5 bg-primary/20 text-primary border border-primary/30 rounded text-[10px] font-bold uppercase">{selectedClient.status}</span>
+                <label className="block text-xs font-bold text-on-surface-variant mb-1 uppercase">
+                  Nome Completo do Tutor *
+                </label>
+                <input
+                  required
+                  value={newClientName}
+                  onChange={(e) => setNewClientName(e.target.value)}
+                  placeholder="Ex: Maria Silva"
+                  className="w-full bg-surface-container border border-hairline-border rounded-xl p-3 text-sm text-on-surface outline-none focus:border-primary"
+                />
               </div>
+
+              <div>
+                <label className="block text-xs font-bold text-on-surface-variant mb-1 uppercase">
+                  Telefone / WhatsApp
+                </label>
+                <input
+                  value={newClientPhone}
+                  onChange={(e) => setNewClientPhone(e.target.value)}
+                  placeholder="(11) 99999-9999"
+                  className="w-full bg-surface-container border border-hairline-border rounded-xl p-3 text-sm text-on-surface outline-none focus:border-primary"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-on-surface-variant mb-1 uppercase">
+                  E-mail (Opcional)
+                </label>
+                <input
+                  value={newClientEmail}
+                  onChange={(e) => setNewClientEmail(e.target.value)}
+                  placeholder="maria@email.com"
+                  type="email"
+                  className="w-full bg-surface-container border border-hairline-border rounded-xl p-3 text-sm text-on-surface outline-none focus:border-primary"
+                />
+              </div>
+
+              <div className="pt-2 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowNewClientModal(false)}
+                  className="flex-1 py-3 bg-surface-container text-on-surface font-bold text-xs rounded-xl hover:bg-surface-container-high transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingClient}
+                  className="flex-1 py-3 bg-primary text-on-primary font-bold text-xs rounded-xl hover:brightness-110 active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2"
+                >
+                  {isSavingClient ? "Salvando..." : "Cadastrar Tutor"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Detalhes do Cliente */}
+      {selectedClient && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-elevated-card border border-hairline-border rounded-2xl max-w-md w-full p-6 space-y-6 extruded-shadow animate-in fade-in">
+            <div className="flex justify-between items-start">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-full bg-primary/20 border-2 border-primary flex items-center justify-center text-primary font-bold text-lg">
+                  {getInitials(selectedClient.full_name)}
+                </div>
+                <div>
+                  <h3 className="font-headline-md text-xl font-bold text-on-surface">{selectedClient.full_name}</h3>
+                  <span className="inline-block text-[10px] text-primary font-bold bg-primary/10 px-2 py-0.5 rounded mt-1">
+                    Cliente {selectedClient.status}
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedClient(null)}
+                className="text-on-surface-variant hover:text-on-surface p-1 rounded-lg bg-surface-container cursor-pointer"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div className="bg-surface-container p-3 rounded-xl border border-hairline-border">
-                <span className="text-[10px] text-on-surface-variant font-bold uppercase block">Telefone</span>
-                <span className="text-on-surface font-bold">{selectedClient.phone}</span>
+            <div className="space-y-3 border-t border-hairline-border pt-4 text-sm">
+              <div className="flex justify-between">
+                <span className="text-on-surface-variant font-bold">Telefone / WhatsApp:</span>
+                <span className="text-on-surface">{selectedClient.phone}</span>
               </div>
-              <div className="bg-surface-container p-3 rounded-xl border border-hairline-border">
-                <span className="text-[10px] text-on-surface-variant font-bold uppercase block">E-mail</span>
-                <span className="text-on-surface font-bold text-xs">{selectedClient.email}</span>
+              <div className="flex justify-between">
+                <span className="text-on-surface-variant font-bold">E-mail:</span>
+                <span className="text-on-surface">{selectedClient.email}</span>
               </div>
-              <div className="bg-surface-container p-3 rounded-xl border border-hairline-border">
-                <span className="text-[10px] text-on-surface-variant font-bold uppercase block">Cadastro</span>
-                <span className="text-on-surface font-bold">{formatDate(selectedClient.created_at)}</span>
-              </div>
-              <div className="bg-surface-container p-3 rounded-xl border border-hairline-border">
-                <span className="text-[10px] text-on-surface-variant font-bold uppercase block">Pets</span>
-                <span className="text-on-surface font-bold">{selectedClient.pets.length} pet(s)</span>
+              <div className="flex justify-between">
+                <span className="text-on-surface-variant font-bold">Data de Cadastro:</span>
+                <span className="text-on-surface">{formatDate(selectedClient.created_at)}</span>
               </div>
             </div>
 
@@ -533,83 +809,25 @@ export default function ClientesPage() {
               </div>
             )}
 
-            <div className="flex gap-3 pt-2">
+            <div className="pt-2 flex gap-3">
               {selectedClient.phone && selectedClient.phone !== "Não informado" && (
                 <a
                   href={`https://wa.me/55${selectedClient.phone.replace(/\D/g, "")}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="flex-1 bg-emerald-500 text-black font-bold py-3 rounded-xl text-sm text-center flex items-center justify-center gap-2 hover:brightness-110 transition-all"
+                  className="flex-1 bg-emerald-600 text-white font-bold text-xs py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-emerald-500 transition-colors"
                 >
                   <span className="material-symbols-outlined text-base">chat</span>
-                  WhatsApp
+                  Contato no WhatsApp
                 </a>
               )}
               <button
                 onClick={() => setSelectedClient(null)}
-                className="flex-1 bg-surface-container-high border border-hairline-border text-on-surface font-bold py-3 rounded-xl text-sm hover:bg-surface-container-highest transition-all cursor-pointer"
+                className="px-4 py-3 bg-surface-container text-on-surface font-bold text-xs rounded-xl hover:bg-surface-container-high transition-colors cursor-pointer"
               >
                 Fechar
               </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* ====== MODAL: Cadastro de Novo Cliente ====== */}
-      {showNewClientModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-elevated-card border border-hairline-border rounded-2xl max-w-md w-full p-6 space-y-5 extruded-shadow">
-            <div className="flex justify-between items-center border-b border-hairline-border pb-3">
-              <h3 className="font-bold text-lg text-on-surface flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary">person_add</span>
-                Cadastrar Novo Cliente
-              </h3>
-              <button onClick={() => setShowNewClientModal(false)} className="text-on-surface-variant hover:text-on-surface p-1 rounded-lg bg-surface-container cursor-pointer">
-                <span className="material-symbols-outlined">close</span>
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateClient} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-on-surface-variant mb-1">Nome Completo *</label>
-                <input
-                  type="text"
-                  value={newClientName}
-                  onChange={(e) => setNewClientName(e.target.value)}
-                  placeholder="Ex: Maria Silva"
-                  className="w-full bg-surface-container border border-hairline-border rounded-xl px-4 py-3 text-sm text-on-surface outline-none focus:border-primary"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-on-surface-variant mb-1">Telefone / WhatsApp</label>
-                <input
-                  type="text"
-                  value={newClientPhone}
-                  onChange={(e) => setNewClientPhone(e.target.value)}
-                  placeholder="(11) 99999-9999"
-                  className="w-full bg-surface-container border border-hairline-border rounded-xl px-4 py-3 text-sm text-on-surface outline-none focus:border-primary"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-on-surface-variant mb-1">E-mail</label>
-                <input
-                  type="email"
-                  value={newClientEmail}
-                  onChange={(e) => setNewClientEmail(e.target.value)}
-                  placeholder="cliente@email.com"
-                  className="w-full bg-surface-container border border-hairline-border rounded-xl px-4 py-3 text-sm text-on-surface outline-none focus:border-primary"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={isSavingClient}
-                className="w-full bg-primary text-on-primary font-bold py-3 rounded-xl hover:brightness-110 transition-all extruded-shadow cursor-pointer disabled:opacity-50"
-              >
-                {isSavingClient ? "Salvando..." : "Cadastrar Cliente"}
-              </button>
-            </form>
           </div>
         </div>
       )}

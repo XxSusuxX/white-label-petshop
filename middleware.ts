@@ -89,8 +89,25 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(url);
     }
 
-    // 2b. Se é CLIENTE tentando acessar /admin → bloquear e redirecionar para /client
-    if (profile && pathname.startsWith("/admin") && profile.role !== "admin") {
+    const staffRoles = [
+      "admin",
+      "dono",
+      "veterinario",
+      "veterinarian",
+      "banhista_tosador",
+      "bather",
+      "groomer",
+      "recepcionista",
+      "receptionist",
+      "entregador",
+      "auxiliar",
+      "employee",
+      "funcionario",
+    ];
+    const isStaff = staffRoles.includes(profile?.role);
+
+    // 2b. Se NÃO É DA EQUIPE/ADMIN tentando acessar /admin → bloquear e redirecionar para /client
+    if (profile && pathname.startsWith("/admin") && !isStaff) {
       const url = request.nextUrl.clone();
       url.pathname = "/client";
       return NextResponse.redirect(url);
@@ -98,8 +115,13 @@ export async function middleware(request: NextRequest) {
 
     // 2c. Se JÁ tem perfil e tenta acessar telas de auth → redirecionar para painel
     if (profile && isAuthRoute) {
+      // Exceção: Administradores e Donos logados PODEM acessar /auth/register-admin para cadastrar novos colaboradores
+      if (pathname === "/auth/register-admin" && (profile.role === "admin" || profile.role === "dono")) {
+        return supabaseResponse;
+      }
+
       const url = request.nextUrl.clone();
-      url.pathname = profile.role === "admin" ? "/admin/dashboard" : "/client";
+      url.pathname = isStaff ? "/admin/dashboard" : "/client";
       return NextResponse.redirect(url);
     }
   }

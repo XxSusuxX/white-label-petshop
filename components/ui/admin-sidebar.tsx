@@ -10,6 +10,7 @@ export function AdminSidebar() {
   const [userName, setUserName] = useState("Gestor Admin");
   const [userRole, setUserRole] = useState("Administrador");
   const [userAvatar, setUserAvatar] = useState<string | null>(null);
+  const [isAdminUser, setIsAdminUser] = useState(true);
 
   useEffect(() => {
     async function loadAdminProfile() {
@@ -38,9 +39,23 @@ export function AdminSidebar() {
             null;
 
           setUserName(name);
-          if (profile?.role) {
-            setUserRole(profile.role === "admin" ? "Gestora Geral" : "Operadora Admin");
-          }
+
+          const rawRole = profile?.role || user.user_metadata?.role || "admin";
+          const isRoleAdminOrOwner = rawRole === "admin" || rawRole === "dono" || rawRole === "Administrador";
+          setIsAdminUser(isRoleAdminOrOwner);
+
+          const ROLE_LABELS: Record<string, string> = {
+            admin: "Administrador",
+            dono: "Dono(a)",
+            veterinario: "Médico(a) Veterinário(a)",
+            banhista_tosador: "Banhista & Tosador(a)",
+            recepcionista: "Recepcionista",
+            entregador: "Entregador",
+            auxiliar: "Auxiliar Geral",
+            funcionario: "Funcionário",
+          };
+
+          setUserRole(ROLE_LABELS[rawRole] || rawRole);
           if (avatar) setUserAvatar(avatar);
         }
       } catch (err) {
@@ -60,6 +75,7 @@ export function AdminSidebar() {
     { href: "/admin/pdv", label: "PDV & Caixa", icon: "point_of_sale" },
     { href: "/admin/prontuario", label: "Módulo Veterinário", icon: "stethoscope" },
     { href: "/admin/whatsapp", label: "Central WhatsApp", icon: "chat" },
+    ...(isAdminUser ? [{ href: "/admin/register-admin", label: "Registrar Admin", icon: "person_add" }] : []),
   ];
 
   return (

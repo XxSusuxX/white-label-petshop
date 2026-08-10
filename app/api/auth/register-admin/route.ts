@@ -1,13 +1,29 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+export const dynamic = "force-dynamic";
+
+const ROLE_TO_DB_MAP: Record<string, string> = {
+  admin: "admin",
+  dono: "admin",
+  veterinario: "veterinarian",
+  banhista_tosador: "bather",
+  recepcionista: "receptionist",
+  entregador: "employee",
+  auxiliar: "employee",
+  funcionario: "employee",
+};
+
 export async function POST(request: Request) {
   try {
-    const { email, password, fullName, phone, adminSecretKey } = await request.json();
+    const { email, password, fullName, phone, adminSecretKey, role } = await request.json();
 
     if (adminSecretKey?.trim() !== "admin123") {
       return NextResponse.json({ error: "Chave secreta de administrador incorreta." }, { status: 400 });
     }
+
+    const requestedRole = role || "admin";
+    const dbRole = ROLE_TO_DB_MAP[requestedRole] || "admin";
 
     const adminSupabase = createAdminClient();
 
@@ -32,7 +48,7 @@ export async function POST(request: Request) {
           email: email.trim(),
           password: password,
           email_confirm: true,
-          user_metadata: { full_name: fullName, phone, role: "admin" },
+          user_metadata: { full_name: fullName, phone, role: requestedRole, db_role: dbRole },
         });
 
       if (createError) {
@@ -40,19 +56,37 @@ export async function POST(request: Request) {
       }
 
       userId = newUserData.user?.id;
+    } else {
+      // Atualizar a senha e metadados do usuário existente
+      const updatePayload: any = {
+        user_metadata: {
+          ...existingUser.user_metadata,
+          full_name: fullName,
+          phone,
+          role: requestedRole,
+          db_role: dbRole,
+        },
+      };
+
+      if (password && password.trim().length >= 6) {
+        updatePayload.password = password.trim();
+      }
+
+      await adminSupabase.auth.admin.updateUserById(existingUser.id, updatePayload);
     }
 
     if (userId) {
-      // 3. Atualizar/Inserir perfil como 'admin'
+      // 3. Atualizar/Inserir perfil com o dbRole compatível com o CHECK constraint valid_role
       const { error: profileErr } = await adminSupabase.from("profiles").upsert({
         id: userId,
-        full_name: fullName || "Administrador",
+        full_name: fullName || "Colaborador",
         phone: phone || null,
-        role: "admin",
+        role: dbRole,
         pet_shop_id: "00000000-0000-0000-0000-000000000001",
       });
 
       if (profileErr) {
+        console.error("Erro ao salvar perfil:", profileErr);
         return NextResponse.json({ error: profileErr.message }, { status: 400 });
       }
     }

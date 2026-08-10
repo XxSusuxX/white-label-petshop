@@ -3,11 +3,46 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
+const STAFF_ROLES = [
+  "admin",
+  "dono",
+  "veterinario",
+  "veterinarian",
+  "banhista_tosador",
+  "bather",
+  "groomer",
+  "recepcionista",
+  "receptionist",
+  "entregador",
+  "auxiliar",
+  "employee",
+  "funcionario",
+];
+
+const ROLE_LABELS: Record<string, string> = {
+  admin: "Administrador",
+  dono: "Dono(a)",
+  veterinario: "Médico(a) Veterinário(a)",
+  veterinarian: "Médico(a) Veterinário(a)",
+  banhista_tosador: "Banhista & Tosador(a)",
+  bather: "Banhista & Tosador(a)",
+  groomer: "Banhista & Tosador(a)",
+  recepcionista: "Recepcionista",
+  receptionist: "Recepcionista",
+  entregador: "Entregador",
+  auxiliar: "Auxiliar Geral",
+  employee: "Funcionário Geral",
+  funcionario: "Funcionário Geral",
+  cliente: "Cliente / Tutor",
+  client: "Cliente / Tutor",
+  tutor: "Cliente / Tutor",
+};
+
 export async function GET() {
   try {
     const adminSupabase = createAdminClient();
 
-    // 1. buscar perfis
+    // 1. Buscar perfis
     const { data: profiles, error: profileErr } = await adminSupabase
       .from("profiles")
       .select("*")
@@ -18,9 +53,9 @@ export async function GET() {
       return NextResponse.json({ error: profileErr.message }, { status: 500 });
     }
 
-    // 2. buscar auth.users para obter email real dos clientes (paginado, a API do Supabase
-    // limita a listagem a uma página por chamada)
+    // 2. Buscar auth.users para obter email real e metadados de cargo
     const userEmailMap = new Map<string, string>();
+    const userMetaRoleMap = new Map<string, string>();
     let page = 1;
     const perPage = 200;
     while (true) {
@@ -28,17 +63,16 @@ export async function GET() {
       if (usersErr || !usersPage?.users) break;
       usersPage.users.forEach((u) => {
         if (u.email) userEmailMap.set(u.id, u.email);
+        if (u.user_metadata?.role) userMetaRoleMap.set(u.id, u.user_metadata.role);
       });
       if (usersPage.users.length < perPage) break;
       page++;
     }
 
-    // 3. buscar pets de todos os clientes
-    const { data: pets, error: petsErr } = await adminSupabase
-      .from("pets")
-      .select("*");
+    // 3. Buscar pets de todos os clientes
+    const { data: pets } = await adminSupabase.from("pets").select("*");
 
-    // 3b. buscar agendamentos concluídos para calcular visitas reais por pet
+    // 3b. Buscar agendamentos concluídos
     const { data: completedAppointments } = await adminSupabase
       .from("appointments")
       .select("pet_id")
@@ -73,8 +107,9 @@ export async function GET() {
       });
     }
 
-    // 4. Mapear clientes com seus pets e dados reais
-    const clientProfiles = (profiles || []).filter((p) => p.role !== "admin");
+    // 4. Separar Clientes e Funcionários/Equipe
+    const clientProfiles = (profiles || []).filter((p) => !STAFF_ROLES.includes(p.role));
+    const staffProfiles = (profiles || []).filter((p) => STAFF_ROLES.includes(p.role));
 
     const clientsList = clientProfiles.map((p) => {
       const clientPets = petsByClientMap.get(p.id) || [];
@@ -85,11 +120,40 @@ export async function GET() {
         full_name: p.full_name || "Cliente sem Nome",
         email: email,
         phone: p.phone || "Não informado",
-        role: p.role,
+        role: p.role || "tutor",
         pets: clientPets,
         visits: visitsByClientMap.get(p.id) || 0,
         created_at: p.created_at,
         status: "Ativo",
+      };
+    });
+
+    const employeesList = staffProfiles.map((p) => {
+      const email = userEmailMap.get(p.id) || "Sem e-mail";
+      const metaRole = userMetaRoleMap.get(p.id) || p.role;
+
+      return {
+        id: p.id,
+        full_name: p.full_name || "Colaborador sem Nome",
+        email: email,
+        phone: p.phone || "Não informado",
+        role: metaRole || p.role || "funcionario",
+        role_label: ROLE_LABELS[metaRole] || ROLE_LABELS[p.role] || metaRole || "Funcionário",
+        created_at: p.created_at,
+        status: "Ativo",
+      };
+    });
+
+    const allUsersList = (profiles || []).map((p) => {
+      const email = userEmailMap.get(p.id) || "Sem e-mail";
+      const metaRole = userMetaRoleMap.get(p.id) || p.role;
+      return {
+        id: p.id,
+        full_name: p.full_name || "Usuário do Sistema",
+        email: email,
+        phone: p.phone || "Não informado",
+        role: metaRole || p.role || "usuario",
+        role_label: ROLE_LABELS[metaRole] || ROLE_LABELS[p.role] || metaRole || "Usuário",
       };
     });
 
@@ -99,11 +163,14 @@ export async function GET() {
 
     return NextResponse.json({
       clients: clientsList,
+      employees: employeesList,
+      allUsers: allUsersList,
       metrics: {
         totalClients: clientsList.length,
         activeClients: activeClientsCount,
         totalPets: totalPetsCount,
         totalVisits,
+        totalEmployees: employeesList.length,
       },
     });
   } catch (err: any) {
@@ -120,33 +187,36 @@ export async function POST(request: Request) {
     const { full_name, phone, email } = body;
 
     if (!full_name) {
-      return NextResponse.json(
-        { error: "Nome completo é obrigatório" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Nome completo é obrigatório." }, { status: 400 });
     }
 
-    // Generate a deterministic UUID for the profile (since we may not have an auth user)
-    const profileId = crypto.randomUUID();
+    const dummyEmail = email && email.trim() !== "" ? email.trim() : `cliente_${Date.now()}@petshop.internal`;
 
-    const { data: profile, error: insertErr } = await adminSupabase
-      .from("profiles")
-      .insert({
-        id: profileId,
-        full_name: full_name,
+    const { data: newUser, error: createErr } = await adminSupabase.auth.admin.createUser({
+      email: dummyEmail,
+      email_confirm: true,
+      user_metadata: { full_name, phone },
+    });
+
+    if (createErr) {
+      return NextResponse.json({ error: createErr.message }, { status: 400 });
+    }
+
+    if (newUser.user) {
+      const { error: profileErr } = await adminSupabase.from("profiles").upsert({
+        id: newUser.user.id,
+        full_name,
         phone: phone || null,
         role: "client",
         pet_shop_id: "00000000-0000-0000-0000-000000000001",
-      })
-      .select()
-      .single();
+      });
 
-    if (insertErr) {
-      console.error("Erro ao inserir perfil:", insertErr);
-      return NextResponse.json({ error: insertErr.message }, { status: 500 });
+      if (profileErr) {
+        return NextResponse.json({ error: profileErr.message }, { status: 500 });
+      }
     }
 
-    return NextResponse.json({ success: true, profile });
+    return NextResponse.json({ success: true });
   } catch (err: any) {
     console.error("Erro em POST /api/admin/clients:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });

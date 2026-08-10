@@ -45,15 +45,21 @@ export async function GET() {
         const hours = String(dateObj.getHours()).padStart(2, "0");
         const minutes = String(dateObj.getMinutes()).padStart(2, "0");
 
-        // Parse de status com suporte a tags no notes (resiliência a restrições de banco)
+        // Parse de status com resiliência total a restrições de banco (priorizando a tag mais recente no notes)
         let effectiveStatus = a.status || "agendado";
-        if (a.notes?.includes("Status: pronto") || a.notes?.includes("[STATUS:pronto]")) {
-          effectiveStatus = "pronto";
-        } else if (a.notes?.includes("Status: em_rota") || a.notes?.includes("[STATUS:em_rota]")) {
-          effectiveStatus = "em_rota";
-        } else if (a.notes?.includes("Status: concluido") || a.notes?.includes("[STATUS:concluido]")) {
+        const statusMatch = a.notes?.match(/Status:\s*(\w+)/i);
+        if (statusMatch && statusMatch[1]) {
+          const parsed = statusMatch[1].toLowerCase();
+          if (["agendado", "confirmado", "em_atendimento", "pronto", "em_rota", "concluido", "cancelado"].includes(parsed)) {
+            effectiveStatus = parsed;
+          }
+        } else if (a.notes?.includes("Status: concluido") || a.notes?.includes("concluido")) {
           effectiveStatus = "concluido";
-        } else if (a.notes?.includes("Status: em_atendimento") || a.notes?.includes("[STATUS:em_atendimento]")) {
+        } else if (a.notes?.includes("Status: em_rota") || a.notes?.includes("em_rota")) {
+          effectiveStatus = "em_rota";
+        } else if (a.notes?.includes("Status: pronto") || a.notes?.includes("pronto")) {
+          effectiveStatus = "pronto";
+        } else if (a.notes?.includes("Status: em_atendimento") || a.notes?.includes("em_atendimento")) {
           effectiveStatus = "em_atendimento";
         }
 
@@ -101,17 +107,21 @@ export async function GET() {
         const hours = String(dateObj.getHours()).padStart(2, "0");
         const minutes = String(dateObj.getMinutes()).padStart(2, "0");
 
-        const parsedStatus = h.notes?.includes("cancelado")
-          ? "cancelado"
-          : h.notes?.includes("concluido") || h.notes?.includes("Status: concluido")
-          ? "concluido"
-          : h.notes?.includes("em_rota") || h.notes?.includes("Status: em_rota")
-          ? "em_rota"
-          : h.notes?.includes("pronto") || h.notes?.includes("Status: pronto")
-          ? "pronto"
-          : h.notes?.includes("em_atendimento") || h.notes?.includes("atendimento")
-          ? "em_atendimento"
-          : "agendado";
+        const statusMatch = h.notes?.match(/Status:\s*(\w+)/i);
+        let parsedStatus = "agendado";
+        if (statusMatch && statusMatch[1]) {
+          parsedStatus = statusMatch[1].toLowerCase();
+        } else if (h.notes?.includes("cancelado")) {
+          parsedStatus = "cancelado";
+        } else if (h.notes?.includes("concluido") || h.notes?.includes("Status: concluido")) {
+          parsedStatus = "concluido";
+        } else if (h.notes?.includes("em_rota") || h.notes?.includes("Status: em_rota")) {
+          parsedStatus = "em_rota";
+        } else if (h.notes?.includes("pronto") || h.notes?.includes("Status: pronto")) {
+          parsedStatus = "pronto";
+        } else if (h.notes?.includes("em_atendimento") || h.notes?.includes("atendimento")) {
+          parsedStatus = "em_atendimento";
+        }
 
         return {
           id: h.id,
@@ -191,7 +201,7 @@ export async function POST(request: Request) {
         professional: professional || "Não atribuído",
         price: price ?? 85.0,
         status: "agendado",
-        notes: notes || "[STEP:0]",
+        notes: notes || "Status: agendado | [STEP:0]",
         address: address || "",
       })
       .select()
@@ -206,7 +216,7 @@ export async function POST(request: Request) {
           pet_shop_id: PET_SHOP_ID,
           service_type,
           service_date: service_date,
-          notes: notes || `Profissional: ${professional || "Groomer"}`,
+          notes: notes || `Status: agendado | Profissional: ${professional || "Groomer"}`,
         })
         .select()
         .single();
@@ -284,16 +294,14 @@ export async function PATCH(request: Request) {
     if (professional !== undefined) updateData.professional = professional;
     if (price !== undefined) updateData.price = price;
 
-    // Se um novo status for informado, injetar tag de status nas notes para resiliência no Supabase
+    // Se um novo status for informado, injetar tag de status limpa na frente das notes
     if (status) {
-      const statusTag = `Status: ${status}`;
-      if (updateData.notes) {
-        if (!updateData.notes.includes(statusTag)) {
-          updateData.notes = `${statusTag} | ${updateData.notes}`;
-        }
-      } else {
-        updateData.notes = statusTag;
-      }
+      const baseNotes = updateData.notes !== undefined ? updateData.notes : existing.notes || "";
+      const cleanedNotes = baseNotes
+        .replace(/Status:\s*\w+\s*\|?/gi, "")
+        .replace(/\[STATUS:\w+\]\s*\|?/gi, "")
+        .trim();
+      updateData.notes = cleanedNotes ? `Status: ${status} | ${cleanedNotes}` : `Status: ${status}`;
     }
 
     let { data, error } = await adminSupabase
@@ -328,8 +336,10 @@ export async function PATCH(request: Request) {
       if (status !== undefined && status !== existing.status) {
         const STATUS_MESSAGES: Record<string, { title: string; body: string; type: any }> = {
           confirmado: { title: "Agendamento confirmado", body: `Seu agendamento de ${data.service_type} foi confirmado.`, type: "agendamento_confirmado" },
-          em_atendimento: { title: "Atendimento iniciado", body: `O atendimento de ${data.service_type} do seu pet começou agora.`, type: "agendamento_alterado" },
-          concluido: { title: "Atendimento concluído", body: `O atendimento de ${data.service_type} foi concluído.`, type: "agendamento_alterado" },
+          em_atendimento: { title: "Atendimento iniciado ✂️", body: `O atendimento de ${data.service_type} do seu pet começou agora.`, type: "agendamento_alterado" },
+          pronto: { title: "Pet pronto para busca 🐾", body: `Seu pet está pronto para ser buscado no petshop!`, type: "agendamento_alterado" },
+          em_rota: { title: "Pet em rota de entrega 🚚", body: `Seu pet saiu para entrega e está a caminho do seu endereço!`, type: "agendamento_alterado" },
+          concluido: { title: "Atendimento concluído 🎉", body: `O atendimento de ${data.service_type} foi finalizado com sucesso.`, type: "agendamento_alterado" },
           cancelado: { title: "Agendamento cancelado", body: `Seu agendamento de ${data.service_type} foi cancelado.`, type: "agendamento_cancelado" },
         };
         const msg = STATUS_MESSAGES[status];

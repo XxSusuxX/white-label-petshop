@@ -193,7 +193,13 @@ export default function OperacaoPage() {
 
   // Mover para Em Rota ou Concluído
   const handleMoveToRouteOrFinish = async (task: OpTask, newStatus: OpTask["status"]) => {
-    const notesTag = `[OPERACAO] | Status: ${newStatus} | ${task.notes || ""}`;
+    const currentNotes = task.notes || "";
+    const cleaned = currentNotes
+      .replace(/Status:\s*\w+\s*\|?/gi, "")
+      .replace(/\[STATUS:\w+\]\s*\|?/gi, "")
+      .trim();
+    const notesTag = cleaned ? `Status: ${newStatus} | ${cleaned}` : `Status: ${newStatus}`;
+
     setTasks((prev) =>
       prev.map((t) => (t.id === task.id ? { ...t, status: newStatus, notes: notesTag } : t))
     );

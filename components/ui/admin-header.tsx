@@ -40,6 +40,7 @@ export function AdminHeader() {
   const [userName, setUserName] = useState("Gestor Admin");
   const [userRole, setUserRole] = useState("Administrador");
   const [userAvatar, setUserAvatar] = useState<string | null>(null);
+  const [isAdminUser, setIsAdminUser] = useState(true);
 
   // Estados de Notificações
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -77,9 +78,23 @@ export function AdminHeader() {
             null;
 
           setUserName(name);
-          if (profile?.role) {
-            setUserRole(profile.role === "admin" ? "Administrador" : profile.role);
-          }
+
+          const rawRole = profile?.role || user.user_metadata?.role || "admin";
+          const isRoleAdminOrOwner = rawRole === "admin" || rawRole === "dono" || rawRole === "Administrador";
+          setIsAdminUser(isRoleAdminOrOwner);
+
+          const ROLE_LABELS: Record<string, string> = {
+            admin: "Administrador",
+            dono: "Dono(a)",
+            veterinario: "Médico(a) Veterinário(a)",
+            banhista_tosador: "Banhista & Tosador(a)",
+            recepcionista: "Recepcionista",
+            entregador: "Entregador",
+            auxiliar: "Auxiliar Geral",
+            funcionario: "Funcionário",
+          };
+
+          setUserRole(ROLE_LABELS[rawRole] || rawRole);
           if (avatar) setUserAvatar(avatar);
         }
       } catch (err) {
@@ -192,6 +207,11 @@ export function AdminHeader() {
           title: "Zap Notifica / Central do WhatsApp",
           subtitle: "Gerenciamento da conexão, automações de mensagens e lembretes",
         };
+      case "/admin/register-admin":
+        return {
+          title: "Cadastro de Equipe & Gestão",
+          subtitle: "Cadastre ou promova colaboradores e defina cargos da equipe",
+        };
       case "/admin/dashboard":
       default:
         return {
@@ -303,6 +323,18 @@ export function AdminHeader() {
             </div>
           )}
         </div>
+
+        {/* Botão para Registrar Admin (Disponível quando cargo for Administrador) */}
+        {isAdminUser && (
+          <Link
+            href="/admin/register-admin"
+            className="px-3.5 py-2.5 bg-surface-container border border-primary/40 text-primary hover:bg-primary/15 hover:border-primary font-bold text-xs rounded-xl transition-all flex items-center gap-2 cursor-pointer shadow-sm"
+            title="Registrar Novo Administrador no Sistema"
+          >
+            <span className="material-symbols-outlined text-base text-primary">person_add</span>
+            <span className="hidden sm:inline">Registrar Admin</span>
+          </Link>
+        )}
 
         {/* CTA Rápido: Abrir PDV */}
         <Link
