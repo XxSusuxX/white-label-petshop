@@ -18,7 +18,15 @@ export async function POST(request: Request) {
   try {
     const { email, password, fullName, phone, adminSecretKey, role } = await request.json();
 
-    if (adminSecretKey?.trim() !== "admin123") {
+    const expectedSecret = process.env.ADMIN_SIGNUP_SECRET;
+    if (!expectedSecret) {
+      console.error("ADMIN_SIGNUP_SECRET não está configurada no ambiente do servidor.");
+      return NextResponse.json(
+        { error: "Cadastro de administrador desativado: chave de segurança não configurada no servidor." },
+        { status: 500 }
+      );
+    }
+    if (adminSecretKey?.trim() !== expectedSecret) {
       return NextResponse.json({ error: "Chave secreta de administrador incorreta." }, { status: 400 });
     }
 
@@ -56,6 +64,7 @@ export async function POST(request: Request) {
             role: requestedRole,
             db_role: dbRole,
           },
+          app_metadata: { role: dbRole },
         });
 
       if (createError) {
@@ -75,6 +84,9 @@ export async function POST(request: Request) {
           role: requestedRole,
           db_role: dbRole,
         },
+        // Mantém o cache de role usado pelo middleware sempre em dia — essencial
+        // aqui pois este é o único fluxo que pode MUDAR o cargo de um usuário já existente.
+        app_metadata: { ...existingUser.app_metadata, role: dbRole },
       };
 
       if (password && password.trim().length >= 6) {

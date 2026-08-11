@@ -70,6 +70,18 @@ export default function ClientesPage() {
 
   // Detail & New Client Modal States
   const [selectedClient, setSelectedClient] = useState<ClientUser | null>(null);
+  const [clientPackages, setClientPackages] = useState<{ id: string; package_name: string; total_credits: number; used_credits: number; status: string; expires_at: string | null }[]>([]);
+
+  useEffect(() => {
+    if (!selectedClient) {
+      setClientPackages([]);
+      return;
+    }
+    fetch(`/api/admin/client-packages?client_id=${selectedClient.id}`)
+      .then((res) => res.json())
+      .then((data) => setClientPackages(data.packages || []))
+      .catch(() => setClientPackages([]));
+  }, [selectedClient]);
   const [showNewClientModal, setShowNewClientModal] = useState(false);
   const [newClientName, setNewClientName] = useState("");
   const [newClientPhone, setNewClientPhone] = useState("");
@@ -1174,6 +1186,25 @@ export default function ClientesPage() {
                 <span className="text-on-surface">{formatDate(selectedClient.created_at)}</span>
               </div>
             </div>
+
+            {clientPackages.filter((p) => p.status === "ativo").length > 0 && (
+              <div className="space-y-2 border-t border-hairline-border pt-3">
+                <h5 className="text-xs font-bold text-on-surface-variant uppercase">Pacotes Ativos</h5>
+                {clientPackages
+                  .filter((p) => p.status === "ativo")
+                  .map((pkg) => (
+                    <div key={pkg.id} className="flex items-center justify-between p-2.5 bg-surface-container rounded-xl border border-hairline-border text-xs">
+                      <div>
+                        <p className="font-bold text-on-surface">{pkg.package_name}</p>
+                        {pkg.expires_at && (
+                          <p className="text-[10px] text-on-surface-variant">Válido até {formatDate(pkg.expires_at)}</p>
+                        )}
+                      </div>
+                      <span className="font-bold text-primary">{pkg.total_credits - pkg.used_credits}/{pkg.total_credits}</span>
+                    </div>
+                  ))}
+              </div>
+            )}
 
             <div className="space-y-3 border-t border-hairline-border pt-3">
               <div className="flex justify-between items-center">

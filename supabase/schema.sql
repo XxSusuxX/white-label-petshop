@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     role VARCHAR(50) NOT NULL DEFAULT 'client' CHECK (role IN ('client', 'admin', 'vet', 'groomer')),
     avatar_url TEXT,
     pet_shop_id UUID DEFAULT '00000000-0000-0000-0000-000000000001',
+    last_winback_sent_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
@@ -63,6 +64,7 @@ CREATE TABLE IF NOT EXISTS public.pets (
     current_status VARCHAR(50) DEFAULT 'Em casa',
     client_id UUID NOT NULL,
     pet_shop_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001',
+    last_birthday_greeted_year INT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
@@ -79,6 +81,9 @@ CREATE TABLE IF NOT EXISTS public.services (
     duration_minutes INTEGER NOT NULL DEFAULT 30,
     price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     is_active BOOLEAN DEFAULT true,
+    stock_quantity INTEGER,
+    package_credits INTEGER,
+    package_validity_days INTEGER,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
@@ -109,10 +114,13 @@ CREATE TABLE IF NOT EXISTS public.appointments (
     service_type VARCHAR(255) NOT NULL DEFAULT 'Banho & Tosa',
     professional VARCHAR(255) DEFAULT 'Não atribuído',
     scheduled_at TIMESTAMP WITH TIME ZONE NOT NULL,
-    status VARCHAR(50) DEFAULT 'agendado' CHECK (status IN ('agendado', 'confirmado', 'em_atendimento', 'concluido', 'cancelado', 'bloqueio')),
+    status VARCHAR(50) DEFAULT 'agendado' CHECK (status IN ('agendado', 'confirmado', 'em_atendimento', 'pronto', 'em_rota', 'concluido', 'cancelado', 'bloqueio')),
     price DECIMAL(10,2) DEFAULT 0.00,
     notes TEXT DEFAULT '',
     address TEXT DEFAULT '',
+    paid_via_package_id UUID,
+    reminder_sent_at TIMESTAMP WITH TIME ZONE,
+    recurring_booking_id UUID,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
@@ -264,7 +272,131 @@ CREATE TABLE IF NOT EXISTS public.cash_movements (
 );
 
 -- ==============================================================================
--- 15. ÍNDICES DE PERFORMANCE
+-- 15. TABELA: whatsapp_config (Conexão com Evolution API / WhatsApp Cloud API / Twilio)
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS public.whatsapp_config (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    pet_shop_id UUID NOT NULL UNIQUE DEFAULT '00000000-0000-0000-0000-000000000001',
+    provider VARCHAR(20) NOT NULL DEFAULT 'none' CHECK (provider IN ('none', 'evolution', 'official', 'twilio', 'uazapi')),
+    is_connected BOOLEAN DEFAULT false,
+    connected_number VARCHAR(50) DEFAULT '',
+    last_checked_at TIMESTAMP WITH TIME ZONE,
+    last_error TEXT DEFAULT '',
+    evolution_api_url TEXT DEFAULT '',
+    evolution_api_key TEXT DEFAULT '',
+    evolution_instance_name VARCHAR(100) DEFAULT '',
+    official_phone_number_id VARCHAR(100) DEFAULT '',
+    official_waba_id VARCHAR(100) DEFAULT '',
+    official_access_token TEXT DEFAULT '',
+    twilio_account_sid VARCHAR(100) DEFAULT '',
+    twilio_auth_token TEXT DEFAULT '',
+    twilio_whatsapp_number VARCHAR(50) DEFAULT '',
+    uazapi_api_url TEXT DEFAULT '',
+    uazapi_token TEXT DEFAULT '',
+    admin_notify_phone TEXT,
+    resumo_diario_last_sent_date DATE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- ==============================================================================
+-- 16. TABELA: client_packages (Pacotes/assinaturas por tutor, com créditos)
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS public.client_packages (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    pet_shop_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001',
+    client_id UUID NOT NULL,
+    service_id UUID REFERENCES public.services(id) ON DELETE SET NULL,
+    package_name VARCHAR(255) NOT NULL,
+    total_credits INTEGER NOT NULL DEFAULT 0,
+    used_credits INTEGER NOT NULL DEFAULT 0,
+    price_paid DECIMAL(10,2) DEFAULT 0.00,
+    purchased_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    expires_at TIMESTAMP WITH TIME ZONE,
+    status VARCHAR(20) NOT NULL DEFAULT 'ativo' CHECK (status IN ('ativo', 'expirado', 'cancelado', 'finalizado')),
+    sale_id UUID REFERENCES public.sales(id) ON DELETE SET NULL,
+    low_credit_notified_at TIMESTAMP WITH TIME ZONE
+);
+
+-- Nota: as funções decrement_stock() e use_package_credit() (baixa atômica de
+-- estoque e consumo de crédito de pacote) vivem em supabase/migration_phase5.sql,
+-- não são repetidas aqui pois este arquivo documenta apenas tabelas/índices/RLS.
+
+-- ==============================================================================
+-- 17b. TABELA: recurring_bookings (Agendamentos Recorrentes)
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS public.recurring_bookings (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    pet_shop_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001',
+    pet_id UUID NOT NULL,
+    service_id UUID,
+    service_type VARCHAR(255) NOT NULL,
+    professional VARCHAR(255) DEFAULT 'Não atribuído',
+    price DECIMAL(10,2) DEFAULT 0.00,
+    address TEXT DEFAULT '',
+    interval_days INT NOT NULL DEFAULT 30 CHECK (interval_days > 0),
+    status VARCHAR(20) NOT NULL DEFAULT 'ativo' CHECK (status IN ('ativo', 'pausado', 'cancelado')),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- ==============================================================================
+-- 17d. TABELAS: business_hours / blocked_dates (Horário de Funcionamento)
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS public.business_hours (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    pet_shop_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001',
+    day_of_week INT NOT NULL CHECK (day_of_week BETWEEN 0 AND 6),
+    open_time TIME NOT NULL DEFAULT '09:00',
+    close_time TIME NOT NULL DEFAULT '18:00',
+    is_closed BOOLEAN NOT NULL DEFAULT false,
+    slot_interval_minutes INT NOT NULL DEFAULT 60 CHECK (slot_interval_minutes > 0),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    UNIQUE(pet_shop_id, day_of_week)
+);
+
+CREATE TABLE IF NOT EXISTS public.blocked_dates (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    pet_shop_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001',
+    blocked_date DATE NOT NULL,
+    reason TEXT DEFAULT '',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    UNIQUE(pet_shop_id, blocked_date)
+);
+
+-- ==============================================================================
+-- 17e. TABELA: financial_expenses (Financeiro — Despesas)
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS public.financial_expenses (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    pet_shop_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001',
+    description VARCHAR(255) NOT NULL,
+    category VARCHAR(50) NOT NULL DEFAULT 'outros' CHECK (category IN ('aluguel', 'salarios', 'fornecedores', 'marketing', 'manutencao', 'outros')),
+    amount DECIMAL(10,2) NOT NULL CHECK (amount > 0),
+    expense_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    notes TEXT DEFAULT '',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- ==============================================================================
+-- 17c. TABELA: staff_schedules (Escala de Equipe / Capacidade)
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS public.staff_schedules (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    pet_shop_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001',
+    staff_id UUID NOT NULL,
+    day_of_week INT NOT NULL CHECK (day_of_week BETWEEN 0 AND 6),
+    start_time TIME NOT NULL DEFAULT '09:00',
+    end_time TIME NOT NULL DEFAULT '18:00',
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    UNIQUE(staff_id, day_of_week)
+);
+
+-- ==============================================================================
+-- 17. ÍNDICES DE PERFORMANCE
 -- ==============================================================================
 CREATE INDEX IF NOT EXISTS idx_profiles_pet_shop ON public.profiles(pet_shop_id);
 CREATE INDEX IF NOT EXISTS idx_pets_client ON public.pets(client_id);
@@ -286,3 +418,63 @@ CREATE INDEX IF NOT EXISTS idx_notifications_created ON public.notifications(cre
 CREATE INDEX IF NOT EXISTS idx_cash_sessions_pet_shop ON public.cash_sessions(pet_shop_id);
 CREATE INDEX IF NOT EXISTS idx_cash_sessions_status ON public.cash_sessions(status);
 CREATE INDEX IF NOT EXISTS idx_cash_movements_session ON public.cash_movements(cash_session_id);
+CREATE INDEX IF NOT EXISTS idx_client_packages_client ON public.client_packages(client_id);
+CREATE INDEX IF NOT EXISTS idx_client_packages_status ON public.client_packages(status);
+CREATE INDEX IF NOT EXISTS idx_recurring_bookings_pet ON public.recurring_bookings(pet_id);
+CREATE INDEX IF NOT EXISTS idx_appointments_recurring_booking ON public.appointments(recurring_booking_id);
+CREATE INDEX IF NOT EXISTS idx_staff_schedules_staff ON public.staff_schedules(staff_id);
+CREATE INDEX IF NOT EXISTS idx_blocked_dates_date ON public.blocked_dates(blocked_date);
+CREATE INDEX IF NOT EXISTS idx_financial_expenses_date ON public.financial_expenses(expense_date);
+
+
+-- ==============================================================================
+-- 18. ROW LEVEL SECURITY (estado final — ver migration_phase7.sql)
+-- ==============================================================================
+-- Toda a aplicação acessa o banco via rotas server-side (app/api/*) com o
+-- cliente service_role, que ignora RLS. O único acesso direto do navegador
+-- (anon key) é: profiles (leitura/escrita da própria linha) e o bucket de
+-- Storage pet-photos. Por isso, todas as demais tabelas têm RLS habilitado
+-- SEM nenhuma política — negando acesso a anon/authenticated e deixando o
+-- acesso restrito ao service_role.
+ALTER TABLE public.pet_shops ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.pets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.service_history ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.services ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.appointments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.leads ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.sales ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.sale_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.medical_records ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.vaccine_records ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.weight_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.automation_rules ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.cash_sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.cash_movements ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.whatsapp_config ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.client_packages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.recurring_bookings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.staff_schedules ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.business_hours ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.blocked_dates ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.financial_expenses ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Profiles: leitura da propria linha" ON public.profiles;
+CREATE POLICY "Profiles: leitura da propria linha"
+    ON public.profiles FOR SELECT
+    TO authenticated
+    USING (id = auth.uid());
+
+DROP POLICY IF EXISTS "Profiles: insercao da propria linha como cliente" ON public.profiles;
+CREATE POLICY "Profiles: insercao da propria linha como cliente"
+    ON public.profiles FOR INSERT
+    TO authenticated
+    WITH CHECK (id = auth.uid() AND role = 'client');
+
+DROP POLICY IF EXISTS "Profiles: atualizacao da propria linha sem trocar role" ON public.profiles;
+CREATE POLICY "Profiles: atualizacao da propria linha sem trocar role"
+    ON public.profiles FOR UPDATE
+    TO authenticated
+    USING (id = auth.uid())
+    WITH CHECK (id = auth.uid() AND role = 'client');

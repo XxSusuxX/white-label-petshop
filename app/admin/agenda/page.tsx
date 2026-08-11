@@ -27,7 +27,7 @@ interface Appointment {
   address?: string;
 }
 
-const PROFESSIONALS = ["Ana Costa (Banhista)", "Carlos Silva (Groomer)", "Dr. Pedro (Veterinário)"];
+const DEFAULT_PROFESSIONALS = ["Ana Costa (Banhista)", "Carlos Silva (Groomer)", "Dr. Pedro (Veterinário)"];
 
 const STATUS_LABELS: Record<string, string> = {
   agendado: "Agendado",
@@ -78,6 +78,7 @@ export default function HashikoAdminAgendaPage() {
   const [petsList, setPetsList] = useState<PetOption[]>([]);
   const [tutorsList, setTutorsList] = useState<TutorOption[]>([]);
   const [catalogList, setCatalogList] = useState<CatalogItem[]>([]);
+  const [professionalsList, setProfessionalsList] = useState<string[]>(DEFAULT_PROFESSIONALS);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -105,18 +106,52 @@ export default function HashikoAdminAgendaPage() {
   const [formDate, setFormDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [formTime, setFormTime] = useState("09:00");
   const [formNotes, setFormNotes] = useState("");
+  const [tutorPackages, setTutorPackages] = useState<{ id: string; service_id: string | null; package_name: string; remaining: number }[]>([]);
+  const [formUsePackage, setFormUsePackage] = useState(true);
+  const [formRecurringDays, setFormRecurringDays] = useState("0");
+
+  // Ao trocar o pet no formulário, busca os pacotes ativos do tutor dele
+  useEffect(() => {
+    const pet = petsList.find((p) => p.id === formPetId);
+    if (!pet?.client_id) {
+      setTutorPackages([]);
+      return;
+    }
+    fetch(`/api/admin/client-packages?client_id=${pet.client_id}`)
+      .then((res) => res.json())
+      .then((data) => {
+        const active = (data.packages || [])
+          .filter((p: any) => p.status === "ativo" && p.total_credits - p.used_credits > 0)
+          .map((p: any) => ({ id: p.id, service_id: p.service_id, package_name: p.package_name, remaining: p.total_credits - p.used_credits }));
+        setTutorPackages(active);
+      })
+      .catch(() => setTutorPackages([]));
+  }, [formPetId, petsList]);
+
+  const formMatchingPackage = tutorPackages.find((p) => p.service_id === formServiceId);
+
+  useEffect(() => {
+    setFormUsePackage(true);
+  }, [formServiceId, formPetId]);
 
   // 1. Carregar agendamentos e cadastros do Supabase
   const loadAgendaData = async () => {
     setIsLoading(true);
     setLoadError(null);
     try {
-      const [agendaRes, servicesRes] = await Promise.all([
+      const [agendaRes, servicesRes, staffRes] = await Promise.all([
         fetch("/api/admin/agenda"),
         fetch("/api/admin/services"),
+        fetch("/api/admin/staff"),
       ]);
       const data = await agendaRes.json();
       const servicesData = await servicesRes.json();
+      const staffData = await staffRes.json().catch(() => ({}));
+
+      const staffLabels: string[] = (staffData.staff || []).map((s: any) => s.label);
+      const resolvedProfessionals = staffLabels.length > 0 ? staffLabels : DEFAULT_PROFESSIONALS;
+      setProfessionalsList(resolvedProfessionals);
+      setFormProfessional((prev) => (resolvedProfessionals.includes(prev) ? prev : resolvedProfessionals[0]));
 
       if (!agendaRes.ok) {
         throw new Error(data?.error || "Não foi possível carregar a agenda.");
@@ -304,6 +339,8 @@ export default function HashikoAdminAgendaPage() {
           professional: formProfessional,
           price: selectedService.price,
           notes: formNotes,
+          use_package_id: formMatchingPackage && formUsePackage ? formMatchingPackage.id : undefined,
+          recurring_interval_days: Number(formRecurringDays) > 0 ? Number(formRecurringDays) : undefined,
         }),
       });
 
@@ -312,6 +349,7 @@ export default function HashikoAdminAgendaPage() {
       if (res.ok) {
         setIsModalOpen(false);
         setFormNotes("");
+        setFormRecurringDays("0");
         await loadAgendaData();
       } else {
         alert(data?.error || "Erro ao salvar no Supabase.");
@@ -577,7 +615,7 @@ export default function HashikoAdminAgendaPage() {
             className="bg-matte-canvas border border-hairline-border rounded-xl px-3 py-2 text-xs text-on-surface focus:border-primary outline-none cursor-pointer"
           >
             <option value="Todos os profissionais">Todos os profissionais</option>
-            {PROFESSIONALS.map((p) => (
+            {professionalsList.map((p) => (
               <option key={p} value={p}>{p}</option>
             ))}
           </select>
@@ -810,7 +848,7 @@ export default function HashikoAdminAgendaPage() {
             Visão por Profissional ({String(currentDate.getDate()).padStart(2, "0")}/{String(currentDate.getMonth() + 1).padStart(2, "0")})
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {PROFESSIONALS.map((prof) => (
+            {professionalsList.map((prof) => (
               <div
                 key={prof}
                 onClick={() => {
@@ -858,7 +896,7 @@ export default function HashikoAdminAgendaPage() {
           {/* Agendamentos do dia sem profissional atribuído */}
           {(() => {
             const unassigned = filteredAppointments.filter(
-              (a) => !PROFESSIONALS.includes(a.professional) && isSameDay(currentDate, a.day, a.month, a.year)
+              (a) => !professionalsList.includes(a.professional) && isSameDay(currentDate, a.day, a.month, a.year)
             );
             if (unassigned.length === 0) return null;
             return (
@@ -1070,7 +1108,7 @@ export default function HashikoAdminAgendaPage() {
                       onChange={(e) => setEditProfessional(e.target.value)}
                       className="w-full bg-matte-canvas border border-hairline-border rounded-xl p-2.5 text-on-surface text-xs outline-none cursor-pointer focus:border-primary"
                     >
-                      {PROFESSIONALS.map((p) => (
+                      {professionalsList.map((p) => (
                         <option key={p} value={p}>{p}</option>
                       ))}
                     </select>
@@ -1196,6 +1234,27 @@ export default function HashikoAdminAgendaPage() {
                 </select>
               </div>
 
+              {formMatchingPackage && (
+                <button
+                  type="button"
+                  onClick={() => setFormUsePackage((v) => !v)}
+                  className={`w-full flex items-center justify-between gap-2 p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                    formUsePackage ? "bg-primary/10 border-primary/40" : "bg-matte-canvas border-hairline-border"
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-primary text-base">loyalty</span>
+                    <span>
+                      <span className="block font-bold text-on-surface">Usar pacote "{formMatchingPackage.package_name}"</span>
+                      <span className="block text-[10px] text-on-surface-variant">{formMatchingPackage.remaining} crédito(s) restante(s)</span>
+                    </span>
+                  </span>
+                  <span className={`material-symbols-outlined text-base ${formUsePackage ? "text-primary" : "text-on-surface-variant"}`}>
+                    {formUsePackage ? "toggle_on" : "toggle_off"}
+                  </span>
+                </button>
+              )}
+
               {/* Profissional */}
               <div>
                 <label className="block font-bold text-on-surface mb-1">Profissional Responsável</label>
@@ -1204,7 +1263,7 @@ export default function HashikoAdminAgendaPage() {
                   onChange={(e) => setFormProfessional(e.target.value)}
                   className="w-full bg-matte-canvas border border-hairline-border rounded-xl p-3 text-on-surface focus:border-primary outline-none cursor-pointer"
                 >
-                  {PROFESSIONALS.map((p) => (
+                  {professionalsList.map((p) => (
                     <option key={p} value={p}>{p}</option>
                   ))}
                 </select>
@@ -1232,6 +1291,26 @@ export default function HashikoAdminAgendaPage() {
                     className="w-full bg-matte-canvas border border-hairline-border rounded-xl p-2.5 text-on-surface focus:border-primary outline-none"
                   />
                 </div>
+              </div>
+
+              {/* Recorrência */}
+              <div>
+                <label className="block font-bold text-on-surface mb-1">Repetir Agendamento</label>
+                <select
+                  value={formRecurringDays}
+                  onChange={(e) => setFormRecurringDays(e.target.value)}
+                  className="w-full bg-matte-canvas border border-hairline-border rounded-xl p-3 text-on-surface focus:border-primary outline-none cursor-pointer"
+                >
+                  <option value="0">Não repetir</option>
+                  <option value="7">A cada semana</option>
+                  <option value="14">A cada 2 semanas</option>
+                  <option value="30">A cada mês</option>
+                </select>
+                {Number(formRecurringDays) > 0 && (
+                  <p className="text-[10px] text-on-surface-variant mt-1">
+                    Ao concluir cada atendimento, o próximo será criado automaticamente nessa recorrência.
+                  </p>
+                )}
               </div>
 
               {/* Observações */}

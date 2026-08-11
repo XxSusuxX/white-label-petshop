@@ -10,6 +10,7 @@ interface CartItem {
   category: "product" | "service" | "package";
   price: number;
   qty: number;
+  stock_quantity: number | null;
 }
 
 interface CatalogItem {
@@ -17,6 +18,7 @@ interface CatalogItem {
   name: string;
   category: "product" | "service" | "package";
   price: number;
+  stock_quantity: number | null;
 }
 
 export default function PdvAdminPage() {
@@ -54,6 +56,7 @@ export default function PdvAdminPage() {
             name: s.name,
             category: s.category as "product" | "service" | "package",
             price: s.price,
+            stock_quantity: s.stock_quantity ?? null,
           })));
         }
 
@@ -98,9 +101,17 @@ export default function PdvAdminPage() {
       alert("Este é um item de exemplo. Cadastre-o em Serviços & Preços antes de vendê-lo.");
       return;
     }
+    if (item.stock_quantity !== null && item.stock_quantity <= 0) {
+      alert("Este produto está sem estoque.");
+      return;
+    }
     setCart((prev) => {
       const existing = prev.find((i) => i.id === item.id);
       if (existing) {
+        if (item.stock_quantity !== null && existing.qty + 1 > item.stock_quantity) {
+          alert(`Só há ${item.stock_quantity} unidade(s) em estoque.`);
+          return prev;
+        }
         return prev.map((i) => (i.id === item.id ? { ...i, qty: i.qty + 1 } : i));
       }
       return [...prev, { ...item, qty: 1 }];
@@ -113,7 +124,12 @@ export default function PdvAdminPage() {
         .map((i) => {
           if (i.id === id) {
             const newQty = i.qty + delta;
-            return newQty > 0 ? { ...i, qty: newQty } : null;
+            if (newQty <= 0) return null;
+            if (delta > 0 && i.stock_quantity !== null && newQty > i.stock_quantity) {
+              alert(`Só há ${i.stock_quantity} unidade(s) em estoque.`);
+              return i;
+            }
+            return { ...i, qty: newQty };
           }
           return i;
         })
@@ -304,12 +320,16 @@ export default function PdvAdminPage() {
               </div>
             ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[520px] overflow-y-auto pr-1 custom-scrollbar">
-              {filteredCatalog.map((item) => (
+              {filteredCatalog.map((item) => {
+                const outOfStock = item.stock_quantity !== null && item.stock_quantity <= 0;
+                return (
                 <div
                   key={item.id}
-                  onClick={() => addToCart(item)}
-                  className={`bg-elevated-card border border-hairline-border hover:border-primary/50 p-4 rounded-xl cursor-pointer transition-all duration-200 hover:scale-[1.02] flex flex-col justify-between gap-3 group ${
-                    item.id.startsWith("def-") ? "opacity-50" : ""
+                  onClick={() => !outOfStock && addToCart(item)}
+                  className={`bg-elevated-card border border-hairline-border p-4 rounded-xl transition-all duration-200 flex flex-col justify-between gap-3 group ${
+                    item.id.startsWith("def-") || outOfStock
+                      ? "opacity-50 cursor-not-allowed"
+                      : "cursor-pointer hover:border-primary/50 hover:scale-[1.02]"
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2">
@@ -331,11 +351,21 @@ export default function PdvAdminPage() {
 
                   <h3 className="font-label-bold text-on-surface text-body-sm leading-snug line-clamp-2">{item.name}</h3>
 
-                  <div className="text-primary font-headline-md font-bold text-lg">
-                    R$ {item.price.toFixed(2).replace(".", ",")}
+                  <div className="flex items-center justify-between">
+                    <div className="text-primary font-headline-md font-bold text-lg">
+                      R$ {item.price.toFixed(2).replace(".", ",")}
+                    </div>
+                    {item.category === "product" && item.stock_quantity !== null && (
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                        outOfStock ? "text-rose-400 bg-rose-500/10" : item.stock_quantity < 5 ? "text-amber-400 bg-amber-500/10" : "text-on-surface-variant"
+                      }`}>
+                        {outOfStock ? "Sem estoque" : `${item.stock_quantity} un.`}
+                      </span>
+                    )}
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
             )}
           </section>

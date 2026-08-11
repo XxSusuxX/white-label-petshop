@@ -36,7 +36,7 @@ const DEFAULT_RULES = [
     category: "marketing",
     enabled: false,
     message_template:
-      "Olá {tutor_name}! Seu pacote mensal de banho do {pet_name} tem apenas 1 banho restante. Clique aqui para renovar com desconto exclusivo.",
+      "Olá {tutor_name}! Seu pacote \"{package_name}\" está com apenas {remaining_credits} crédito(s) restante(s). Que tal já garantir a renovação com desconto exclusivo?",
   },
   {
     rule_key: "resumo_diario",
@@ -45,6 +45,22 @@ const DEFAULT_RULES = [
     enabled: true,
     message_template:
       "📊 Resumo Diário SaaS Petshop:\nTotal faturado hoje: R$ {total_today}\nAtendimentos concluídos: {completed_count}\nNovos clientes: {new_clients_count}",
+  },
+  {
+    rule_key: "pedido_avaliacao",
+    title: "Pedido de Avaliação Pós-Atendimento",
+    category: "marketing",
+    enabled: true,
+    message_template:
+      "Olá {tutor_name}! Esperamos que o {pet_name} tenha adorado o atendimento de {service_name} hoje 🐾. Poderia nos avaliar com uma nota de 0 a 10? Sua opinião é muito importante para nós!",
+  },
+  {
+    rule_key: "cliente_inativo",
+    title: "Reativação de Clientes Inativos",
+    category: "marketing",
+    enabled: false,
+    message_template:
+      "Sentimos sua falta, {tutor_name}! Já faz um tempo que o {pet_name} não vem nos visitar. Que tal agendar um banho com 15% de desconto? É só responder esta mensagem!",
   },
 ];
 
@@ -63,10 +79,16 @@ export async function GET() {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    if (!existing || existing.length === 0) {
+    // Semeia regras ausentes: cobre tanto a primeira execução (tabela vazia)
+    // quanto deploys já em produção que ganharam novas regras padrão depois
+    // (ex.: pedido_avaliacao, cliente_inativo) — cada uma é inserida só uma vez.
+    const existingKeys = new Set((existing || []).map((r) => r.rule_key));
+    const missingRules = DEFAULT_RULES.filter((r) => !existingKeys.has(r.rule_key));
+
+    if (missingRules.length > 0) {
       const { data: seeded, error: seedErr } = await adminSupabase
         .from("automation_rules")
-        .insert(DEFAULT_RULES.map((r) => ({ ...r, pet_shop_id: PET_SHOP_ID })))
+        .insert(missingRules.map((r) => ({ ...r, pet_shop_id: PET_SHOP_ID })))
         .select();
 
       if (seedErr) {
@@ -82,10 +104,10 @@ export async function GET() {
         console.error("Erro ao semear automation_rules:", seedErr);
         return NextResponse.json({ error: seedErr.message }, { status: 500 });
       }
-      return NextResponse.json({ rules: seeded || [] });
+      return NextResponse.json({ rules: [...(existing || []), ...(seeded || [])] });
     }
 
-    return NextResponse.json({ rules: existing });
+    return NextResponse.json({ rules: existing || [] });
   } catch (err: any) {
     console.error("Erro em GET /api/admin/automations:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });

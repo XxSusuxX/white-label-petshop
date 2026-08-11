@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { generateSlotsForDate } from "@/lib/server/business-hours";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,10 @@ export async function GET(request: Request) {
     if (!date) {
       return NextResponse.json({ error: "date é obrigatório (YYYY-MM-DD)" }, { status: 400 });
     }
+    const durationParam = searchParams.get("duration_minutes");
+    const requestedDuration = durationParam ? Number(durationParam) : DEFAULT_DURATION_MINUTES;
+
+    const { slots, closed, closedReason } = await generateSlotsForDate(date, requestedDuration || DEFAULT_DURATION_MINUTES);
 
     const adminSupabase = createAdminClient();
 
@@ -62,7 +67,7 @@ export async function GET(request: Request) {
       return { start: start.toISOString(), end: end.toISOString() };
     });
 
-    return NextResponse.json({ occupied });
+    return NextResponse.json({ occupied, slots, closed, closedReason });
   } catch (err: any) {
     console.error("Erro em GET /api/appointments/availability:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });

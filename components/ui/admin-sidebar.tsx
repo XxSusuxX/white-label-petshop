@@ -78,10 +78,13 @@ export function AdminSidebar() {
     { href: "/admin/operacao", label: "Operação Ao Vivo", icon: "bubble_chart" },
     { href: "/admin/agenda", label: "Agenda", icon: "calendar_today" },
     { href: "/admin/clientes", label: "Clientes / Funcionários", icon: "group" },
+    { href: "/admin/equipe", label: "Escala da Equipe", icon: "calendar_view_week" },
+    { href: "/admin/horarios", label: "Horário de Funcionamento", icon: "schedule" },
     ...(isAdminUser ? [{ href: "/admin/register-admin", label: "Registrar Admin", icon: "person_add" }] : []),
     { href: "/admin/pets", label: "Pets & Prontuários", icon: "pets" },
     { href: "/admin/servicos", label: "Serviços & Preços", icon: "price_change" },
     { href: "/admin/pdv", label: "PDV & Caixa", icon: "point_of_sale" },
+    { href: "/admin/financeiro", label: "Financeiro", icon: "monitoring" },
     { href: "/admin/prontuario", label: "Módulo Veterinário", icon: "stethoscope" },
     { href: "/admin/whatsapp", label: "Central WhatsApp", icon: "chat" },
   ];

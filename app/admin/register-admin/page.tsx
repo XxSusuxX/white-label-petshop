@@ -70,12 +70,6 @@ export default function AdminRegisterAdminPage() {
     e.preventDefault();
     setErrorMsg("");
 
-    // Verificação de Chave Mestra de Segurança (Padrão: "admin123")
-    if (adminSecretKey.trim() !== "admin123") {
-      setErrorMsg("Chave secreta de administrador incorreta.");
-      return;
-    }
-
     setIsLoading(true);
 
     try {
@@ -247,15 +241,12 @@ export default function AdminRegisterAdminPage() {
             </label>
             <input
               className="w-full bg-surface-container border border-primary/40 rounded-xl p-3.5 text-on-surface outline-none focus:border-primary transition-all"
-              placeholder="Digite a chave master (Padrão: admin123)"
+              placeholder="Digite a chave master"
               type="password"
               required
               value={adminSecretKey}
               onChange={(e) => setAdminSecretKey(e.target.value)}
             />
-            <p className="text-[11px] text-on-surface-variant mt-1">
-              Chave padrão de teste: <code className="text-primary bg-primary/10 px-1 py-0.5 rounded">admin123</code>
-            </p>
           </div>
 
           <button

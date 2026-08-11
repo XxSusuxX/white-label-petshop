@@ -10,6 +10,9 @@ interface CatalogItem {
   price: number;
   category: "service" | "product" | "package";
   is_active: boolean;
+  stock_quantity: number | null;
+  package_credits: number | null;
+  package_validity_days: number | null;
 }
 
 export default function ServicosPage() {
@@ -30,6 +33,9 @@ export default function ServicosPage() {
   const [formPrice, setFormPrice] = useState("");
   const [formCategory, setFormCategory] = useState<"service" | "product" | "package">("service");
   const [formIsActive, setFormIsActive] = useState(true);
+  const [formStock, setFormStock] = useState("");
+  const [formPackageCredits, setFormPackageCredits] = useState("");
+  const [formPackageValidityDays, setFormPackageValidityDays] = useState("30");
 
   useEffect(() => {
     loadCatalog();
@@ -59,6 +65,9 @@ export default function ServicosPage() {
     setFormPrice("");
     setFormCategory("service");
     setFormIsActive(true);
+    setFormStock("");
+    setFormPackageCredits("");
+    setFormPackageValidityDays("30");
     setEditingId(null);
   };
 
@@ -75,6 +84,9 @@ export default function ServicosPage() {
     setFormPrice(String(item.price));
     setFormCategory(item.category);
     setFormIsActive(item.is_active);
+    setFormStock(item.stock_quantity !== null && item.stock_quantity !== undefined ? String(item.stock_quantity) : "");
+    setFormPackageCredits(item.package_credits ? String(item.package_credits) : "");
+    setFormPackageValidityDays(item.package_validity_days ? String(item.package_validity_days) : "30");
     setShowNewModal(true);
   };
 
@@ -93,6 +105,9 @@ export default function ServicosPage() {
         price: formPrice.trim(),
         category: formCategory,
         is_active: formIsActive,
+        stock_quantity: formCategory === "product" ? (formStock.trim() === "" ? null : formStock.trim()) : null,
+        package_credits: formCategory === "package" ? (formPackageCredits.trim() || null) : null,
+        package_validity_days: formCategory === "package" ? (formPackageValidityDays.trim() || null) : null,
       };
 
       const res = editingId
@@ -294,6 +309,34 @@ export default function ServicosPage() {
                 </span>
               </div>
 
+              {item.category === "product" && (
+                <div className="pt-2">
+                  {item.stock_quantity === null || item.stock_quantity === undefined ? (
+                    <span className="text-[10px] text-on-surface-variant">Sem controle de estoque</span>
+                  ) : item.stock_quantity <= 0 ? (
+                    <span className="text-[10px] font-bold text-rose-400 bg-rose-500/10 border border-rose-500/30 px-2 py-0.5 rounded flex items-center gap-1 w-fit">
+                      <span className="material-symbols-outlined text-xs">warning</span>
+                      Sem estoque
+                    </span>
+                  ) : item.stock_quantity < 5 ? (
+                    <span className="text-[10px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded flex items-center gap-1 w-fit">
+                      <span className="material-symbols-outlined text-xs">warning</span>
+                      Estoque baixo: {item.stock_quantity} un.
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-bold text-on-surface-variant">{item.stock_quantity} un. em estoque</span>
+                  )}
+                </div>
+              )}
+
+              {item.category === "package" && item.package_credits && (
+                <div className="pt-2">
+                  <span className="text-[10px] font-bold text-primary bg-primary/10 border border-primary/30 px-2 py-0.5 rounded">
+                    {item.package_credits} créditos {item.package_validity_days ? `• válido ${item.package_validity_days} dias` : ""}
+                  </span>
+                </div>
+              )}
+
               {!item.id.startsWith("def-") && (
                 <div className="flex items-center gap-2 pt-3 mt-3 border-t border-hairline-border">
                   <button
@@ -407,6 +450,47 @@ export default function ServicosPage() {
                   />
                 </div>
               </div>
+
+              {formCategory === "product" && (
+                <div>
+                  <label className="block text-xs font-bold text-on-surface-variant mb-1">Estoque (unidades)</label>
+                  <input
+                    type="number"
+                    value={formStock}
+                    onChange={(e) => setFormStock(e.target.value)}
+                    placeholder="Deixe em branco para não controlar estoque"
+                    className="w-full bg-surface-container border border-hairline-border rounded-xl px-4 py-3 text-sm text-on-surface outline-none focus:border-primary"
+                    min="0"
+                  />
+                </div>
+              )}
+
+              {formCategory === "package" && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-on-surface-variant mb-1">Créditos (ex: 4 banhos)</label>
+                    <input
+                      type="number"
+                      value={formPackageCredits}
+                      onChange={(e) => setFormPackageCredits(e.target.value)}
+                      placeholder="4"
+                      className="w-full bg-surface-container border border-hairline-border rounded-xl px-4 py-3 text-sm text-on-surface outline-none focus:border-primary"
+                      min="1"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-on-surface-variant mb-1">Validade (dias)</label>
+                    <input
+                      type="number"
+                      value={formPackageValidityDays}
+                      onChange={(e) => setFormPackageValidityDays(e.target.value)}
+                      placeholder="30"
+                      className="w-full bg-surface-container border border-hairline-border rounded-xl px-4 py-3 text-sm text-on-surface outline-none focus:border-primary"
+                      min="1"
+                    />
+                  </div>
+                </div>
+              )}
 
               {editingId && (
                 <button

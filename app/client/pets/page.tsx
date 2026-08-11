@@ -43,6 +43,8 @@ export default function MeusPetsPage() {
   const [newIsCastrated, setNewIsCastrated] = useState(false);
   const [newNotes, setNewNotes] = useState("");
   const [newPhotoPreview, setNewPhotoPreview] = useState<string | null>(null);
+  const [newPhotoFile, setNewPhotoFile] = useState<File | null>(null);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
   // Edit Pet Modal State
   const [showEditPetModal, setShowEditPetModal] = useState(false);
@@ -59,6 +61,7 @@ export default function MeusPetsPage() {
   const [editIsCastrated, setEditIsCastrated] = useState(false);
   const [editNotes, setEditNotes] = useState("");
   const [editPhotoPreview, setEditPhotoPreview] = useState<string | null>(null);
+  const [editPhotoFile, setEditPhotoFile] = useState<File | null>(null);
 
   // List of Pets State
   const [pets, setPets] = useState<Pet[]>([]);
@@ -114,11 +117,47 @@ export default function MeusPetsPage() {
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setNewPhotoFile(file);
       const reader = new FileReader();
       reader.onload = (event) => {
         setNewPhotoPreview(event.target?.result as string);
       };
-      reader.readAsDataURL(e.target.files[0]);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Envia a foto de verdade para o Supabase Storage e retorna a URL pública.
+  // Se não houver arquivo novo selecionado, mantém a foto atual (fallbackUrl).
+  const uploadPetPhotoIfNeeded = async (file: File | null, fallbackUrl: string | null): Promise<string | null> => {
+    if (!file) return fallbackUrl;
+    setIsUploadingPhoto(true);
+    try {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return fallbackUrl;
+
+      const ext = file.name.split(".").pop() || "jpg";
+      const path = `${user.id}/${Date.now()}.${ext}`;
+
+      const { error: uploadErr } = await supabase.storage.from("pet-photos").upload(path, file, {
+        cacheControl: "3600",
+        upsert: false,
+      });
+
+      if (uploadErr) {
+        console.error("Erro ao enviar foto:", uploadErr);
+        alert("Não foi possível enviar a foto. O pet será salvo sem foto atualizada.");
+        return fallbackUrl;
+      }
+
+      const { data: publicUrlData } = supabase.storage.from("pet-photos").getPublicUrl(path);
+      return publicUrlData.publicUrl;
+    } catch (err) {
+      console.error("Erro ao enviar foto:", err);
+      return fallbackUrl;
+    } finally {
+      setIsUploadingPhoto(false);
     }
   };
 
@@ -133,9 +172,10 @@ export default function MeusPetsPage() {
       ? "https://images.unsplash.com/photo-1573865526739-10659fec78a5?auto=format&fit=crop&w=300&q=80"
       : "https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&w=300&q=80";
 
-    const petPhoto = newPhotoPreview || defaultPhoto;
     const formattedAge = getFormattedAge(newAgeYears, newAgeMonths);
     setIsLoading(true);
+
+    const petPhoto = await uploadPetPhotoIfNeeded(newPhotoFile, null) || defaultPhoto;
 
     try {
       const res = await fetch("/api/pets", {
@@ -191,6 +231,7 @@ export default function MeusPetsPage() {
       setNewColor("");
       setNewNotes("");
       setNewPhotoPreview(null);
+      setNewPhotoFile(null);
       setNewIsCastrated(false);
 
       setShowAddPetModal(false);
@@ -204,11 +245,13 @@ export default function MeusPetsPage() {
 
   const handleEditPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setEditPhotoFile(file);
       const reader = new FileReader();
       reader.onload = (event) => {
         setEditPhotoPreview(event.target?.result as string);
       };
-      reader.readAsDataURL(e.target.files[0]);
+      reader.readAsDataURL(file);
     }
   };
 
@@ -233,6 +276,7 @@ export default function MeusPetsPage() {
     setEditIsCastrated(pet.castrated === "Sim");
     setEditNotes(pet.age);
     setEditPhotoPreview(pet.photo);
+    setEditPhotoFile(null);
     setShowEditPetModal(true);
   };
 
@@ -246,6 +290,8 @@ export default function MeusPetsPage() {
     const formattedAge = getFormattedAge(editAgeYears, editAgeMonths);
     setIsLoading(true);
 
+    const petPhoto = await uploadPetPhotoIfNeeded(editPhotoFile, editPhotoPreview);
+
     try {
       const res = await fetch(`/api/pets/${editingPetId}`, {
         method: "PUT",
@@ -258,7 +304,7 @@ export default function MeusPetsPage() {
           weight: editWeight ? parseFloat(editWeight) : null,
           coat: editPelagem,
           color: editColor || "Caramelo",
-          photo_url: editPhotoPreview,
+          photo_url: petPhoto,
           observations: formattedAge,
         }),
       });
@@ -282,7 +328,7 @@ export default function MeusPetsPage() {
                 weight: editWeight ? editWeight : "Não inf.",
                 pelagem: editPelagem,
                 color: editColor || "Caramelo",
-                photo: editPhotoPreview || p.photo,
+                photo: petPhoto || p.photo,
                 castrated: editIsCastrated ? "Sim" : "Não",
                 age: formattedAge,
               }

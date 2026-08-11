@@ -31,6 +31,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: profileErr.message }, { status: 400 });
     }
 
+    // Cacheia o role em app_metadata para o middleware não precisar consultar profiles a cada navegação
+    await adminSupabase.auth.admin.updateUserById(userId, { app_metadata: { role: "client" } }).catch(() => {});
+
     return NextResponse.json({ success: true });
   } catch (err: any) {
     console.error("Erro em /api/auth/register-google:", err);

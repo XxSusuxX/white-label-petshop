@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { findSchedulingConflict } from "@/lib/server/booking";
 import { createNotification, getClientIdForPet } from "@/lib/server/notifications";
+import { triggerAutomation, getBookingContactInfo } from "@/lib/server/automations";
+import { createRecurringBooking, scheduleNextRecurrence } from "@/lib/server/recurring";
+import { checkStaffShiftCapacity } from "@/lib/server/staff";
 
 export const dynamic = "force-dynamic";
 
@@ -167,7 +170,7 @@ export async function POST(request: Request) {
     const adminSupabase = createAdminClient();
     const body = await request.json();
 
-    const { pet_id, service_id, service_type, service_date, notes, address, professional, price, force } = body;
+    const { pet_id, service_id, service_type, service_date, notes, address, professional, price, force, use_package_id, recurring_interval_days } = body;
 
     if (!pet_id || !service_type || !service_date) {
       return NextResponse.json(
@@ -188,6 +191,48 @@ export async function POST(request: Request) {
           { status: 409 }
         );
       }
+
+      const capacity = await checkStaffShiftCapacity(professional, service_date);
+      if (!capacity.ok) {
+        return NextResponse.json({ error: capacity.reason, capacityWarning: true }, { status: 409 });
+      }
+    }
+
+    // Se o admin optou por debitar de um pacote do tutor, valida e consome 1 crédito atomicamente
+    let finalPrice = price ?? 85.0;
+    let usedPackageId: string | null = null;
+    if (use_package_id) {
+      const { data: pkg } = await adminSupabase
+        .from("client_packages")
+        .select("*")
+        .eq("id", use_package_id)
+        .maybeSingle();
+
+      if (!pkg || pkg.service_id !== service_id || pkg.status !== "ativo" || pkg.used_credits >= pkg.total_credits) {
+        return NextResponse.json({ error: "Pacote inválido ou sem créditos disponíveis." }, { status: 400 });
+      }
+
+      const { data: consumed } = await adminSupabase.rpc("use_package_credit", { package_id: use_package_id });
+      if (!consumed) {
+        return NextResponse.json({ error: "Não foi possível usar o crédito do pacote. Tente novamente." }, { status: 409 });
+      }
+      finalPrice = 0;
+      usedPackageId = use_package_id;
+    }
+
+    // Se o admin marcou recorrência, cria o "molde" antes do primeiro agendamento
+    // para que ele já nasça vinculado (recurring_booking_id).
+    let recurringBookingId: string | null = null;
+    if (recurring_interval_days && Number(recurring_interval_days) > 0) {
+      recurringBookingId = await createRecurringBooking({
+        petId: pet_id,
+        serviceId: service_id || null,
+        serviceType: service_type,
+        professional: professional || "Não atribuído",
+        price: finalPrice,
+        address: address || "",
+        intervalDays: Number(recurring_interval_days),
+      });
     }
 
     const { data: newRow, error: insertErr } = await adminSupabase
@@ -199,10 +244,12 @@ export async function POST(request: Request) {
         service_type,
         scheduled_at: service_date,
         professional: professional || "Não atribuído",
-        price: price ?? 85.0,
+        price: finalPrice,
         status: "agendado",
         notes: notes || "Status: agendado | [STEP:0]",
         address: address || "",
+        paid_via_package_id: usedPackageId,
+        recurring_booking_id: recurringBookingId,
       })
       .select()
       .single();
@@ -284,6 +331,16 @@ export async function PATCH(request: Request) {
       }
     }
 
+    if ((isReschedule || professional !== undefined) && !force) {
+      const capacity = await checkStaffShiftCapacity(
+        professional ?? existing.professional,
+        service_date ?? existing.scheduled_at
+      );
+      if (!capacity.ok) {
+        return NextResponse.json({ error: capacity.reason, capacityWarning: true }, { status: 409 });
+      }
+    }
+
     const updateData: Record<string, any> = { updated_at: new Date().toISOString() };
     if (status !== undefined) updateData.status = status;
     if (notes !== undefined) updateData.notes = notes;
@@ -344,6 +401,33 @@ export async function PATCH(request: Request) {
         };
         const msg = STATUS_MESSAGES[status];
         if (msg) await createNotification({ clientId, appointmentId: id, ...msg });
+
+        // Dispara automações reais de WhatsApp (best-effort, não trava a resposta)
+        if (status === "pronto" || status === "concluido") {
+          const info = await getBookingContactInfo(data.pet_id);
+          if (info?.tutorPhone) {
+            const ruleKey = status === "pronto" ? "pet_pronto" : "pedido_avaliacao";
+            await triggerAutomation(ruleKey, info.tutorPhone, {
+              tutor_name: info.tutorName,
+              pet_name: info.petName,
+              service_name: data.service_type || "",
+            });
+          }
+        }
+
+        // Se este agendamento pertence a uma recorrência ativa, cria automaticamente a próxima ocorrência
+        if (status === "concluido") {
+          await scheduleNextRecurrence({
+            pet_id: data.pet_id,
+            service_id: data.service_id,
+            service_type: data.service_type,
+            professional: data.professional,
+            price: data.price,
+            address: data.address,
+            scheduled_at: data.scheduled_at,
+            recurring_booking_id: data.recurring_booking_id,
+          });
+        }
       } else if (isReschedule) {
         const dateLabel = new Date(data.scheduled_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
         await createNotification({

@@ -25,6 +25,15 @@ interface AppointmentItem {
   address: string;
 }
 
+interface ClientPackage {
+  id: string;
+  package_name: string;
+  total_credits: number;
+  used_credits: number;
+  expires_at: string | null;
+  status: string;
+}
+
 const STATUS_LABEL: Record<string, string> = {
   agendado: "Agendado",
   confirmado: "Confirmado",
@@ -45,6 +54,7 @@ export default function ClientHomePage() {
   const [userName, setUserName] = useState("Tutor");
   const [userPets, setUserPets] = useState<Pet[]>([]);
   const [appointments, setAppointments] = useState<AppointmentItem[]>([]);
+  const [packages, setPackages] = useState<ClientPackage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCancelling, setIsCancelling] = useState(false);
 
@@ -64,12 +74,18 @@ export default function ClientHomePage() {
         const name = profile?.full_name || user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split("@")[0] || "Tutor";
         setUserName(name);
 
-        const [petsRes, apptRes] = await Promise.all([fetch("/api/pets"), fetch("/api/appointments")]);
+        const [petsRes, apptRes, pkgRes] = await Promise.all([
+          fetch("/api/pets"),
+          fetch("/api/appointments"),
+          fetch("/api/client-packages"),
+        ]);
         const petsData = await petsRes.json();
         const apptData = await apptRes.json();
+        const pkgData = await pkgRes.json();
 
         if (petsData.pets) setUserPets(petsData.pets);
         if (apptData.appointments) setAppointments(apptData.appointments);
+        if (pkgData.packages) setPackages(pkgData.packages.filter((p: ClientPackage) => p.status === "ativo"));
       }
     } catch (err) {
       console.warn("Aviso ao carregar dashboard do cliente:", err);
@@ -196,6 +212,35 @@ export default function ClientHomePage() {
           </div>
         )}
       </section>
+
+      {/* Pacotes Ativos */}
+      {packages.length > 0 && (
+        <section className="space-y-3">
+          <h3 className="text-sm font-bold text-on-surface">Meus Pacotes</h3>
+          <div className="space-y-2">
+            {packages.map((pkg) => {
+              const remaining = pkg.total_credits - pkg.used_credits;
+              return (
+                <div key={pkg.id} className="bg-elevated-card border border-primary/30 rounded-2xl p-4 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                      <span className="material-symbols-outlined">loyalty</span>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-on-surface truncate">{pkg.package_name}</p>
+                      <p className="text-[11px] text-on-surface-variant">
+                        {remaining} de {pkg.total_credits} restantes
+                        {pkg.expires_at ? ` • válido até ${new Date(pkg.expires_at).toLocaleDateString("pt-BR")}` : ""}
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-lg font-extrabold text-primary shrink-0">{remaining}</span>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* Ações Rápidas */}
       <section className="grid grid-cols-3 gap-3">

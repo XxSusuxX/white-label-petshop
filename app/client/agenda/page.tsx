@@ -26,6 +26,14 @@ interface OccupiedRange {
   end: string;
 }
 
+interface PackageOption {
+  id: string;
+  service_id: string | null;
+  package_name: string;
+  remaining: number;
+  status: string;
+}
+
 const STEPS = [
   { n: 1, label: "Pet" },
   { n: 2, label: "Endereço" },
@@ -34,7 +42,9 @@ const STEPS = [
   { n: 5, label: "Resumo" },
 ];
 
-const TIME_SLOTS = ["08:00", "09:00", "10:00", "11:00", "13:00", "14:00", "15:00", "16:00", "17:00"];
+// Horários possíveis para a data selecionada vêm de /api/appointments/availability
+// (gerados a partir do horário de funcionamento configurado pelo admin em
+// Horário de Funcionamento — não é mais uma lista fixa).
 
 const formatDuration = (minutes: number) => {
   if (!minutes) return "—";
@@ -72,9 +82,16 @@ export default function AgendarServicoPage() {
   const [selectedDate, setSelectedDate] = useState<number>(new Date().getDate());
   const [selectedTime, setSelectedTime] = useState<string>("");
   const [occupiedRanges, setOccupiedRanges] = useState<OccupiedRange[]>([]);
+  const [availableSlots, setAvailableSlots] = useState<string[]>([]);
+  const [dayClosedReason, setDayClosedReason] = useState<string | null>(null);
   const [isLoadingSlots, setIsLoadingSlots] = useState(false);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Pacotes ativos do tutor (pagamento com crédito em vez de cobrar)
+  const [packages, setPackages] = useState<PackageOption[]>([]);
+  const [usePackageCredit, setUsePackageCredit] = useState(true);
+  const [recurringDays, setRecurringDays] = useState("0");
 
   useEffect(() => {
     async function loadInitialData() {
@@ -82,9 +99,27 @@ export default function AgendarServicoPage() {
       setIsLoadingServices(true);
       setIsLoadingAddress(true);
       try {
-        const [petsRes, servicesRes] = await Promise.all([fetch("/api/pets"), fetch("/api/services")]);
+        const [petsRes, servicesRes, pkgRes] = await Promise.all([
+          fetch("/api/pets"),
+          fetch("/api/services"),
+          fetch("/api/client-packages"),
+        ]);
         const petsData = await petsRes.json();
         const servicesData = await servicesRes.json();
+        const pkgData = await pkgRes.json();
+
+        if (pkgRes.ok && pkgData.packages) {
+          const mappedPkgs: PackageOption[] = pkgData.packages
+            .filter((p: any) => p.status === "ativo" && p.total_credits - p.used_credits > 0)
+            .map((p: any) => ({
+              id: p.id,
+              service_id: p.service_id,
+              package_name: p.package_name,
+              remaining: p.total_credits - p.used_credits,
+              status: p.status,
+            }));
+          setPackages(mappedPkgs);
+        }
 
         if (petsRes.ok && petsData.pets) {
           const mappedPets: PetItem[] = petsData.pets.map((p: any) => ({
@@ -134,8 +169,16 @@ export default function AgendarServicoPage() {
     loadInitialData();
   }, []);
 
+  // Sempre que o serviço selecionado mudar, volta a assumir "usar pacote" se houver um disponível
+  useEffect(() => {
+    setUsePackageCredit(true);
+  }, [selectedServiceId]);
+
   const selectedPet = petsList.find((p) => p.id === selectedPetId);
   const selectedService = servicesList.find((s) => s.id === selectedServiceId);
+  const matchingPackage = packages.find((p) => p.service_id === selectedServiceId);
+  const willUsePackage = !!matchingPackage && usePackageCredit;
+  const finalPrice = willUsePackage ? 0 : (selectedService?.price || 0);
 
   // Grade real do mês selecionado
   const monthGridCells = useMemo(() => {
@@ -173,7 +216,7 @@ export default function AgendarServicoPage() {
     setCalendarMonth(d);
   };
 
-  // Buscar horários ocupados sempre que a data selecionada mudar
+  // Buscar horários disponíveis (a partir do horário de funcionamento) e ocupados sempre que a data ou o serviço mudarem
   useEffect(() => {
     if (step !== 4) return;
     async function loadAvailability() {
@@ -181,9 +224,14 @@ export default function AgendarServicoPage() {
       setSelectedTime("");
       try {
         const dateStr = `${calendarMonth.getFullYear()}-${String(calendarMonth.getMonth() + 1).padStart(2, "0")}-${String(selectedDate).padStart(2, "0")}`;
-        const res = await fetch(`/api/appointments/availability?date=${dateStr}`);
+        const duration = selectedService?.durationMinutes || 60;
+        const res = await fetch(`/api/appointments/availability?date=${dateStr}&duration_minutes=${duration}`);
         const data = await res.json();
-        if (res.ok) setOccupiedRanges(data.occupied || []);
+        if (res.ok) {
+          setOccupiedRanges(data.occupied || []);
+          setAvailableSlots(data.slots || []);
+          setDayClosedReason(data.closed ? data.closedReason || "Fechado nesta data." : null);
+        }
       } catch (err) {
         console.error("Erro ao carregar disponibilidade:", err);
       } finally {
@@ -192,7 +240,7 @@ export default function AgendarServicoPage() {
     }
     loadAvailability();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDate, calendarMonth, step]);
+  }, [selectedDate, calendarMonth, step, selectedServiceId]);
 
   const isSlotTaken = (time: string) => {
     const [h, m] = time.split(":").map(Number);
@@ -236,8 +284,10 @@ export default function AgendarServicoPage() {
           service_id: selectedService.id,
           service_type: selectedService.title,
           service_date: scheduledAt.toISOString(),
-          price: selectedService.price,
+          price: finalPrice,
           address,
+          use_package_id: willUsePackage ? matchingPackage!.id : undefined,
+          recurring_interval_days: Number(recurringDays) > 0 ? Number(recurringDays) : undefined,
         }),
       });
 
@@ -453,9 +503,11 @@ export default function AgendarServicoPage() {
                     <div key={i} className="h-10 bg-matte-canvas border border-hairline-border rounded-xl animate-pulse"></div>
                   ))}
                 </div>
+              ) : dayClosedReason ? (
+                <p className="text-[11px] text-amber-400 text-center py-3">{dayClosedReason} Escolha outra data.</p>
               ) : (
                 <div className="grid grid-cols-3 gap-2">
-                  {TIME_SLOTS.map((t) => {
+                  {availableSlots.map((t) => {
                     const taken = isSlotTaken(t);
                     const isSel = selectedTime === t;
                     return (
@@ -477,7 +529,7 @@ export default function AgendarServicoPage() {
                   })}
                 </div>
               )}
-              {!isLoadingSlots && TIME_SLOTS.every((t) => isSlotTaken(t)) && (
+              {!isLoadingSlots && !dayClosedReason && availableSlots.length > 0 && availableSlots.every((t) => isSlotTaken(t)) && (
                 <p className="text-[11px] text-amber-400 text-center pt-1">Não há horários livres neste dia. Escolha outra data.</p>
               )}
             </div>
@@ -505,8 +557,53 @@ export default function AgendarServicoPage() {
             />
             <div className="flex items-center justify-between px-4 py-4 bg-primary/5">
               <span className="text-sm font-bold text-on-surface">Valor Total</span>
-              <span className="text-lg font-extrabold text-primary">R$ {(selectedService?.price || 0).toFixed(2)}</span>
+              <span className="text-lg font-extrabold text-primary">
+                {willUsePackage ? "Coberto pelo pacote" : `R$ ${finalPrice.toFixed(2)}`}
+              </span>
             </div>
+          </div>
+
+          {matchingPackage && (
+            <button
+              type="button"
+              onClick={() => setUsePackageCredit((v) => !v)}
+              className={`w-full flex items-center justify-between gap-3 p-4 rounded-2xl border text-left transition-all cursor-pointer ${
+                usePackageCredit ? "bg-primary/10 border-primary/40" : "bg-surface-container border-hairline-border"
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <span className="material-symbols-outlined text-primary">loyalty</span>
+                <div>
+                  <p className="text-sm font-bold text-on-surface">Usar crédito do pacote "{matchingPackage.package_name}"</p>
+                  <p className="text-[11px] text-on-surface-variant">{matchingPackage.remaining} crédito(s) restante(s)</p>
+                </div>
+              </div>
+              <span className={`material-symbols-outlined ${usePackageCredit ? "text-primary" : "text-on-surface-variant"}`}>
+                {usePackageCredit ? "toggle_on" : "toggle_off"}
+              </span>
+            </button>
+          )}
+
+          <div className="p-4 rounded-2xl border border-hairline-border bg-surface-container">
+            <label className="flex items-center gap-2 text-sm font-bold text-on-surface mb-2">
+              <span className="material-symbols-outlined text-primary text-base">event_repeat</span>
+              Repetir este agendamento
+            </label>
+            <select
+              value={recurringDays}
+              onChange={(e) => setRecurringDays(e.target.value)}
+              className="w-full bg-matte-canvas border border-hairline-border rounded-xl p-3 text-sm text-on-surface focus:border-primary outline-none cursor-pointer"
+            >
+              <option value="0">Não repetir</option>
+              <option value="7">A cada semana</option>
+              <option value="14">A cada 2 semanas</option>
+              <option value="30">A cada mês</option>
+            </select>
+            {Number(recurringDays) > 0 && (
+              <p className="text-[11px] text-on-surface-variant mt-2">
+                Assim que este atendimento for concluído pelo petshop, o próximo já será agendado automaticamente nessa recorrência.
+              </p>
+            )}
           </div>
 
           <p className="text-[11px] text-on-surface-variant text-center px-4">

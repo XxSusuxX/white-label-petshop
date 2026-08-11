@@ -44,7 +44,7 @@ export async function POST(request: Request) {
     const adminSupabase = createAdminClient();
     const body = await request.json();
 
-    const { name, description, duration_minutes, price, category, is_active } = body;
+    const { name, description, duration_minutes, price, category, is_active, stock_quantity, package_credits, package_validity_days } = body;
 
     if (!name || price === undefined) {
       return NextResponse.json(
@@ -63,6 +63,9 @@ export async function POST(request: Request) {
         category: category || "service",
         is_active: is_active !== false,
         pet_shop_id: "00000000-0000-0000-0000-000000000001",
+        stock_quantity: category === "product" && stock_quantity !== undefined && stock_quantity !== "" ? parseInt(stock_quantity, 10) : null,
+        package_credits: category === "package" && package_credits ? parseInt(package_credits, 10) : null,
+        package_validity_days: category === "package" && package_validity_days ? parseInt(package_validity_days, 10) : null,
       })
       .select()
       .single();
@@ -84,7 +87,7 @@ export async function PUT(request: Request) {
   try {
     const adminSupabase = createAdminClient();
     const body = await request.json();
-    const { id, name, description, duration_minutes, price, category, is_active } = body;
+    const { id, name, description, duration_minutes, price, category, is_active, stock_quantity, package_credits, package_validity_days } = body;
 
     if (!id) {
       return NextResponse.json({ error: "id é obrigatório" }, { status: 400 });
@@ -97,6 +100,9 @@ export async function PUT(request: Request) {
     if (price !== undefined) updateData.price = parseFloat(price);
     if (category !== undefined) updateData.category = category;
     if (is_active !== undefined) updateData.is_active = is_active;
+    if (stock_quantity !== undefined) updateData.stock_quantity = stock_quantity === "" || stock_quantity === null ? null : parseInt(stock_quantity, 10);
+    if (package_credits !== undefined) updateData.package_credits = package_credits === "" || package_credits === null ? null : parseInt(package_credits, 10);
+    if (package_validity_days !== undefined) updateData.package_validity_days = package_validity_days === "" || package_validity_days === null ? null : parseInt(package_validity_days, 10);
 
     const { data: item, error } = await adminSupabase
       .from("services")

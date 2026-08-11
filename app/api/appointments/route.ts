@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { findSchedulingConflict } from "@/lib/server/booking";
 import { createNotification } from "@/lib/server/notifications";
+import { createRecurringBooking } from "@/lib/server/recurring";
 
 const PET_SHOP_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -59,6 +60,8 @@ export async function GET() {
         scheduled_at: a.scheduled_at,
         notes: a.notes,
         address: a.address || "",
+        paid_via_package_id: a.paid_via_package_id || null,
+        recurring_booking_id: a.recurring_booking_id || null,
         updated_at: a.updated_at,
       };
     });
@@ -83,7 +86,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { pet_id, service_id, service_type, service_date, price, notes, address } = body;
+    const { pet_id, service_id, service_type, service_date, price, notes, address, use_package_id, recurring_interval_days } = body;
 
     if (!pet_id || !service_type || !service_date) {
       return NextResponse.json(
@@ -113,6 +116,43 @@ export async function POST(request: Request) {
       );
     }
 
+    // Se o tutor optou por pagar com um pacote, valida que o pacote é dele, cobre
+    // esse serviço e ainda tem crédito — e consome 1 crédito de forma atômica.
+    let finalPrice = price ?? 0;
+    let usedPackageId: string | null = null;
+    if (use_package_id) {
+      const { data: pkg } = await adminSupabase
+        .from("client_packages")
+        .select("*")
+        .eq("id", use_package_id)
+        .eq("client_id", user.id)
+        .maybeSingle();
+
+      if (!pkg || pkg.service_id !== service_id || pkg.status !== "ativo" || pkg.used_credits >= pkg.total_credits) {
+        return NextResponse.json({ error: "Pacote inválido ou sem créditos disponíveis." }, { status: 400 });
+      }
+
+      const { data: consumed } = await adminSupabase.rpc("use_package_credit", { package_id: use_package_id });
+      if (!consumed) {
+        return NextResponse.json({ error: "Não foi possível usar o crédito do pacote. Tente novamente." }, { status: 409 });
+      }
+      finalPrice = 0;
+      usedPackageId = use_package_id;
+    }
+
+    let recurringBookingId: string | null = null;
+    if (recurring_interval_days && Number(recurring_interval_days) > 0) {
+      recurringBookingId = await createRecurringBooking({
+        petId: pet_id,
+        serviceId: service_id || null,
+        serviceType: service_type,
+        professional: "Não atribuído",
+        price: finalPrice,
+        address: address || "",
+        intervalDays: Number(recurring_interval_days),
+      });
+    }
+
     const { data: appointment, error } = await adminSupabase
       .from("appointments")
       .insert({
@@ -122,10 +162,12 @@ export async function POST(request: Request) {
         service_type,
         scheduled_at: service_date,
         professional: "Não atribuído",
-        price: price ?? 0,
+        price: finalPrice,
         status: "agendado",
         notes: notes || "",
         address: address || "",
+        paid_via_package_id: usedPackageId,
+        recurring_booking_id: recurringBookingId,
       })
       .select()
       .single();
