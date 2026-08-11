@@ -48,7 +48,14 @@ export async function POST(request: Request) {
           email: email.trim(),
           password: password,
           email_confirm: true,
-          user_metadata: { full_name: fullName, phone, role: requestedRole, db_role: dbRole },
+          user_metadata: {
+            full_name: fullName,
+            name: fullName,
+            display_name: fullName,
+            phone,
+            role: requestedRole,
+            db_role: dbRole,
+          },
         });
 
       if (createError) {
@@ -57,11 +64,13 @@ export async function POST(request: Request) {
 
       userId = newUserData.user?.id;
     } else {
-      // Atualizar a senha e metadados do usuário existente
+      // Atualizar a senha e sobrescrever metadados (incluindo nome do Google OAuth se houver)
       const updatePayload: any = {
         user_metadata: {
           ...existingUser.user_metadata,
           full_name: fullName,
+          name: fullName,
+          display_name: fullName,
           phone,
           role: requestedRole,
           db_role: dbRole,
@@ -76,7 +85,7 @@ export async function POST(request: Request) {
     }
 
     if (userId) {
-      // 3. Atualizar/Inserir perfil com o dbRole compatível com o CHECK constraint valid_role
+      // 3. Atualizar/Inserir perfil no banco de dados com o nome e o dbRole compatível
       const { error: profileErr } = await adminSupabase.from("profiles").upsert({
         id: userId,
         full_name: fullName || "Colaborador",

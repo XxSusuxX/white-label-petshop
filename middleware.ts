@@ -57,7 +57,23 @@ export async function middleware(request: NextRequest) {
       .eq("id", user.id)
       .maybeSingle();
 
-    if (!profile || profile.role !== "admin") {
+    const staffRoles = [
+      "admin",
+      "dono",
+      "veterinario",
+      "veterinarian",
+      "banhista_tosador",
+      "bather",
+      "groomer",
+      "recepcionista",
+      "receptionist",
+      "entregador",
+      "auxiliar",
+      "employee",
+      "funcionario",
+    ];
+
+    if (!profile || !staffRoles.includes(profile.role)) {
       return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
     }
 

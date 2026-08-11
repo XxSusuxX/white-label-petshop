@@ -186,27 +186,59 @@ export async function POST(request: Request) {
 
     const { full_name, phone, email } = body;
 
-    if (!full_name) {
-      return NextResponse.json({ error: "Nome completo é obrigatório." }, { status: 400 });
+    if (!full_name || !full_name.trim()) {
+      return NextResponse.json({ error: "Nome completo do tutor é obrigatório." }, { status: 400 });
     }
 
-    const dummyEmail = email && email.trim() !== "" ? email.trim() : `cliente_${Date.now()}@petshop.internal`;
-
-    const { data: newUser, error: createErr } = await adminSupabase.auth.admin.createUser({
-      email: dummyEmail,
-      email_confirm: true,
-      user_metadata: { full_name, phone },
-    });
-
-    if (createErr) {
-      return NextResponse.json({ error: createErr.message }, { status: 400 });
+    if (!phone || !phone.trim()) {
+      return NextResponse.json({ error: "Telefone / WhatsApp é obrigatório." }, { status: 400 });
     }
 
-    if (newUser.user) {
+    if (!email || !email.trim()) {
+      return NextResponse.json({ error: "E-mail do tutor é obrigatório." }, { status: 400 });
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const cleanEmail = email.trim().toLowerCase();
+    if (!emailRegex.test(cleanEmail)) {
+      return NextResponse.json({ error: "E-mail com formato inválido." }, { status: 400 });
+    }
+
+    // Verificar se o usuário já existe no auth.users do Supabase
+    const { data: usersData } = await adminSupabase.auth.admin.listUsers();
+    const existingUser = usersData?.users?.find((u) => u.email?.toLowerCase() === cleanEmail);
+
+    let userId = existingUser?.id;
+
+    if (!existingUser) {
+      const { data: newUser, error: createErr } = await adminSupabase.auth.admin.createUser({
+        email: cleanEmail,
+        email_confirm: true,
+        user_metadata: { full_name: full_name.trim(), phone: phone.trim() },
+      });
+
+      if (createErr) {
+        return NextResponse.json({ error: createErr.message }, { status: 400 });
+      }
+
+      userId = newUser.user?.id;
+    } else {
+      await adminSupabase.auth.admin.updateUserById(existingUser.id, {
+        user_metadata: {
+          ...existingUser.user_metadata,
+          full_name: full_name.trim(),
+          name: full_name.trim(),
+          display_name: full_name.trim(),
+          phone: phone.trim(),
+        },
+      });
+    }
+
+    if (userId) {
       const { error: profileErr } = await adminSupabase.from("profiles").upsert({
-        id: newUser.user.id,
-        full_name,
-        phone: phone || null,
+        id: userId,
+        full_name: full_name.trim(),
+        phone: phone.trim(),
         role: "client",
         pet_shop_id: "00000000-0000-0000-0000-000000000001",
       });
@@ -216,7 +248,7 @@ export async function POST(request: Request) {
       }
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, userId });
   } catch (err: any) {
     console.error("Erro em POST /api/admin/clients:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });

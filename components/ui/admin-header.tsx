@@ -87,11 +87,19 @@ export function AdminHeader() {
             admin: "Administrador",
             dono: "Dono(a)",
             veterinario: "Médico(a) Veterinário(a)",
+            veterinarian: "Médico(a) Veterinário(a)",
             banhista_tosador: "Banhista & Tosador(a)",
+            bather: "Banhista & Tosador(a)",
+            groomer: "Banhista & Tosador(a)",
             recepcionista: "Recepcionista",
+            receptionist: "Recepcionista",
             entregador: "Entregador",
             auxiliar: "Auxiliar Geral",
-            funcionario: "Funcionário",
+            employee: "Funcionário Geral",
+            funcionario: "Funcionário Geral",
+            tutor: "Cliente / Tutor",
+            cliente: "Cliente / Tutor",
+            client: "Cliente / Tutor",
           };
 
           setUserRole(ROLE_LABELS[rawRole] || rawRole);
@@ -178,8 +186,8 @@ export function AdminHeader() {
         };
       case "/admin/clientes":
         return {
-          title: "Clientes / Tutores",
-          subtitle: "Base de clientes ativos e contatos do WhatsApp",
+          title: "Clientes / Funcionários",
+          subtitle: "Base de clientes ativos, tutores e equipe de colaboradores",
         };
       case "/admin/pets":
         return {

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
 
 interface Pet {
   id: string;
@@ -65,6 +66,7 @@ export default function ClientesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("Todos os status");
+  const [currentUserRole, setCurrentUserRole] = useState<string>("cliente");
 
   // Detail & New Client Modal States
   const [selectedClient, setSelectedClient] = useState<ClientUser | null>(null);
@@ -74,12 +76,141 @@ export default function ClientesPage() {
   const [newClientEmail, setNewClientEmail] = useState("");
   const [isSavingClient, setIsSavingClient] = useState(false);
 
-  const handleCreateClient = async (e: React.FormEvent) => {
+  // Direct Add Pet Modal States (Campos completos da ficha do pet)
+  const [showAddPetModal, setShowAddPetModal] = useState(false);
+  const [petTargetClient, setPetTargetClient] = useState<ClientUser | null>(null);
+  const [petName, setPetName] = useState("");
+  const [petSpecies, setPetSpecies] = useState("Cachorro");
+  const [petBreed, setPetBreed] = useState("");
+  const [petSex, setPetSex] = useState("Macho");
+  const [petAgeYears, setPetAgeYears] = useState("0");
+  const [petAgeMonths, setPetAgeMonths] = useState("0");
+  const [petWeight, setPetWeight] = useState("");
+  const [petCoat, setPetCoat] = useState("Curta");
+  const [petColor, setPetColor] = useState("");
+  const [petIsCastrated, setPetIsCastrated] = useState(false);
+  const [petPhotoUrl, setPetPhotoUrl] = useState("");
+  const [petObservations, setPetObservations] = useState("");
+  const [isSavingPet, setIsSavingPet] = useState(false);
+
+  useEffect(() => {
+    async function loadCurrentRole() {
+      try {
+        const supabase = createClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (user) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("role")
+            .eq("id", user.id)
+            .maybeSingle();
+
+          const rawRole = profile?.role || user.user_metadata?.role || "cliente";
+          setCurrentUserRole(rawRole);
+        }
+      } catch (err) {
+        console.warn("Aviso ao carregar cargo em ClientesPage:", err);
+      }
+    }
+    loadCurrentRole();
+  }, []);
+
+  const isOwnerOrAdmin =
+    currentUserRole === "admin" ||
+    currentUserRole === "dono" ||
+    currentUserRole === "Administrador";
+
+  const handleOpenAddPetModal = (client: ClientUser) => {
+    setPetTargetClient(client);
+    setPetName("");
+    setPetBreed("");
+    setPetSex("Macho");
+    setPetAgeYears("0");
+    setPetAgeMonths("0");
+    setPetWeight("");
+    setPetCoat("Curta");
+    setPetColor("");
+    setPetIsCastrated(false);
+    setPetPhotoUrl("");
+    setPetObservations("");
+    setShowAddPetModal(true);
+  };
+
+  const handleSavePetForClient = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newClientName.trim()) {
-      alert("Por favor, informe o nome do cliente.");
+    if (!petTargetClient || !petName.trim()) {
+      alert("Informe o nome do pet.");
       return;
     }
+
+    setIsSavingPet(true);
+    try {
+      const res = await fetch("/api/admin/pets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: petName.trim(),
+          species: petSpecies,
+          breed: petBreed.trim() || "Vira-Lata",
+          sex: petSex,
+          weight: petWeight.trim() || null,
+          coat: petCoat,
+          color: petColor.trim() || null,
+          is_neutered: petIsCastrated,
+          age_years: petAgeYears,
+          age_months: petAgeMonths,
+          photo_url: petPhotoUrl.trim() || null,
+          observations: petObservations.trim() || null,
+          client_id: petTargetClient.id,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setShowAddPetModal(false);
+        setPetName("");
+        setPetBreed("");
+        setPetWeight("");
+        setPetColor("");
+        setPetObservations("");
+
+        // Reload clients and pets
+        const reloadRes = await fetch("/api/admin/clients");
+        const reloadData = await reloadRes.json();
+        if (reloadData.clients) {
+          setClients(reloadData.clients);
+          if (reloadData.employees) setEmployees(reloadData.employees);
+          if (reloadData.metrics) setMetrics(reloadData.metrics);
+        }
+        alert(`🐾 Pet ${petName} cadastrado e vinculado a ${petTargetClient.full_name} com sucesso!`);
+        setPetTargetClient(null);
+      } else {
+        alert(`Erro ao cadastrar pet: ${data.error || "Tente novamente."}`);
+      }
+    } catch (err) {
+      console.error("Erro ao salvar pet:", err);
+      alert("Erro de conexão ao salvar pet.");
+    } finally {
+      setIsSavingPet(false);
+    }
+  };
+
+  const handleCreateClient = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newClientName.trim() || !newClientPhone.trim() || !newClientEmail.trim()) {
+      alert("Por favor, preencha todos os campos obrigatórios (Nome, Telefone e E-mail).");
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(newClientEmail.trim())) {
+      alert("Por favor, informe um endereço de e-mail válido.");
+      return;
+    }
+
     setIsSavingClient(true);
     try {
       const res = await fetch("/api/admin/clients", {
@@ -87,8 +218,8 @@ export default function ClientesPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           full_name: newClientName.trim(),
-          phone: newClientPhone.trim() || null,
-          email: newClientEmail.trim() || null,
+          phone: newClientPhone.trim(),
+          email: newClientEmail.trim(),
         }),
       });
       const data = await res.json();
@@ -105,7 +236,7 @@ export default function ClientesPage() {
           if (reloadData.employees) setEmployees(reloadData.employees);
           if (reloadData.metrics) setMetrics(reloadData.metrics);
         }
-        alert("Cliente cadastrado com sucesso!");
+        alert("🎉 Cliente e conta de tutor cadastrados com sucesso!");
       } else {
         alert(`Erro: ${data.error || "Tente novamente."}`);
       }
@@ -164,6 +295,13 @@ export default function ClientesPage() {
     }
   };
 
+  const getWhatsAppLink = (phone: string) => {
+    if (!phone || phone === "Não informado") return "#";
+    const digits = phone.replace(/\D/g, "");
+    if (!digits) return "#";
+    return digits.startsWith("55") ? `https://wa.me/${digits}` : `https://wa.me/55${digits}`;
+  };
+
   const filteredClients = clients.filter((client) => {
     const matchesSearch =
       client.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -201,7 +339,7 @@ export default function ClientesPage() {
         {/* Page Header */}
         <div className="flex items-end justify-between">
           <div>
-            <h1 className="font-headline-lg text-headline-lg text-on-surface">Clientes & Equipe</h1>
+            <h1 className="font-headline-lg text-headline-lg text-on-surface">Clientes / Funcionários</h1>
             <p className="text-on-surface-variant font-label-muted mt-1">
               {isLoading
                 ? "Carregando registros..."
@@ -209,13 +347,15 @@ export default function ClientesPage() {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <Link
-              href="/admin/register-admin"
-              className="bg-surface-container border border-primary/40 text-primary font-label-bold text-label-bold px-5 py-3 rounded-lg flex items-center gap-2 hover:bg-primary/10 transition-all cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-xl">person_add</span>
-              Cadastrar Colaborador
-            </Link>
+            {isOwnerOrAdmin && (
+              <Link
+                href="/admin/register-admin"
+                className="bg-surface-container border border-primary/40 text-primary font-label-bold text-label-bold px-5 py-3 rounded-lg flex items-center gap-2 hover:bg-primary/10 transition-all cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-xl">person_add</span>
+                Cadastrar Colaborador
+              </Link>
+            )}
 
             <button
               onClick={() => setShowNewClientModal(true)}
@@ -268,7 +408,6 @@ export default function ClientesPage() {
 
         {/* Filter Bar & Tabs */}
         <div className="space-y-4">
-          {/* Navegação entre Abas (Clientes vs Funcionários Ativos) */}
           <div className="flex border-b border-hairline-border gap-6">
             <button
               onClick={() => setActiveTab("clientes")}
@@ -387,21 +526,26 @@ export default function ClientesPage() {
                         </td>
 
                         <td className="px-6 py-5">
-                          {client.pets.length === 0 ? (
-                            <span className="text-xs text-outline italic">Nenhum pet</span>
-                          ) : (
-                            <div className="flex flex-wrap gap-2">
-                              {client.pets.map((pet) => (
-                                <span
-                                  key={pet.id}
-                                  className="flex items-center gap-1.5 px-2.5 py-1 bg-surface-container-highest border border-hairline-border rounded-lg text-xs font-label-bold text-on-surface"
-                                >
-                                  <span className="material-symbols-outlined text-[14px] text-primary">pets</span>
-                                  {pet.name} ({pet.breed || pet.species})
-                                </span>
-                              ))}
-                            </div>
-                          )}
+                          <div className="flex flex-wrap items-center gap-2">
+                            {client.pets.map((pet) => (
+                              <span
+                                key={pet.id}
+                                className="flex items-center gap-1.5 px-2.5 py-1 bg-surface-container-highest border border-hairline-border rounded-lg text-xs font-label-bold text-on-surface"
+                              >
+                                <span className="material-symbols-outlined text-[14px] text-primary">pets</span>
+                                {pet.name} ({pet.breed || pet.species})
+                              </span>
+                            ))}
+
+                            <button
+                              onClick={() => handleOpenAddPetModal(client)}
+                              className="flex items-center gap-1 px-2.5 py-1 bg-primary/10 border border-primary/30 text-primary hover:bg-primary/20 text-xs font-bold rounded-lg transition-all cursor-pointer"
+                              title={`Adicionar novo pet diretamente para ${client.full_name}`}
+                            >
+                              <span className="material-symbols-outlined text-sm">add</span>
+                              {client.pets.length === 0 ? "Vincular Pet" : "Pet"}
+                            </button>
+                          </div>
                         </td>
 
                         <td className="px-6 py-5">
@@ -423,11 +567,11 @@ export default function ClientesPage() {
                           <div className="flex items-center justify-end gap-2">
                             {client.phone && client.phone !== "Não informado" && (
                               <a
-                                href={`https://wa.me/55${client.phone.replace(/\D/g, "")}`}
+                                href={getWhatsAppLink(client.phone)}
                                 target="_blank"
                                 rel="noreferrer"
                                 className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-colors"
-                                title="Abrir no WhatsApp"
+                                title="Abrir contato direto no WhatsApp"
                               >
                                 <span className="material-symbols-outlined text-lg">chat</span>
                               </a>
@@ -435,7 +579,7 @@ export default function ClientesPage() {
                             <button
                               onClick={() => setSelectedClient(client)}
                               className="p-2 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface transition-colors cursor-pointer"
-                              title="Ver detalhes do cliente"
+                              title="Ver detalhes e cadastrar novos pets"
                             >
                               <span className="material-symbols-outlined text-lg">more_vert</span>
                             </button>
@@ -477,13 +621,15 @@ export default function ClientesPage() {
                         <span className="material-symbols-outlined text-4xl text-outline mb-2">badge</span>
                         <p className="font-bold">Nenhum funcionário encontrado</p>
                         <p className="text-xs text-outline mt-1">Nenhum membro de equipe cadastrado ainda.</p>
-                        <Link
-                          href="/admin/register-admin"
-                          className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-primary text-on-primary rounded-lg text-xs font-bold"
-                        >
-                          <span className="material-symbols-outlined text-base">person_add</span>
-                          Cadastrar Primeiro Colaborador
-                        </Link>
+                        {isOwnerOrAdmin && (
+                          <Link
+                            href="/admin/register-admin"
+                            className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-primary text-on-primary rounded-lg text-xs font-bold"
+                          >
+                            <span className="material-symbols-outlined text-base">person_add</span>
+                            Cadastrar Primeiro Colaborador
+                          </Link>
+                        )}
                       </td>
                     </tr>
                   ) : (
@@ -545,22 +691,24 @@ export default function ClientesPage() {
                             <div className="flex items-center justify-end gap-2">
                               {emp.phone && emp.phone !== "Não informado" && (
                                 <a
-                                  href={`https://wa.me/55${emp.phone.replace(/\D/g, "")}`}
+                                  href={getWhatsAppLink(emp.phone)}
                                   target="_blank"
                                   rel="noreferrer"
                                   className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-colors"
-                                  title="Enviar mensagem no WhatsApp"
+                                  title="Enviar mensagem limpa no WhatsApp"
                                 >
                                   <span className="material-symbols-outlined text-lg">chat</span>
                                 </a>
                               )}
-                              <Link
-                                href="/admin/register-admin"
-                                className="p-2 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface transition-colors cursor-pointer"
-                                title="Editar ou alterar cargo do colaborador"
-                              >
-                                <span className="material-symbols-outlined text-lg">edit</span>
-                              </Link>
+                              {isOwnerOrAdmin && (
+                                <Link
+                                  href="/admin/register-admin"
+                                  className="p-2 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface transition-colors cursor-pointer"
+                                  title="Editar ou alterar cargo do colaborador"
+                                >
+                                  <span className="material-symbols-outlined text-lg">edit</span>
+                                </Link>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -578,7 +726,7 @@ export default function ClientesPage() {
       <main className="block md:hidden px-5 pb-32 pt-4 space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="font-headline-lg-mobile text-headline-lg-mobile text-on-surface">Clientes & Equipe</h1>
+            <h1 className="font-headline-lg-mobile text-headline-lg-mobile text-on-surface">Clientes / Funcionários</h1>
             <p className="text-xs text-on-surface-variant">{clients.length} clientes • {employees.length} colaboradores</p>
           </div>
           <button
@@ -671,7 +819,7 @@ export default function ClientesPage() {
             <div className="flex justify-between items-center border-b border-hairline-border pb-4">
               <h3 className="font-headline-md text-xl font-bold text-on-surface flex items-center gap-2">
                 <span className="material-symbols-outlined text-primary">group_add</span>
-                Cadastrar Novo Cliente
+                Cadastrar Novo Cliente / Tutor
               </h3>
               <button
                 onClick={() => setShowNewClientModal(false)}
@@ -691,33 +839,38 @@ export default function ClientesPage() {
                   value={newClientName}
                   onChange={(e) => setNewClientName(e.target.value)}
                   placeholder="Ex: Maria Silva"
-                  className="w-full bg-surface-container border border-hairline-border rounded-xl p-3 text-sm text-on-surface outline-none focus:border-primary"
+                  className="w-full bg-surface-container border border-hairline-border rounded-xl p-3 text-sm text-on-surface outline-none focus:border-primary font-medium"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-on-surface-variant mb-1 uppercase">
-                  Telefone / WhatsApp
+                  Telefone / WhatsApp *
                 </label>
                 <input
+                  required
                   value={newClientPhone}
                   onChange={(e) => setNewClientPhone(e.target.value)}
                   placeholder="(11) 99999-9999"
-                  className="w-full bg-surface-container border border-hairline-border rounded-xl p-3 text-sm text-on-surface outline-none focus:border-primary"
+                  className="w-full bg-surface-container border border-hairline-border rounded-xl p-3 text-sm text-on-surface outline-none focus:border-primary font-medium"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-on-surface-variant mb-1 uppercase">
-                  E-mail (Opcional)
+                  E-mail do Tutor *
                 </label>
                 <input
+                  required
                   value={newClientEmail}
                   onChange={(e) => setNewClientEmail(e.target.value)}
                   placeholder="maria@email.com"
                   type="email"
-                  className="w-full bg-surface-container border border-hairline-border rounded-xl p-3 text-sm text-on-surface outline-none focus:border-primary"
+                  className="w-full bg-surface-container border border-hairline-border rounded-xl p-3 text-sm text-on-surface outline-none focus:border-primary font-medium"
                 />
+                <p className="text-[11px] text-on-surface-variant mt-1">
+                  O e-mail será validado e vinculado à conta de tutor do cliente no sistema.
+                </p>
               </div>
 
               <div className="pt-2 flex gap-3">
@@ -734,6 +887,248 @@ export default function ClientesPage() {
                   className="flex-1 py-3 bg-primary text-on-primary font-bold text-xs rounded-xl hover:brightness-110 active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2"
                 >
                   {isSavingClient ? "Salvando..." : "Cadastrar Tutor"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Adicionar Novo Pet Completo Vinculado ao Tutor */}
+      {showAddPetModal && petTargetClient && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-elevated-card border border-hairline-border rounded-2xl max-w-lg w-full p-6 space-y-6 extruded-shadow animate-in fade-in my-8">
+            <div className="flex justify-between items-center border-b border-hairline-border pb-4">
+              <div>
+                <h3 className="font-headline-md text-xl font-bold text-on-surface flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary">pets</span>
+                  Cadastrar Pet para {petTargetClient.full_name}
+                </h3>
+                <p className="text-xs text-on-surface-variant mt-1">
+                  Ficha completa do pet vinculada ao tutor
+                </p>
+              </div>
+              <button
+                onClick={() => setShowAddPetModal(false)}
+                className="text-on-surface-variant hover:text-on-surface p-1 rounded-lg bg-surface-container cursor-pointer"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            <form onSubmit={handleSavePetForClient} className="space-y-4">
+              {/* Foto do Pet */}
+              <div className="flex flex-col items-center justify-center gap-2">
+                <div className="w-20 h-20 rounded-full bg-surface-container border-2 border-dashed border-hairline-border flex items-center justify-center relative overflow-hidden group">
+                  {petPhotoUrl ? (
+                    <img src={petPhotoUrl} alt="Preview" className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="material-symbols-outlined text-3xl text-outline">photo_camera</span>
+                  )}
+                </div>
+                <input
+                  type="url"
+                  value={petPhotoUrl}
+                  onChange={(e) => setPetPhotoUrl(e.target.value)}
+                  placeholder="URL da Foto do Pet (Opcional)"
+                  className="w-full bg-surface-container border border-hairline-border rounded-xl px-3 py-2 text-xs text-on-surface placeholder:text-outline outline-none text-center"
+                />
+              </div>
+
+              {/* Nome do Pet */}
+              <div>
+                <label className="block text-xs font-bold text-on-surface-variant mb-1 uppercase">
+                  Nome do Pet *
+                </label>
+                <input
+                  required
+                  value={petName}
+                  onChange={(e) => setPetName(e.target.value)}
+                  placeholder="Ex: Bob, Nina, Tobey..."
+                  className="w-full bg-surface-container border border-hairline-border rounded-xl p-3 text-sm text-on-surface outline-none focus:border-primary font-medium"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-on-surface-variant mb-1 uppercase">
+                    Espécie *
+                  </label>
+                  <select
+                    value={petSpecies}
+                    onChange={(e) => setPetSpecies(e.target.value)}
+                    className="w-full bg-surface-container border border-hairline-border rounded-xl p-3 text-sm text-on-surface outline-none focus:border-primary cursor-pointer font-medium"
+                  >
+                    <option value="Cachorro">Cachorro</option>
+                    <option value="Gato">Gato</option>
+                    <option value="Outro">Outro</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-on-surface-variant mb-1 uppercase">
+                    Raça
+                  </label>
+                  <input
+                    value={petBreed}
+                    onChange={(e) => setPetBreed(e.target.value)}
+                    placeholder="Ex: Poodle, Shih Tzu, SRD"
+                    className="w-full bg-surface-container border border-hairline-border rounded-xl p-3 text-sm text-on-surface outline-none focus:border-primary font-medium"
+                  />
+                </div>
+              </div>
+
+              {/* Sexo (Macho / Fêmea buttons) */}
+              <div>
+                <label className="block text-xs font-bold text-on-surface-variant mb-1 uppercase">
+                  Sexo
+                </label>
+                <div className="flex bg-surface-container p-1 rounded-xl border border-hairline-border">
+                  <button
+                    type="button"
+                    onClick={() => setPetSex("Macho")}
+                    className={`flex-1 text-center py-2.5 rounded-lg font-bold text-xs transition-all cursor-pointer ${
+                      petSex === "Macho"
+                        ? "bg-primary text-on-primary"
+                        : "text-on-surface-variant hover:text-on-surface"
+                    }`}
+                  >
+                    Macho
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPetSex("Fêmea")}
+                    className={`flex-1 text-center py-2.5 rounded-lg font-bold text-xs transition-all cursor-pointer ${
+                      petSex === "Fêmea"
+                        ? "bg-primary text-on-primary"
+                        : "text-on-surface-variant hover:text-on-surface"
+                    }`}
+                  >
+                    Fêmea
+                  </button>
+                </div>
+              </div>
+
+              {/* Idade Aproximada: Anos e Meses */}
+              <div>
+                <label className="block text-xs font-bold text-on-surface-variant mb-1 uppercase">
+                  Idade Aproximada
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] text-on-surface-variant font-bold uppercase block mb-0.5">Anos</label>
+                    <select
+                      value={petAgeYears}
+                      onChange={(e) => setPetAgeYears(e.target.value)}
+                      className="w-full bg-surface-container border border-hairline-border rounded-xl px-3 py-2 text-on-surface text-sm outline-none cursor-pointer"
+                    >
+                      {Array.from({ length: 31 }, (_, i) => (
+                        <option key={i} value={i}>{i} {i === 1 ? "ano" : "anos"}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-on-surface-variant font-bold uppercase block mb-0.5">Meses</label>
+                    <select
+                      value={petAgeMonths}
+                      onChange={(e) => setPetAgeMonths(e.target.value)}
+                      className="w-full bg-surface-container border border-hairline-border rounded-xl px-3 py-2 text-on-surface text-sm outline-none cursor-pointer"
+                    >
+                      {Array.from({ length: 12 }, (_, i) => (
+                        <option key={i} value={i}>{i} {i === 1 ? "mês" : "meses"}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-on-surface-variant mb-1 uppercase">
+                    Peso QUILOGRAMAS (KG)
+                  </label>
+                  <input
+                    value={petWeight}
+                    onChange={(e) => setPetWeight(e.target.value)}
+                    placeholder="Ex: 8.5"
+                    type="number"
+                    step="0.1"
+                    className="w-full bg-surface-container border border-hairline-border rounded-xl p-3 text-sm text-on-surface outline-none focus:border-primary font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-on-surface-variant mb-1 uppercase">
+                    Pelagem
+                  </label>
+                  <select
+                    value={petCoat}
+                    onChange={(e) => setPetCoat(e.target.value)}
+                    className="w-full bg-surface-container border border-hairline-border rounded-xl p-3 text-sm text-on-surface outline-none focus:border-primary cursor-pointer font-medium"
+                  >
+                    <option value="Curta">Curta</option>
+                    <option value="Média">Média</option>
+                    <option value="Longa">Longa</option>
+                    <option value="Lisa">Lisa</option>
+                    <option value="Cacheada">Cacheada</option>
+                    <option value="Crespa">Crespa</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-on-surface-variant mb-1 uppercase">
+                  Cor
+                </label>
+                <input
+                  value={petColor}
+                  onChange={(e) => setPetColor(e.target.value)}
+                  placeholder="Ex: Preto e Branco"
+                  className="w-full bg-surface-container border border-hairline-border rounded-xl p-3 text-sm text-on-surface outline-none focus:border-primary font-medium"
+                />
+              </div>
+
+              {/* Checkbox Castrado */}
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  id="client_pet_castrated"
+                  type="checkbox"
+                  checked={petIsCastrated}
+                  onChange={(e) => setPetIsCastrated(e.target.checked)}
+                  className="rounded bg-surface-container border-hairline-border text-primary cursor-pointer w-4 h-4"
+                />
+                <label htmlFor="client_pet_castrated" className="text-xs text-on-surface font-bold cursor-pointer">
+                  Meu pet é castrado
+                </label>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-on-surface-variant mb-1 uppercase">
+                  Observações Clínicas / Cuidados
+                </label>
+                <textarea
+                  value={petObservations}
+                  onChange={(e) => setPetObservations(e.target.value)}
+                  placeholder="Ex: Alérgico a sabão com fragrância, bravo para cortar unhas..."
+                  rows={2}
+                  className="w-full bg-surface-container border border-hairline-border rounded-xl p-3 text-sm text-on-surface outline-none focus:border-primary font-medium"
+                />
+              </div>
+
+              <div className="pt-2 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowAddPetModal(false)}
+                  className="flex-1 py-3 bg-surface-container text-on-surface font-bold text-xs rounded-xl hover:bg-surface-container-high transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingPet}
+                  className="flex-1 py-3 bg-primary text-on-primary font-bold text-xs rounded-xl hover:brightness-110 active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2"
+                >
+                  {isSavingPet ? "Salvando Pet..." : "Salvar e Vincular Pet"}
                 </button>
               </div>
             </form>
@@ -780,10 +1175,24 @@ export default function ClientesPage() {
               </div>
             </div>
 
-            {selectedClient.pets.length > 0 && (
-              <div className="space-y-2">
-                <h5 className="text-xs font-bold text-on-surface-variant uppercase">Pets Associados</h5>
-                {selectedClient.pets.map((pet) => (
+            <div className="space-y-3 border-t border-hairline-border pt-3">
+              <div className="flex justify-between items-center">
+                <h5 className="text-xs font-bold text-on-surface-variant uppercase">Pets Associados ({selectedClient.pets.length})</h5>
+                <button
+                  onClick={() => {
+                    const client = selectedClient;
+                    setSelectedClient(null);
+                    handleOpenAddPetModal(client);
+                  }}
+                  className="flex items-center gap-1 px-2.5 py-1 bg-primary/10 border border-primary/30 text-primary hover:bg-primary/20 text-xs font-bold rounded-lg transition-all cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-sm">add</span>
+                  Adicionar Pet
+                </button>
+              </div>
+
+              {selectedClient.pets.length > 0 ? (
+                selectedClient.pets.map((pet) => (
                   <div
                     key={pet.id}
                     className="flex items-center justify-between p-3 bg-surface-container rounded-xl border border-hairline-border hover:border-primary/40 transition-all"
@@ -805,14 +1214,16 @@ export default function ClientesPage() {
                       <span className="material-symbols-outlined text-sm">arrow_forward</span>
                     </Link>
                   </div>
-                ))}
-              </div>
-            )}
+                ))
+              ) : (
+                <p className="text-xs text-on-surface-variant italic py-2">Nenhum pet vinculado a este tutor ainda.</p>
+              )}
+            </div>
 
             <div className="pt-2 flex gap-3">
               {selectedClient.phone && selectedClient.phone !== "Não informado" && (
                 <a
-                  href={`https://wa.me/55${selectedClient.phone.replace(/\D/g, "")}`}
+                  href={getWhatsAppLink(selectedClient.phone)}
                   target="_blank"
                   rel="noreferrer"
                   className="flex-1 bg-emerald-600 text-white font-bold text-xs py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-emerald-500 transition-colors"

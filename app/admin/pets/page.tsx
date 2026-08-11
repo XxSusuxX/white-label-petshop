@@ -13,6 +13,7 @@ interface AdminPet {
   weight: string;
   coat: string;
   color: string;
+  is_neutered?: boolean;
   observations: string;
   photo_url: string;
   tutor_id?: string;
@@ -22,16 +23,74 @@ interface AdminPet {
   current_status: string;
 }
 
+interface ClientOption {
+  id: string;
+  full_name: string;
+  email: string;
+  phone: string;
+}
+
 function PetsContent() {
   const searchParams = useSearchParams();
   const searchParamQuery = searchParams.get("search") || searchParams.get("pet") || "";
   const petIdQuery = searchParams.get("id") || "";
 
   const [pets, setPets] = useState<AdminPet[]>([]);
+  const [clients, setClients] = useState<ClientOption[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState(searchParamQuery);
   const [selectedSpeciesFilter, setSelectedSpeciesFilter] = useState("Todos");
   const [selectedPetDetail, setSelectedPetDetail] = useState<AdminPet | null>(null);
+
+  // Create Pet Modal States
+  const [showCreatePetModal, setShowCreatePetModal] = useState(false);
+  const [selectedClientId, setSelectedClientId] = useState("");
+  const [petName, setPetName] = useState("");
+  const [petSpecies, setPetSpecies] = useState("Cachorro");
+  const [petBreed, setPetBreed] = useState("");
+  const [petSex, setPetSex] = useState("Macho");
+  const [petAgeYears, setPetAgeYears] = useState("0");
+  const [petAgeMonths, setPetAgeMonths] = useState("0");
+  const [petWeight, setPetWeight] = useState("");
+  const [petCoat, setPetCoat] = useState("Curta");
+  const [petColor, setPetColor] = useState("");
+  const [petIsCastrated, setPetIsCastrated] = useState(false);
+  const [petPhotoUrl, setPetPhotoUrl] = useState("");
+  const [petObservations, setPetObservations] = useState("");
+  const [isSavingPet, setIsSavingPet] = useState(false);
+
+  const loadAdminPets = async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch("/api/admin/pets");
+      const data = await res.json();
+      if (res.ok && data.pets) {
+        setPets(data.pets);
+
+        if (petIdQuery || searchParamQuery) {
+          const foundPet = data.pets.find(
+            (p: AdminPet) =>
+              (petIdQuery && p.id === petIdQuery) ||
+              (searchParamQuery && p.name.toLowerCase() === searchParamQuery.toLowerCase())
+          );
+          if (foundPet) {
+            setSelectedPetDetail(foundPet);
+          }
+        }
+      }
+
+      // Load clients list for the tutor select dropdown
+      const clientsRes = await fetch("/api/admin/clients");
+      const clientsData = await clientsRes.json();
+      if (clientsRes.ok && clientsData.clients) {
+        setClients(clientsData.clients);
+      }
+    } catch (err) {
+      console.error("Erro ao carregar pets do Supabase:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (searchParamQuery) {
@@ -40,34 +99,74 @@ function PetsContent() {
   }, [searchParamQuery]);
 
   useEffect(() => {
-    async function loadAdminPets() {
-      setIsLoading(true);
-      try {
-        const res = await fetch("/api/admin/pets");
-        const data = await res.json();
-        if (res.ok && data.pets) {
-          setPets(data.pets);
-
-          // Se houver petIdQuery ou searchParamQuery, encontrar o pet e abrir os detalhes automaticamente
-          if (petIdQuery || searchParamQuery) {
-            const foundPet = data.pets.find(
-              (p: AdminPet) =>
-                (petIdQuery && p.id === petIdQuery) ||
-                (searchParamQuery && p.name.toLowerCase() === searchParamQuery.toLowerCase())
-            );
-            if (foundPet) {
-              setSelectedPetDetail(foundPet);
-            }
-          }
-        }
-      } catch (err) {
-        console.error("Erro ao carregar pets do Supabase:", err);
-      } finally {
-        setIsLoading(false);
-      }
-    }
     loadAdminPets();
   }, [petIdQuery, searchParamQuery]);
+
+  const handleOpenCreateModal = () => {
+    setSelectedClientId(clients.length > 0 ? clients[0].id : "");
+    setPetName("");
+    setPetBreed("");
+    setPetSex("Macho");
+    setPetAgeYears("0");
+    setPetAgeMonths("0");
+    setPetWeight("");
+    setPetCoat("Curta");
+    setPetColor("");
+    setPetIsCastrated(false);
+    setPetPhotoUrl("");
+    setPetObservations("");
+    setShowCreatePetModal(true);
+  };
+
+  const handleCreatePetSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!petName.trim()) {
+      alert("Por favor, informe o nome do pet.");
+      return;
+    }
+
+    if (!selectedClientId) {
+      alert("Por favor, selecione o tutor (cliente) do pet.");
+      return;
+    }
+
+    setIsSavingPet(true);
+    try {
+      const res = await fetch("/api/admin/pets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: petName.trim(),
+          species: petSpecies,
+          breed: petBreed.trim() || "Vira-Lata",
+          sex: petSex,
+          weight: petWeight.trim() || null,
+          coat: petCoat,
+          color: petColor.trim() || null,
+          is_neutered: petIsCastrated,
+          age_years: petAgeYears,
+          age_months: petAgeMonths,
+          photo_url: petPhotoUrl.trim() || null,
+          observations: petObservations.trim() || null,
+          client_id: selectedClientId,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setShowCreatePetModal(false);
+        await loadAdminPets();
+        alert(`🎉 Pet ${petName} cadastrado com sucesso!`);
+      } else {
+        alert(`Erro ao cadastrar pet: ${data.error || "Tente novamente."}`);
+      }
+    } catch (err) {
+      console.error("Erro ao cadastrar pet:", err);
+      alert("Erro de conexão ao cadastrar pet.");
+    } finally {
+      setIsSavingPet(false);
+    }
+  };
 
   const filteredPets = pets.filter((pet) => {
     const matchesSearch =
@@ -90,7 +189,7 @@ function PetsContent() {
       {/* Desktop Layout */}
       <main className="hidden md:block p-margin-desktop min-h-screen pb-12">
         <div className="max-w-7xl mx-auto space-y-8">
-          {/* Header & Filter Pills */}
+          {/* Header & Actions */}
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
             <div>
               <h1 className="font-headline-lg text-headline-lg text-on-surface mb-1">Pets & Prontuários</h1>
@@ -113,25 +212,34 @@ function PetsContent() {
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Buscar por pet ou tutor..."
-                  className="w-full bg-surface-container border border-hairline-border rounded-xl pl-10 pr-4 py-2 text-sm text-on-surface placeholder:text-outline outline-none focus:border-primary"
+                  className="w-full bg-surface-container border border-hairline-border rounded-xl pl-10 pr-4 py-2.5 text-sm text-on-surface placeholder:text-outline outline-none focus:border-primary"
                 />
               </div>
-              <div className="flex gap-2">
-                {["Todos", "Cachorros", "Gatos", "Outros"].map((filter) => (
-                  <button
-                    key={filter}
-                    onClick={() => setSelectedSpeciesFilter(filter)}
-                    className={`px-4 py-2 rounded-full font-label-bold text-xs transition-all cursor-pointer ${
-                      selectedSpeciesFilter === filter
-                        ? "bg-primary text-on-primary extruded-shadow"
-                        : "bg-elevated-card text-on-surface-variant hover:text-on-surface border border-hairline-border"
-                    }`}
-                  >
-                    {filter}
-                  </button>
-                ))}
-              </div>
+              <button
+                onClick={handleOpenCreateModal}
+                className="bg-primary text-on-primary font-label-bold text-label-bold px-5 py-2.5 rounded-xl flex items-center gap-2 extruded-shadow hover:brightness-110 active:scale-95 transition-all cursor-pointer shrink-0"
+              >
+                <span className="material-symbols-outlined text-xl">add</span>
+                Cadastrar Novo Pet
+              </button>
             </div>
+          </div>
+
+          {/* Filter Pills */}
+          <div className="flex gap-2 border-b border-hairline-border pb-4">
+            {["Todos", "Cachorros", "Gatos", "Outros"].map((filter) => (
+              <button
+                key={filter}
+                onClick={() => setSelectedSpeciesFilter(filter)}
+                className={`px-4 py-2 rounded-full font-label-bold text-xs transition-all cursor-pointer ${
+                  selectedSpeciesFilter === filter
+                    ? "bg-primary text-on-primary extruded-shadow"
+                    : "bg-elevated-card text-on-surface-variant hover:text-on-surface border border-hairline-border"
+                }`}
+              >
+                {filter}
+              </button>
+            ))}
           </div>
 
           {/* Bento Pets Grid */}
@@ -157,6 +265,13 @@ function PetsContent() {
                 <span className="material-symbols-outlined text-4xl text-outline">pets</span>
                 <p className="font-bold text-on-surface">Nenhum pet encontrado</p>
                 <p className="text-xs text-on-surface-variant">Nenhum pet cadastrado corresponde à busca "{searchTerm}".</p>
+                <button
+                  onClick={handleOpenCreateModal}
+                  className="mt-2 px-5 py-2.5 bg-primary text-on-primary rounded-xl text-xs font-bold flex items-center gap-2"
+                >
+                  <span className="material-symbols-outlined text-base">add</span>
+                  Cadastrar Primeiro Pet
+                </button>
               </div>
             ) : (
               <>
@@ -218,18 +333,18 @@ function PetsContent() {
                 ))}
 
                 {/* Add New Pet Dashed Card */}
-                <Link
-                  href="/admin/clientes"
-                  className="bg-surface-container-low border-2 border-dashed border-hairline-border rounded-xl p-5 hover:border-primary/50 hover:bg-surface-container-high transition-all flex flex-col items-center justify-center gap-3 min-h-[280px]"
+                <button
+                  onClick={handleOpenCreateModal}
+                  className="bg-surface-container-low border-2 border-dashed border-hairline-border rounded-xl p-5 hover:border-primary/50 hover:bg-surface-container-high transition-all flex flex-col items-center justify-center gap-3 min-h-[280px] cursor-pointer group"
                 >
-                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
                     <span className="material-symbols-outlined text-[32px]">add</span>
                   </div>
                   <p className="font-label-bold text-label-bold text-on-surface">Cadastrar Novo Pet</p>
                   <p className="text-caption text-on-surface-variant text-center px-4">
                     Localize o cliente e adicione pets diretamente ao perfil do tutor.
                   </p>
-                </Link>
+                </button>
               </>
             )}
           </div>
@@ -243,6 +358,12 @@ function PetsContent() {
             <h1 className="font-headline-lg-mobile text-headline-lg-mobile text-on-surface">Pets</h1>
             <p className="text-xs text-on-surface-variant">{pets.length} pets cadastrados</p>
           </div>
+          <button
+            onClick={handleOpenCreateModal}
+            className="bg-primary text-on-primary p-2.5 rounded-full extruded-shadow"
+          >
+            <span className="material-symbols-outlined text-xl">add</span>
+          </button>
         </div>
 
         {/* Search Input */}
@@ -280,6 +401,273 @@ function PetsContent() {
         </div>
       </main>
 
+      {/* Modal Cadastrar Novo Pet (Com todos os 11 campos da ficha de pet) */}
+      {showCreatePetModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-start justify-center p-4 overflow-y-auto">
+          <div className="bg-elevated-card border border-hairline-border rounded-2xl max-w-lg w-full p-6 space-y-6 extruded-shadow animate-in fade-in my-8">
+            <div className="flex justify-between items-center border-b border-hairline-border pb-4">
+              <div>
+                <h3 className="font-headline-md text-xl font-bold text-on-surface flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary">pets</span>
+                  Cadastrar Novo Pet
+                </h3>
+                <p className="text-xs text-on-surface-variant mt-1">
+                  Preencha a ficha completa e vincule o pet ao tutor responsável
+                </p>
+              </div>
+              <button
+                onClick={() => setShowCreatePetModal(false)}
+                className="text-on-surface-variant hover:text-on-surface p-1 rounded-lg bg-surface-container cursor-pointer"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            <form onSubmit={handleCreatePetSubmit} className="space-y-4">
+              {/* Selecionar Tutor (Cliente) */}
+              <div>
+                <label className="block text-xs font-bold text-on-surface-variant mb-1 uppercase">
+                  Tutor / Cliente Responsável *
+                </label>
+                {clients.length === 0 ? (
+                  <p className="text-xs text-amber-400 bg-amber-500/10 p-2.5 rounded-xl border border-amber-500/20">
+                    Nenhum cliente cadastrado ainda. Cadastre um cliente antes de registrar o pet.
+                  </p>
+                ) : (
+                  <select
+                    required
+                    value={selectedClientId}
+                    onChange={(e) => setSelectedClientId(e.target.value)}
+                    className="w-full bg-surface-container border border-hairline-border rounded-xl p-3 text-sm text-on-surface outline-none focus:border-primary cursor-pointer font-medium"
+                  >
+                    {clients.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.full_name} ({c.phone || c.email})
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              {/* Foto do Pet */}
+              <div className="flex flex-col items-center justify-center gap-2 pt-1">
+                <div className="w-20 h-20 rounded-full bg-surface-container border-2 border-dashed border-hairline-border flex items-center justify-center relative overflow-hidden group">
+                  {petPhotoUrl ? (
+                    <img src={petPhotoUrl} alt="Preview" className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="material-symbols-outlined text-3xl text-outline">photo_camera</span>
+                  )}
+                </div>
+                <input
+                  type="url"
+                  value={petPhotoUrl}
+                  onChange={(e) => setPetPhotoUrl(e.target.value)}
+                  placeholder="URL da Foto do Pet (Opcional)"
+                  className="w-full bg-surface-container border border-hairline-border rounded-xl px-3 py-2 text-xs text-on-surface placeholder:text-outline outline-none text-center"
+                />
+              </div>
+
+              {/* Nome do Pet */}
+              <div>
+                <label className="block text-xs font-bold text-on-surface-variant mb-1 uppercase">
+                  Nome do Pet *
+                </label>
+                <input
+                  required
+                  value={petName}
+                  onChange={(e) => setPetName(e.target.value)}
+                  placeholder="Ex: Bob, Nina, Tobey..."
+                  className="w-full bg-surface-container border border-hairline-border rounded-xl p-3 text-sm text-on-surface outline-none focus:border-primary font-medium"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-on-surface-variant mb-1 uppercase">
+                    Espécie *
+                  </label>
+                  <select
+                    value={petSpecies}
+                    onChange={(e) => setPetSpecies(e.target.value)}
+                    className="w-full bg-surface-container border border-hairline-border rounded-xl p-3 text-sm text-on-surface outline-none focus:border-primary cursor-pointer font-medium"
+                  >
+                    <option value="Cachorro">Cachorro</option>
+                    <option value="Gato">Gato</option>
+                    <option value="Outro">Outro</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-on-surface-variant mb-1 uppercase">
+                    Raça
+                  </label>
+                  <input
+                    value={petBreed}
+                    onChange={(e) => setPetBreed(e.target.value)}
+                    placeholder="Ex: Poodle, Shih Tzu, SRD"
+                    className="w-full bg-surface-container border border-hairline-border rounded-xl p-3 text-sm text-on-surface outline-none focus:border-primary font-medium"
+                  />
+                </div>
+              </div>
+
+              {/* Sexo (Macho / Fêmea buttons) */}
+              <div>
+                <label className="block text-xs font-bold text-on-surface-variant mb-1 uppercase">
+                  Sexo
+                </label>
+                <div className="flex bg-surface-container p-1 rounded-xl border border-hairline-border">
+                  <button
+                    type="button"
+                    onClick={() => setPetSex("Macho")}
+                    className={`flex-1 text-center py-2.5 rounded-lg font-bold text-xs transition-all cursor-pointer ${
+                      petSex === "Macho"
+                        ? "bg-primary text-on-primary"
+                        : "text-on-surface-variant hover:text-on-surface"
+                    }`}
+                  >
+                    Macho
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPetSex("Fêmea")}
+                    className={`flex-1 text-center py-2.5 rounded-lg font-bold text-xs transition-all cursor-pointer ${
+                      petSex === "Fêmea"
+                        ? "bg-primary text-on-primary"
+                        : "text-on-surface-variant hover:text-on-surface"
+                    }`}
+                  >
+                    Fêmea
+                  </button>
+                </div>
+              </div>
+
+              {/* Idade Aproximada: Anos e Meses */}
+              <div>
+                <label className="block text-xs font-bold text-on-surface-variant mb-1 uppercase">
+                  Idade Aproximada
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] text-on-surface-variant font-bold uppercase block mb-0.5">Anos</label>
+                    <select
+                      value={petAgeYears}
+                      onChange={(e) => setPetAgeYears(e.target.value)}
+                      className="w-full bg-surface-container border border-hairline-border rounded-xl px-3 py-2 text-on-surface text-sm outline-none cursor-pointer"
+                    >
+                      {Array.from({ length: 31 }, (_, i) => (
+                        <option key={i} value={i}>{i} {i === 1 ? "ano" : "anos"}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-on-surface-variant font-bold uppercase block mb-0.5">Meses</label>
+                    <select
+                      value={petAgeMonths}
+                      onChange={(e) => setPetAgeMonths(e.target.value)}
+                      className="w-full bg-surface-container border border-hairline-border rounded-xl px-3 py-2 text-on-surface text-sm outline-none cursor-pointer"
+                    >
+                      {Array.from({ length: 12 }, (_, i) => (
+                        <option key={i} value={i}>{i} {i === 1 ? "mês" : "meses"}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-on-surface-variant mb-1 uppercase">
+                    Peso QUILOGRAMAS (KG)
+                  </label>
+                  <input
+                    value={petWeight}
+                    onChange={(e) => setPetWeight(e.target.value)}
+                    placeholder="Ex: 8.5"
+                    type="number"
+                    step="0.1"
+                    className="w-full bg-surface-container border border-hairline-border rounded-xl p-3 text-sm text-on-surface outline-none focus:border-primary font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-on-surface-variant mb-1 uppercase">
+                    Pelagem
+                  </label>
+                  <select
+                    value={petCoat}
+                    onChange={(e) => setPetCoat(e.target.value)}
+                    className="w-full bg-surface-container border border-hairline-border rounded-xl p-3 text-sm text-on-surface outline-none focus:border-primary cursor-pointer font-medium"
+                  >
+                    <option value="Curta">Curta</option>
+                    <option value="Média">Média</option>
+                    <option value="Longa">Longa</option>
+                    <option value="Lisa">Lisa</option>
+                    <option value="Cacheada">Cacheada</option>
+                    <option value="Crespa">Crespa</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-on-surface-variant mb-1 uppercase">
+                  Cor
+                </label>
+                <input
+                  value={petColor}
+                  onChange={(e) => setPetColor(e.target.value)}
+                  placeholder="Ex: Preto e Branco"
+                  className="w-full bg-surface-container border border-hairline-border rounded-xl p-3 text-sm text-on-surface outline-none focus:border-primary font-medium"
+                />
+              </div>
+
+              {/* Checkbox Castrado */}
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  id="admin_pet_castrated"
+                  type="checkbox"
+                  checked={petIsCastrated}
+                  onChange={(e) => setPetIsCastrated(e.target.checked)}
+                  className="rounded bg-surface-container border-hairline-border text-primary cursor-pointer w-4 h-4"
+                />
+                <label htmlFor="admin_pet_castrated" className="text-xs text-on-surface font-bold cursor-pointer">
+                  Meu pet é castrado
+                </label>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-on-surface-variant mb-1 uppercase">
+                  Observações Clínicas / Cuidados
+                </label>
+                <textarea
+                  value={petObservations}
+                  onChange={(e) => setPetObservations(e.target.value)}
+                  placeholder="Ex: Alérgico a sabão com fragrância, bravo para cortar unhas..."
+                  rows={2}
+                  className="w-full bg-surface-container border border-hairline-border rounded-xl p-3 text-sm text-on-surface outline-none focus:border-primary font-medium"
+                />
+              </div>
+
+              <div className="pt-2 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowCreatePetModal(false)}
+                  className="flex-1 py-3 bg-surface-container text-on-surface font-bold text-xs rounded-xl hover:bg-surface-container-high transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingPet}
+                  className="flex-1 py-3 bg-primary text-on-primary font-bold text-xs rounded-xl hover:brightness-110 active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2"
+                >
+                  {isSavingPet ? "Salvando Pet..." : "Salvar e Cadastrar Pet"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Pet Detail Modal */}
       {selectedPetDetail && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -309,38 +697,42 @@ function PetsContent() {
                 <span className="text-primary font-bold">{selectedPetDetail.tutor_name}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-on-surface-variant font-bold">WhatsApp Tutor:</span>
+                <span className="text-on-surface-variant font-bold">Telefone do Tutor:</span>
                 <span className="text-on-surface">{selectedPetDetail.tutor_phone}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-on-surface-variant font-bold">Idade / Observações:</span>
-                <span className="text-on-surface">{selectedPetDetail.observations}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-on-surface-variant font-bold">Peso:</span>
                 <span className="text-on-surface">{selectedPetDetail.weight}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-on-surface-variant font-bold">Pelagem & Cor:</span>
-                <span className="text-on-surface">{selectedPetDetail.coat} • {selectedPetDetail.color}</span>
+                <span className="text-on-surface-variant font-bold">Pelagem:</span>
+                <span className="text-on-surface">{selectedPetDetail.coat}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-on-surface-variant font-bold">Cor:</span>
+                <span className="text-on-surface">{selectedPetDetail.color}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-on-surface-variant font-bold">Castrado:</span>
+                <span className="text-on-surface">{selectedPetDetail.is_neutered ? "Sim" : "Não"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-on-surface-variant font-bold">Status Atual:</span>
+                <span className="text-emerald-400 font-bold">{selectedPetDetail.current_status}</span>
               </div>
             </div>
 
-            <div className="pt-2 flex gap-3">
-              {selectedPetDetail.tutor_phone && selectedPetDetail.tutor_phone !== "Não informado" && (
-                <a
-                  href={`https://wa.me/55${selectedPetDetail.tutor_phone.replace(/\D/g, "")}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex-1 bg-emerald-600 text-white font-bold text-xs py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-emerald-500 transition-colors"
-                >
-                  <span className="material-symbols-outlined text-base">chat</span>
-                  Contato no WhatsApp
-                </a>
-              )}
+            <div className="space-y-1 border-t border-hairline-border pt-3">
+              <h5 className="text-xs font-bold text-on-surface-variant uppercase">Observações</h5>
+              <p className="text-xs text-on-surface bg-surface-container p-3 rounded-xl border border-hairline-border">
+                {selectedPetDetail.observations}
+              </p>
+            </div>
+
+            <div className="pt-2 flex justify-end">
               <button
                 onClick={() => setSelectedPetDetail(null)}
-                className="px-4 py-3 bg-surface-container text-on-surface font-bold text-xs rounded-xl hover:bg-surface-container-high transition-colors cursor-pointer"
+                className="px-5 py-2.5 bg-surface-container text-on-surface font-bold text-xs rounded-xl hover:bg-surface-container-high transition-colors cursor-pointer"
               >
                 Fechar
               </button>
@@ -352,7 +744,7 @@ function PetsContent() {
   );
 }
 
-export default function PetsPage() {
+export default function AdminPetsPage() {
   return (
     <Suspense fallback={<div className="p-8 text-center text-on-surface-variant">Carregando pets...</div>}>
       <PetsContent />

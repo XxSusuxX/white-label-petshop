@@ -48,11 +48,19 @@ export function AdminSidebar() {
             admin: "Administrador",
             dono: "Dono(a)",
             veterinario: "Médico(a) Veterinário(a)",
+            veterinarian: "Médico(a) Veterinário(a)",
             banhista_tosador: "Banhista & Tosador(a)",
+            bather: "Banhista & Tosador(a)",
+            groomer: "Banhista & Tosador(a)",
             recepcionista: "Recepcionista",
+            receptionist: "Recepcionista",
             entregador: "Entregador",
             auxiliar: "Auxiliar Geral",
-            funcionario: "Funcionário",
+            employee: "Funcionário Geral",
+            funcionario: "Funcionário Geral",
+            tutor: "Cliente / Tutor",
+            cliente: "Cliente / Tutor",
+            client: "Cliente / Tutor",
           };
 
           setUserRole(ROLE_LABELS[rawRole] || rawRole);
@@ -69,13 +77,13 @@ export function AdminSidebar() {
     { href: "/admin/dashboard", label: "Dashboard", icon: "dashboard" },
     { href: "/admin/operacao", label: "Operação Ao Vivo", icon: "bubble_chart" },
     { href: "/admin/agenda", label: "Agenda", icon: "calendar_today" },
-    { href: "/admin/clientes", label: "Clientes / Tutores", icon: "group" },
+    { href: "/admin/clientes", label: "Clientes / Funcionários", icon: "group" },
+    ...(isAdminUser ? [{ href: "/admin/register-admin", label: "Registrar Admin", icon: "person_add" }] : []),
     { href: "/admin/pets", label: "Pets & Prontuários", icon: "pets" },
     { href: "/admin/servicos", label: "Serviços & Preços", icon: "price_change" },
     { href: "/admin/pdv", label: "PDV & Caixa", icon: "point_of_sale" },
     { href: "/admin/prontuario", label: "Módulo Veterinário", icon: "stethoscope" },
     { href: "/admin/whatsapp", label: "Central WhatsApp", icon: "chat" },
-    ...(isAdminUser ? [{ href: "/admin/register-admin", label: "Registrar Admin", icon: "person_add" }] : []),
   ];
 
   return (
