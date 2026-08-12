@@ -861,78 +861,84 @@ export default function ClientesPage() {
 
       {/* Modal Novo Cliente */}
       {showNewClientModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-elevated-card border border-hairline-border rounded-2xl max-w-md w-full p-6 space-y-6 extruded-shadow animate-in fade-in">
-            <div className="flex justify-between items-center border-b border-hairline-border pb-4">
-              <h3 className="font-headline-md text-xl font-bold text-on-surface flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary">group_add</span>
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4 overflow-hidden animate-in fade-in duration-200">
+          <div className="bg-surface-container border border-hairline-border rounded-2xl max-w-md w-full max-h-[90vh] flex flex-col overflow-hidden shadow-2xl extruded-shadow animate-in zoom-in-95 duration-200">
+            {/* Header Fixo */}
+            <div className="px-6 py-4 bg-surface-container-high border-b border-hairline-border flex items-center justify-between shrink-0">
+              <h3 className="font-bold text-base text-on-surface flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary text-xl">group_add</span>
                 Cadastrar Novo Cliente / Tutor
               </h3>
               <button
                 onClick={() => setShowNewClientModal(false)}
-                className="text-on-surface-variant hover:text-on-surface p-1 rounded-lg bg-surface-container cursor-pointer"
+                className="p-1.5 rounded-xl bg-surface-container hover:bg-surface-container-highest text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer"
               >
-                <span className="material-symbols-outlined">close</span>
+                <span className="material-symbols-outlined text-lg">close</span>
               </button>
             </div>
 
-            <form onSubmit={handleCreateClient} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-on-surface-variant mb-1 uppercase">
-                  Nome Completo do Tutor *
-                </label>
-                <input
-                  required
-                  value={newClientName}
-                  onChange={(e) => setNewClientName(e.target.value)}
-                  placeholder="Ex: Maria Silva"
-                  className="w-full bg-surface-container border border-hairline-border rounded-xl p-3 text-sm text-on-surface outline-none focus:border-primary font-medium"
-                />
+            {/* Corpo Rolável */}
+            <form onSubmit={handleCreateClient} className="flex flex-col flex-1 overflow-hidden">
+              <div className="p-6 overflow-y-auto space-y-4 flex-1 text-xs">
+                <div>
+                  <label className="block text-[11px] font-bold text-on-surface-variant mb-1 uppercase">
+                    Nome Completo do Tutor *
+                  </label>
+                  <input
+                    required
+                    value={newClientName}
+                    onChange={(e) => setNewClientName(e.target.value)}
+                    placeholder="Ex: Maria Silva"
+                    className="w-full bg-matte-canvas border border-hairline-border rounded-xl p-3 text-xs text-on-surface outline-none focus:border-primary font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-on-surface-variant mb-1 uppercase">
+                    Telefone / WhatsApp *
+                  </label>
+                  <input
+                    required
+                    value={newClientPhone}
+                    onChange={(e) => setNewClientPhone(e.target.value)}
+                    placeholder="(11) 99999-9999"
+                    className="w-full bg-matte-canvas border border-hairline-border rounded-xl p-3 text-xs text-on-surface outline-none focus:border-primary font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-on-surface-variant mb-1 uppercase">
+                    E-mail do Tutor *
+                  </label>
+                  <input
+                    required
+                    value={newClientEmail}
+                    onChange={(e) => setNewClientEmail(e.target.value)}
+                    placeholder="maria@email.com"
+                    type="email"
+                    className="w-full bg-matte-canvas border border-hairline-border rounded-xl p-3 text-xs text-on-surface outline-none focus:border-primary font-medium"
+                  />
+                  <p className="text-[10px] text-on-surface-variant mt-1">
+                    O e-mail será validado e vinculado à conta de tutor do cliente no sistema.
+                  </p>
+                </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-on-surface-variant mb-1 uppercase">
-                  Telefone / WhatsApp *
-                </label>
-                <input
-                  required
-                  value={newClientPhone}
-                  onChange={(e) => setNewClientPhone(e.target.value)}
-                  placeholder="(11) 99999-9999"
-                  className="w-full bg-surface-container border border-hairline-border rounded-xl p-3 text-sm text-on-surface outline-none focus:border-primary font-medium"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-on-surface-variant mb-1 uppercase">
-                  E-mail do Tutor *
-                </label>
-                <input
-                  required
-                  value={newClientEmail}
-                  onChange={(e) => setNewClientEmail(e.target.value)}
-                  placeholder="maria@email.com"
-                  type="email"
-                  className="w-full bg-surface-container border border-hairline-border rounded-xl p-3 text-sm text-on-surface outline-none focus:border-primary font-medium"
-                />
-                <p className="text-[11px] text-on-surface-variant mt-1">
-                  O e-mail será validado e vinculado à conta de tutor do cliente no sistema.
-                </p>
-              </div>
-
-              <div className="pt-2 flex gap-3">
+              {/* Rodapé Fixo */}
+              <div className="px-6 py-4 bg-surface-container-high border-t border-hairline-border flex items-center justify-end gap-3 shrink-0">
                 <button
                   type="button"
                   onClick={() => setShowNewClientModal(false)}
-                  className="flex-1 py-3 bg-surface-container text-on-surface font-bold text-xs rounded-xl hover:bg-surface-container-high transition-colors cursor-pointer"
+                  className="px-5 py-2.5 rounded-xl bg-surface-container border border-hairline-border hover:bg-surface-container-highest font-bold text-xs text-on-surface transition-all cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={isSavingClient}
-                  className="flex-1 py-3 bg-primary text-on-primary font-bold text-xs rounded-xl hover:brightness-110 active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2"
+                  className="px-5 py-2.5 rounded-xl bg-primary text-on-primary font-bold text-xs hover:brightness-110 active:scale-95 transition-all cursor-pointer shadow-md flex items-center justify-center gap-2 disabled:opacity-60"
                 >
+                  <span className="material-symbols-outlined text-base">person_add</span>
                   {isSavingClient ? "Salvando..." : "Cadastrar Tutor"}
                 </button>
               </div>
@@ -943,238 +949,244 @@ export default function ClientesPage() {
 
       {/* Modal Adicionar Novo Pet Completo Vinculado ao Tutor */}
       {showAddPetModal && petTargetClient && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-elevated-card border border-hairline-border rounded-2xl max-w-lg w-full p-6 space-y-6 extruded-shadow animate-in fade-in my-8">
-            <div className="flex justify-between items-center border-b border-hairline-border pb-4">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4 overflow-hidden animate-in fade-in duration-200">
+          <div className="bg-surface-container border border-hairline-border rounded-2xl max-w-lg w-full max-h-[90vh] flex flex-col overflow-hidden shadow-2xl extruded-shadow animate-in zoom-in-95 duration-200">
+            {/* Header Fixo */}
+            <div className="px-6 py-4 bg-surface-container-high border-b border-hairline-border flex items-center justify-between shrink-0">
               <div>
-                <h3 className="font-headline-md text-xl font-bold text-on-surface flex items-center gap-2">
-                  <span className="material-symbols-outlined text-primary">pets</span>
+                <h3 className="font-bold text-base text-on-surface flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary text-xl">pets</span>
                   Cadastrar Pet para {petTargetClient.full_name}
                 </h3>
-                <p className="text-xs text-on-surface-variant mt-1">
+                <p className="text-[11px] text-on-surface-variant mt-0.5">
                   Ficha completa do pet vinculada ao tutor
                 </p>
               </div>
               <button
                 onClick={() => setShowAddPetModal(false)}
-                className="text-on-surface-variant hover:text-on-surface p-1 rounded-lg bg-surface-container cursor-pointer"
+                className="p-1.5 rounded-xl bg-surface-container hover:bg-surface-container-highest text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer"
               >
-                <span className="material-symbols-outlined">close</span>
+                <span className="material-symbols-outlined text-lg">close</span>
               </button>
             </div>
 
-            <form onSubmit={handleSavePetForClient} className="space-y-4">
-              {/* Foto do Pet */}
-              <div className="flex flex-col items-center justify-center gap-2">
-                <div className="w-20 h-20 rounded-full bg-surface-container border-2 border-dashed border-hairline-border flex items-center justify-center relative overflow-hidden group">
-                  {petPhotoUrl ? (
-                    <img src={petPhotoUrl} alt="Preview" className="w-full h-full object-cover" />
-                  ) : (
-                    <span className="material-symbols-outlined text-3xl text-outline">photo_camera</span>
-                  )}
-                </div>
-                <input
-                  type="url"
-                  value={petPhotoUrl}
-                  onChange={(e) => setPetPhotoUrl(e.target.value)}
-                  placeholder="URL da Foto do Pet (Opcional)"
-                  className="w-full bg-surface-container border border-hairline-border rounded-xl px-3 py-2 text-xs text-on-surface placeholder:text-outline outline-none text-center"
-                />
-              </div>
-
-              {/* Nome do Pet */}
-              <div>
-                <label className="block text-xs font-bold text-on-surface-variant mb-1 uppercase">
-                  Nome do Pet *
-                </label>
-                <input
-                  required
-                  value={petName}
-                  onChange={(e) => setPetName(e.target.value)}
-                  placeholder="Ex: Bob, Nina, Tobey..."
-                  className="w-full bg-surface-container border border-hairline-border rounded-xl p-3 text-sm text-on-surface outline-none focus:border-primary font-medium"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-on-surface-variant mb-1 uppercase">
-                    Espécie *
-                  </label>
-                  <select
-                    value={petSpecies}
-                    onChange={(e) => setPetSpecies(e.target.value)}
-                    className="w-full bg-surface-container border border-hairline-border rounded-xl p-3 text-sm text-on-surface outline-none focus:border-primary cursor-pointer font-medium"
-                  >
-                    <option value="Cachorro">Cachorro</option>
-                    <option value="Gato">Gato</option>
-                    <option value="Outro">Outro</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-on-surface-variant mb-1 uppercase">
-                    Raça
-                  </label>
+            {/* Corpo Rolável do Formulário */}
+            <form onSubmit={handleSavePetForClient} className="flex flex-col flex-1 overflow-hidden">
+              <div className="p-6 overflow-y-auto space-y-4 flex-1 text-xs">
+                {/* Foto do Pet */}
+                <div className="flex flex-col items-center justify-center gap-2 pb-2">
+                  <div className="w-20 h-20 rounded-2xl bg-surface-container-high border-2 border-dashed border-hairline-border flex items-center justify-center relative overflow-hidden group shadow-inner">
+                    {petPhotoUrl ? (
+                      <img src={petPhotoUrl} alt="Preview" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="material-symbols-outlined text-3xl text-outline">photo_camera</span>
+                    )}
+                  </div>
                   <input
-                    value={petBreed}
-                    onChange={(e) => setPetBreed(e.target.value)}
-                    placeholder="Ex: Poodle, Shih Tzu, SRD"
-                    className="w-full bg-surface-container border border-hairline-border rounded-xl p-3 text-sm text-on-surface outline-none focus:border-primary font-medium"
+                    type="url"
+                    value={petPhotoUrl}
+                    onChange={(e) => setPetPhotoUrl(e.target.value)}
+                    placeholder="URL da Foto do Pet (Opcional)"
+                    className="w-full bg-matte-canvas border border-hairline-border rounded-xl px-3 py-2 text-xs text-on-surface placeholder:text-outline outline-none text-center focus:border-primary"
                   />
                 </div>
-              </div>
 
-              {/* Sexo (Macho / Fêmea buttons) */}
-              <div>
-                <label className="block text-xs font-bold text-on-surface-variant mb-1 uppercase">
-                  Sexo
-                </label>
-                <div className="flex bg-surface-container p-1 rounded-xl border border-hairline-border">
-                  <button
-                    type="button"
-                    onClick={() => setPetSex("Macho")}
-                    className={`flex-1 text-center py-2.5 rounded-lg font-bold text-xs transition-all cursor-pointer ${
-                      petSex === "Macho"
-                        ? "bg-primary text-on-primary"
-                        : "text-on-surface-variant hover:text-on-surface"
-                    }`}
-                  >
-                    Macho
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPetSex("Fêmea")}
-                    className={`flex-1 text-center py-2.5 rounded-lg font-bold text-xs transition-all cursor-pointer ${
-                      petSex === "Fêmea"
-                        ? "bg-primary text-on-primary"
-                        : "text-on-surface-variant hover:text-on-surface"
-                    }`}
-                  >
-                    Fêmea
-                  </button>
+                {/* Nome do Pet */}
+                <div>
+                  <label className="block text-[11px] font-bold text-on-surface-variant mb-1 uppercase">
+                    Nome do Pet *
+                  </label>
+                  <input
+                    required
+                    value={petName}
+                    onChange={(e) => setPetName(e.target.value)}
+                    placeholder="Ex: Bob, Nina, Tobey..."
+                    className="w-full bg-matte-canvas border border-hairline-border rounded-xl p-3 text-xs text-on-surface outline-none focus:border-primary font-medium"
+                  />
                 </div>
-              </div>
 
-              {/* Idade Aproximada: Anos e Meses */}
-              <div>
-                <label className="block text-xs font-bold text-on-surface-variant mb-1 uppercase">
-                  Idade Aproximada
-                </label>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-[10px] text-on-surface-variant font-bold uppercase block mb-0.5">Anos</label>
+                    <label className="block text-[11px] font-bold text-on-surface-variant mb-1 uppercase">
+                      Espécie *
+                    </label>
                     <select
-                      value={petAgeYears}
-                      onChange={(e) => setPetAgeYears(e.target.value)}
-                      className="w-full bg-surface-container border border-hairline-border rounded-xl px-3 py-2 text-on-surface text-sm outline-none cursor-pointer"
+                      value={petSpecies}
+                      onChange={(e) => setPetSpecies(e.target.value)}
+                      className="w-full bg-matte-canvas border border-hairline-border rounded-xl p-3 text-xs text-on-surface outline-none focus:border-primary cursor-pointer font-medium"
                     >
-                      {Array.from({ length: 31 }, (_, i) => (
-                        <option key={i} value={i}>{i} {i === 1 ? "ano" : "anos"}</option>
-                      ))}
+                      <option value="Cachorro">Cachorro</option>
+                      <option value="Gato">Gato</option>
+                      <option value="Outro">Outro</option>
                     </select>
                   </div>
+
                   <div>
-                    <label className="text-[10px] text-on-surface-variant font-bold uppercase block mb-0.5">Meses</label>
-                    <select
-                      value={petAgeMonths}
-                      onChange={(e) => setPetAgeMonths(e.target.value)}
-                      className="w-full bg-surface-container border border-hairline-border rounded-xl px-3 py-2 text-on-surface text-sm outline-none cursor-pointer"
+                    <label className="block text-[11px] font-bold text-on-surface-variant mb-1 uppercase">
+                      Raça
+                    </label>
+                    <input
+                      value={petBreed}
+                      onChange={(e) => setPetBreed(e.target.value)}
+                      placeholder="Ex: Poodle, Shih Tzu, SRD"
+                      className="w-full bg-matte-canvas border border-hairline-border rounded-xl p-3 text-xs text-on-surface outline-none focus:border-primary font-medium"
+                    />
+                  </div>
+                </div>
+
+                {/* Sexo (Macho / Fêmea buttons) */}
+                <div>
+                  <label className="block text-[11px] font-bold text-on-surface-variant mb-1 uppercase">
+                    Sexo
+                  </label>
+                  <div className="flex bg-matte-canvas p-1 rounded-xl border border-hairline-border">
+                    <button
+                      type="button"
+                      onClick={() => setPetSex("Macho")}
+                      className={`flex-1 text-center py-2 rounded-lg font-bold text-xs transition-all cursor-pointer ${
+                        petSex === "Macho"
+                          ? "bg-primary text-on-primary shadow-sm"
+                          : "text-on-surface-variant hover:text-on-surface"
+                      }`}
                     >
-                      {Array.from({ length: 12 }, (_, i) => (
-                        <option key={i} value={i}>{i} {i === 1 ? "mês" : "meses"}</option>
-                      ))}
+                      Macho
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPetSex("Fêmea")}
+                      className={`flex-1 text-center py-2 rounded-lg font-bold text-xs transition-all cursor-pointer ${
+                        petSex === "Fêmea"
+                          ? "bg-primary text-on-primary shadow-sm"
+                          : "text-on-surface-variant hover:text-on-surface"
+                      }`}
+                    >
+                      Fêmea
+                    </button>
+                  </div>
+                </div>
+
+                {/* Idade Aproximada: Anos e Meses */}
+                <div>
+                  <label className="block text-[11px] font-bold text-on-surface-variant mb-1 uppercase">
+                    Idade Aproximada
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] text-on-surface-variant font-bold uppercase block mb-0.5">Anos</label>
+                      <select
+                        value={petAgeYears}
+                        onChange={(e) => setPetAgeYears(e.target.value)}
+                        className="w-full bg-matte-canvas border border-hairline-border rounded-xl px-3 py-2 text-on-surface text-xs outline-none cursor-pointer"
+                      >
+                        {Array.from({ length: 31 }, (_, i) => (
+                          <option key={i} value={i}>{i} {i === 1 ? "ano" : "anos"}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-on-surface-variant font-bold uppercase block mb-0.5">Meses</label>
+                      <select
+                        value={petAgeMonths}
+                        onChange={(e) => setPetAgeMonths(e.target.value)}
+                        className="w-full bg-matte-canvas border border-hairline-border rounded-xl px-3 py-2 text-on-surface text-xs outline-none cursor-pointer"
+                      >
+                        {Array.from({ length: 12 }, (_, i) => (
+                          <option key={i} value={i}>{i} {i === 1 ? "mês" : "meses"}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-on-surface-variant mb-1 uppercase">
+                      Peso (KG)
+                    </label>
+                    <input
+                      value={petWeight}
+                      onChange={(e) => setPetWeight(e.target.value)}
+                      placeholder="Ex: 8.5"
+                      type="number"
+                      step="0.1"
+                      className="w-full bg-matte-canvas border border-hairline-border rounded-xl p-3 text-xs text-on-surface outline-none focus:border-primary font-medium"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-on-surface-variant mb-1 uppercase">
+                      Pelagem
+                    </label>
+                    <select
+                      value={petCoat}
+                      onChange={(e) => setPetCoat(e.target.value)}
+                      className="w-full bg-matte-canvas border border-hairline-border rounded-xl p-3 text-xs text-on-surface outline-none focus:border-primary cursor-pointer font-medium"
+                    >
+                      <option value="Curta">Curta</option>
+                      <option value="Média">Média</option>
+                      <option value="Longa">Longa</option>
+                      <option value="Lisa">Lisa</option>
+                      <option value="Cacheada">Cacheada</option>
+                      <option value="Crespa">Crespa</option>
                     </select>
                   </div>
                 </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-on-surface-variant mb-1 uppercase">
-                    Peso QUILOGRAMAS (KG)
+                  <label className="block text-[11px] font-bold text-on-surface-variant mb-1 uppercase">
+                    Cor
                   </label>
                   <input
-                    value={petWeight}
-                    onChange={(e) => setPetWeight(e.target.value)}
-                    placeholder="Ex: 8.5"
-                    type="number"
-                    step="0.1"
-                    className="w-full bg-surface-container border border-hairline-border rounded-xl p-3 text-sm text-on-surface outline-none focus:border-primary font-medium"
+                    value={petColor}
+                    onChange={(e) => setPetColor(e.target.value)}
+                    placeholder="Ex: Preto e Branco"
+                    className="w-full bg-matte-canvas border border-hairline-border rounded-xl p-3 text-xs text-on-surface outline-none focus:border-primary font-medium"
                   />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-on-surface-variant mb-1 uppercase">
-                    Pelagem
+                {/* Checkbox Castrado */}
+                <div className="flex items-center gap-2 pt-1">
+                  <input
+                    id="client_pet_castrated"
+                    type="checkbox"
+                    checked={petIsCastrated}
+                    onChange={(e) => setPetIsCastrated(e.target.checked)}
+                    className="rounded bg-matte-canvas border-hairline-border text-primary cursor-pointer w-4 h-4"
+                  />
+                  <label htmlFor="client_pet_castrated" className="text-xs text-on-surface font-bold cursor-pointer">
+                    Meu pet é castrado
                   </label>
-                  <select
-                    value={petCoat}
-                    onChange={(e) => setPetCoat(e.target.value)}
-                    className="w-full bg-surface-container border border-hairline-border rounded-xl p-3 text-sm text-on-surface outline-none focus:border-primary cursor-pointer font-medium"
-                  >
-                    <option value="Curta">Curta</option>
-                    <option value="Média">Média</option>
-                    <option value="Longa">Longa</option>
-                    <option value="Lisa">Lisa</option>
-                    <option value="Cacheada">Cacheada</option>
-                    <option value="Crespa">Crespa</option>
-                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-on-surface-variant mb-1 uppercase">
+                    Observações Clínicas / Cuidados
+                  </label>
+                  <textarea
+                    value={petObservations}
+                    onChange={(e) => setPetObservations(e.target.value)}
+                    placeholder="Ex: Alérgico a sabão com fragrância, bravo para cortar unhas..."
+                    rows={2}
+                    className="w-full bg-matte-canvas border border-hairline-border rounded-xl p-3 text-xs text-on-surface outline-none focus:border-primary font-medium resize-none"
+                  />
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-on-surface-variant mb-1 uppercase">
-                  Cor
-                </label>
-                <input
-                  value={petColor}
-                  onChange={(e) => setPetColor(e.target.value)}
-                  placeholder="Ex: Preto e Branco"
-                  className="w-full bg-surface-container border border-hairline-border rounded-xl p-3 text-sm text-on-surface outline-none focus:border-primary font-medium"
-                />
-              </div>
-
-              {/* Checkbox Castrado */}
-              <div className="flex items-center gap-2 pt-1">
-                <input
-                  id="client_pet_castrated"
-                  type="checkbox"
-                  checked={petIsCastrated}
-                  onChange={(e) => setPetIsCastrated(e.target.checked)}
-                  className="rounded bg-surface-container border-hairline-border text-primary cursor-pointer w-4 h-4"
-                />
-                <label htmlFor="client_pet_castrated" className="text-xs text-on-surface font-bold cursor-pointer">
-                  Meu pet é castrado
-                </label>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-on-surface-variant mb-1 uppercase">
-                  Observações Clínicas / Cuidados
-                </label>
-                <textarea
-                  value={petObservations}
-                  onChange={(e) => setPetObservations(e.target.value)}
-                  placeholder="Ex: Alérgico a sabão com fragrância, bravo para cortar unhas..."
-                  rows={2}
-                  className="w-full bg-surface-container border border-hairline-border rounded-xl p-3 text-sm text-on-surface outline-none focus:border-primary font-medium"
-                />
-              </div>
-
-              <div className="pt-2 flex gap-3">
+              {/* Rodapé Fixo */}
+              <div className="px-6 py-4 bg-surface-container-high border-t border-hairline-border flex items-center justify-end gap-3 shrink-0">
                 <button
                   type="button"
                   onClick={() => setShowAddPetModal(false)}
-                  className="flex-1 py-3 bg-surface-container text-on-surface font-bold text-xs rounded-xl hover:bg-surface-container-high transition-colors cursor-pointer"
+                  className="px-5 py-2.5 rounded-xl bg-surface-container border border-hairline-border hover:bg-surface-container-highest font-bold text-xs text-on-surface transition-all cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={isSavingPet}
-                  className="flex-1 py-3 bg-primary text-on-primary font-bold text-xs rounded-xl hover:brightness-110 active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2"
+                  className="px-5 py-2.5 rounded-xl bg-primary text-on-primary font-bold text-xs hover:brightness-110 active:scale-95 transition-all cursor-pointer shadow-md flex items-center justify-center gap-2 disabled:opacity-60"
                 >
+                  <span className="material-symbols-outlined text-base">save</span>
                   {isSavingPet ? "Salvando Pet..." : "Salvar e Vincular Pet"}
                 </button>
               </div>

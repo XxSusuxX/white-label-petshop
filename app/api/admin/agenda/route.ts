@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { findSchedulingConflict } from "@/lib/server/booking";
 import { createNotification, getClientIdForPet } from "@/lib/server/notifications";
 import { triggerAutomation, getBookingContactInfo } from "@/lib/server/automations";
@@ -175,6 +176,10 @@ export const GET = withTenantRoute(async () => {
 export const POST = withTenantRoute(async (request: Request) => {
   try {
     const adminSupabase = createAdminClient();
+    const supabase = createClient();
+    const {
+      data: { user: actor },
+    } = await supabase.auth.getUser();
     const body = await request.json();
 
     const { pet_id, service_id, service_type, service_date, notes, address, professional, price, force, use_package_id, recurring_interval_days, client_id } = body;
@@ -291,6 +296,10 @@ export const POST = withTenantRoute(async (request: Request) => {
       return NextResponse.json({ error: msg }, { status: 500 });
     }
 
+    if (actor) {
+      await adminSupabase.from("appointments").update({ updated_by: actor.id }).eq("id", newRow.id);
+    }
+
     const clientId = await getClientIdForPet(pet_id);
     if (clientId) {
       const dateLabel = new Date(service_date).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
@@ -314,6 +323,10 @@ export const POST = withTenantRoute(async (request: Request) => {
 export const PATCH = withTenantRoute(async (request: Request) => {
   try {
     const adminSupabase = createAdminClient();
+    const supabase = createClient();
+    const {
+      data: { user: actor },
+    } = await supabase.auth.getUser();
     const body = await request.json();
 
     const { id, status, notes, address, service_date, service_id, service_type, professional, price, force } = body;
@@ -360,6 +373,7 @@ export const PATCH = withTenantRoute(async (request: Request) => {
     }
 
     const updateData: Record<string, any> = { updated_at: new Date().toISOString() };
+    if (actor) updateData.updated_by = actor.id;
     if (status !== undefined) updateData.status = status;
     if (notes !== undefined) updateData.notes = notes;
     if (address !== undefined) updateData.address = address;

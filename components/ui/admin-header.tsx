@@ -130,9 +130,12 @@ export function AdminHeader() {
         setNotifications(fetched);
         setUnreadCount(data.unreadCount || 0);
 
-        // Disparar notificação nativa do navegador para itens não lidos inéditos
+        const now = Date.now();
         fetched.forEach((n) => {
-          if (!n.is_read && !shownNotifIds.has(n.id)) {
+          const createdTime = new Date(n.created_at).getTime();
+          const isRecent = !isNaN(createdTime) && now - createdTime < 10 * 60 * 1000;
+
+          if (!n.is_read && isRecent && !shownNotifIds.has(n.id)) {
             shownNotifIds.add(n.id);
             sendBrowserNotification(n.title, { body: n.body });
           }
@@ -147,7 +150,7 @@ export function AdminHeader() {
 
   useEffect(() => {
     loadNotifications();
-    const interval = setInterval(loadNotifications, 30000);
+    const interval = setInterval(loadNotifications, 60000);
     return () => clearInterval(interval);
   }, []);
 
@@ -170,13 +173,11 @@ export function AdminHeader() {
     if (notif.is_read) return;
     setNotifications((prev) => prev.map((n) => (n.id === notif.id ? { ...n, is_read: true } : n)));
     setUnreadCount((c) => Math.max(0, c - 1));
-    if (!notif.computed) {
-      await fetch("/api/notifications", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: notif.id }),
-      });
-    }
+    await fetch("/api/notifications", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: notif.id }),
+    });
   };
 
   const handleMarkAllRead = async () => {
@@ -273,11 +274,11 @@ export function AdminHeader() {
           <button
             onClick={handleOpenNotifications}
             title="Notificações do Sistema"
-            className="p-2.5 rounded-xl bg-surface-container border border-hairline-border hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-colors relative cursor-pointer"
+            className="h-10 w-10 rounded-xl bg-surface-container border border-hairline-border hover:bg-surface-container-high hover:border-primary/40 text-on-surface-variant hover:text-on-surface transition-all relative flex items-center justify-center cursor-pointer shadow-sm"
           >
             <span className="material-symbols-outlined text-lg">notifications</span>
             {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-on-primary text-[10px] font-bold flex items-center justify-center shadow-md">
+              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-on-primary text-[10px] font-extrabold flex items-center justify-center shadow-sm">
                 {unreadCount > 9 ? "9+" : unreadCount}
               </span>
             )}
@@ -353,7 +354,7 @@ export function AdminHeader() {
         {isAdminUser && (
           <Link
             href="/admin/register-admin"
-            className="px-3.5 py-2.5 bg-surface-container border border-primary/40 text-primary hover:bg-primary/15 hover:border-primary font-bold text-xs rounded-xl transition-all flex items-center gap-2 cursor-pointer shadow-sm"
+            className="h-10 px-3.5 rounded-xl bg-surface-container border border-hairline-border hover:border-primary/50 text-on-surface font-bold text-xs flex items-center gap-2 hover:bg-surface-container-high transition-all cursor-pointer shadow-sm"
             title="Registrar Novo Administrador no Sistema"
           >
             <span className="material-symbols-outlined text-base text-primary">person_add</span>
@@ -364,7 +365,7 @@ export function AdminHeader() {
         {/* CTA Rápido: Abrir PDV */}
         <Link
           href="/admin/pdv"
-          className="px-4 py-2.5 bg-primary text-on-primary font-bold text-xs rounded-xl extruded-shadow hover:brightness-110 active:scale-95 transition-all flex items-center gap-2"
+          className="h-10 px-4 rounded-xl bg-primary text-on-primary font-bold text-xs flex items-center gap-2 hover:brightness-110 active:scale-95 transition-all cursor-pointer shadow-sm shadow-primary/20"
         >
           <span className="material-symbols-outlined text-base">point_of_sale</span>
           <span className="hidden sm:inline">Abrir PDV</span>

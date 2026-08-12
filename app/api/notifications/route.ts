@@ -16,7 +16,7 @@ const STAFF_ROLES = [
   "funcionario",
 ];
 
-// GET: Notificações filtradas por cargo (Admin, Dono, Veterinário, Banhista/Tosador, Recepcionista, Entregador, Auxiliar, Tutor)
+// GET: Notificações filtradas com separação entre Staff e Cliente e persistência de lidas
 export const GET = withTenantRoute(async () => {
   try {
     const supabase = createClient();
@@ -30,6 +30,9 @@ export const GET = withTenantRoute(async () => {
 
     const adminSupabase = createAdminClient();
 
+    // IDs de notificações que o usuário já marcou como lidas (salvos em user_metadata)
+    const readNotifIds = new Set<string>(user.user_metadata?.read_notif_ids || []);
+
     // 1. Buscar perfil do usuário para determinar seu cargo/função
     const { data: profile } = await adminSupabase
       .from("profiles")
@@ -41,7 +44,9 @@ export const GET = withTenantRoute(async () => {
     const isStaff = STAFF_ROLES.includes(userRole);
 
     if (isStaff) {
-      // Notificações salvas na tabela 'notifications'
+      // -------------------------------------------------------------
+      // FLUXO DA EQUIPE / GESTOR (STAFF)
+      // -------------------------------------------------------------
       const { data: stored, error } = await adminSupabase
         .from("notifications")
         .select("*")
@@ -53,10 +58,10 @@ export const GET = withTenantRoute(async () => {
         console.error("Erro ao buscar notificações do sistema:", error);
       }
 
-      // Alertas operacionais em tempo real da tabela de agendamentos
+      // Alertas operacionais da esteira de agendamentos
       const { data: appts } = await adminSupabase
         .from("appointments")
-        .select("id, pet_id, service_type, scheduled_at, status, notes")
+        .select("id, pet_id, service_type, scheduled_at, status, notes, updated_by")
         .eq("pet_shop_id", getTenantId())
         .order("scheduled_at", { ascending: false })
         .limit(50);
@@ -87,6 +92,7 @@ export const GET = withTenantRoute(async () => {
             title: "Pet Pronto para Busca",
             body: `${petName} finalizou o atendimento de ${a.service_type} e aguarda na recepção.`,
             appointment_id: a.id,
+            actor_id: a.updated_by || null,
             is_read: false,
             created_at: a.scheduled_at || new Date().toISOString(),
             computed: true,
@@ -100,6 +106,7 @@ export const GET = withTenantRoute(async () => {
             title: "Atendimento em Andamento",
             body: `${petName} deu entrada na esteira (${a.service_type}).`,
             appointment_id: a.id,
+            actor_id: a.updated_by || null,
             is_read: false,
             created_at: a.scheduled_at || new Date().toISOString(),
             computed: true,
@@ -113,6 +120,7 @@ export const GET = withTenantRoute(async () => {
             title: "Atendimento Concluído",
             body: `Serviço de ${a.service_type} para ${petName} finalizado com sucesso.`,
             appointment_id: a.id,
+            actor_id: a.updated_by || null,
             is_read: false,
             created_at: a.scheduled_at || new Date().toISOString(),
             computed: true,
@@ -126,6 +134,7 @@ export const GET = withTenantRoute(async () => {
             title: "Pet em Rota de Entrega",
             body: `${petName} está em rota de transporte para o tutor.`,
             appointment_id: a.id,
+            actor_id: a.updated_by || null,
             is_read: false,
             created_at: a.scheduled_at || new Date().toISOString(),
             computed: true,
@@ -139,6 +148,7 @@ export const GET = withTenantRoute(async () => {
             title: "Agendamento para Hoje",
             body: `${petName} — ${a.service_type} agendado para hoje.`,
             appointment_id: a.id,
+            actor_id: a.updated_by || null,
             is_read: false,
             created_at: a.scheduled_at || new Date().toISOString(),
             computed: true,
@@ -146,50 +156,44 @@ export const GET = withTenantRoute(async () => {
         }
       });
 
-      // -------------------------------------------------------------
-      // FILTRAGEM DE NOTIFICAÇÕES POR CARGO ESPECÍFICO DO USUÁRIO
-      // -------------------------------------------------------------
+      // Filtragem por cargo específico do usuário da equipe
       const filteredLiveAlerts = rawLiveAlerts.filter((item) => {
-        // Admin: Vê TODAS as notificações
-        if (userRole === "admin") return true;
+        // Nunca notificar o próprio autor da mudança de status que gerou o alerta
+        if (item.actor_id && item.actor_id === user.id) return false;
 
-        // Dono: Vê APENAS Agendamentos Novos e Conclusão de Atendimento
+        if (userRole === "admin") return item.role_target.includes("admin");
         if (userRole === "dono") {
           return item.type === "agendamento_criado" || item.type === "agendamento_concluido";
         }
-
-        // Médico Veterinário: Notificações de consultas / veterinária
         if (userRole === "veterinario") {
           const s = (item.service_type || "").toLowerCase();
-          const isVetService = s.includes("consulta") || s.includes("vacina") || s.includes("vet") || s.includes("exame");
-          return isVetService || item.role_target.includes("veterinario");
+          return s.includes("consulta") || s.includes("vacina") || s.includes("vet") || item.role_target.includes("veterinario");
         }
-
-        // Banhista & Tosador: Banho, Tosa, Higienização, Hidratação
         if (userRole === "banhista_tosador") {
           const s = (item.service_type || "").toLowerCase();
-          const isBathGrooming = s.includes("banho") || s.includes("tosa") || s.includes("higieni") || s.includes("hidrat");
-          return isBathGrooming || item.role_target.includes("banhista_tosador");
+          return s.includes("banho") || s.includes("tosa") || s.includes("higieni") || item.role_target.includes("banhista_tosador");
         }
-
-        // Recepcionista: Entrada, agendamentos novos, pets prontos
-        if (userRole === "recepcionista") {
-          return item.role_target.includes("recepcionista");
-        }
-
-        // Entregador: Pets prontos para busca/entrega e em rota
-        if (userRole === "entregador") {
-          return item.role_target.includes("entregador");
-        }
-
-        // Demais cargos da equipe (Auxiliar, Funcionário)
         return item.role_target.includes(userRole) || userRole === "funcionario";
       });
 
-      // Evitar duplicidades e ordenar por data decrescente
+      // Filtrar notificações armazenadas que não sejam estritamente mensagens privadas de tutor
+      const staffStored = (stored || []).filter((n) => {
+        const title = (n.title || "").toLowerCase();
+        const body = (n.body || "").toLowerCase();
+        // Incluir se for alerta geral ou agendamento novo/cancelado
+        if (title.includes("novo agendamento") || title.includes("cancelado") || title.includes("cliente")) return true;
+        // Ocultar notificações que são mensagens direcionadas apenas ao tutor individual (ex: "Seu pet está em banho")
+        if (body.startsWith("seu pet") || body.startsWith("seu agendamento")) return false;
+        return true;
+      });
+
+      // Unificar e aplicar estado de leitura persistido
       const notifMap = new Map<string, any>();
-      [...filteredLiveAlerts, ...(stored || [])].forEach((n) => {
-        if (!notifMap.has(n.id)) notifMap.set(n.id, n);
+      [...filteredLiveAlerts, ...staffStored].forEach((n) => {
+        if (!notifMap.has(n.id)) {
+          const isRead = n.is_read || readNotifIds.has(n.id);
+          notifMap.set(n.id, { ...n, is_read: isRead });
+        }
       });
 
       const allNotifs = Array.from(notifMap.values()).sort(
@@ -235,7 +239,7 @@ export const GET = withTenantRoute(async () => {
       reminders = (upcoming || []).map((a) => ({
         id: `reminder-${a.id}`,
         type: "lembrete",
-        title: "Agendamento se aproxima",
+        title: "Agendamento se aproxima ⏰",
         body: `${petMap.get(a.pet_id) || "Seu pet"} tem ${a.service_type} agendado para ${new Date(a.scheduled_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}.`,
         appointment_id: a.id,
         is_read: false,
@@ -244,7 +248,16 @@ export const GET = withTenantRoute(async () => {
       }));
     }
 
-    const all = [...reminders, ...(stored || [])].sort(
+    // Unificar e aplicar estado de leitura
+    const notifMap = new Map<string, any>();
+    [...reminders, ...(stored || [])].forEach((n) => {
+      if (!notifMap.has(n.id)) {
+        const isRead = n.is_read || readNotifIds.has(n.id);
+        notifMap.set(n.id, { ...n, is_read: isRead });
+      }
+    });
+
+    const all = Array.from(notifMap.values()).sort(
       (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     );
     const unreadCount = all.filter((n) => !n.is_read).length;
@@ -256,7 +269,7 @@ export const GET = withTenantRoute(async () => {
   }
 });
 
-// PATCH: Marcar notificação(ões) como lida(s)
+// PATCH: Marcar notificação(ões) como lida(s) e salvar estado em user_metadata
 export const PATCH = withTenantRoute(async (request: Request) => {
   try {
     const supabase = createClient();
@@ -273,52 +286,55 @@ export const PATCH = withTenantRoute(async (request: Request) => {
 
     const adminSupabase = createAdminClient();
 
-    const { data: profile } = await adminSupabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    const userRole = profile?.role || "cliente";
-    const isStaff = STAFF_ROLES.includes(userRole);
+    const currentReadIds: string[] = user.user_metadata?.read_notif_ids || [];
+    let updatedReadIds = [...currentReadIds];
 
     if (markAll) {
-      if (isStaff) {
-        const { error } = await adminSupabase
-          .from("notifications")
-          .update({ is_read: true })
-          .eq("pet_shop_id", getTenantId())
-          .eq("is_read", false);
-        if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-      } else {
-        const { error } = await adminSupabase
-          .from("notifications")
-          .update({ is_read: true })
-          .eq("client_id", user.id)
-          .eq("is_read", false);
-        if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-      }
-      return NextResponse.json({ success: true });
-    }
-
-    if (!id || typeof id !== "string" || id.startsWith("reminder-") || id.startsWith("staff-") || id.startsWith("admin-")) {
-      return NextResponse.json({ success: true });
-    }
-
-    if (isStaff) {
-      const { error } = await adminSupabase
+      // 1. Marca no banco se houver registro físico
+      await adminSupabase
         .from("notifications")
         .update({ is_read: true })
-        .eq("pet_shop_id", getTenantId())
-        .eq("id", id);
-      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    } else {
-      const { error } = await adminSupabase
-        .from("notifications")
-        .update({ is_read: true })
-        .eq("id", id)
         .eq("client_id", user.id);
-      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+      await adminSupabase
+        .from("notifications")
+        .update({ is_read: true })
+        .eq("pet_shop_id", getTenantId());
+
+      // 2. Marca todas as notificações (incluindo computadas) como lidas salvando seus IDs
+      // Para markAll, buscamos a lista atual e marcamos os IDs computados também
+      const getRes = await fetch(new URL("/api/notifications", request.url).toString(), {
+        headers: { cookie: request.headers.get("cookie") || "" },
+      }).catch(() => null);
+
+      if (getRes && getRes.ok) {
+        const data = await getRes.json();
+        const allIds: string[] = (data.notifications || []).map((n: any) => n.id);
+        updatedReadIds = Array.from(new Set([...currentReadIds, ...allIds]));
+      }
+
+      await adminSupabase.auth.admin.updateUserById(user.id, {
+        user_metadata: { ...user.user_metadata, read_notif_ids: updatedReadIds },
+      });
+
+      return NextResponse.json({ success: true });
+    }
+
+    if (id && typeof id === "string") {
+      if (!updatedReadIds.includes(id)) {
+        updatedReadIds.push(id);
+        await adminSupabase.auth.admin.updateUserById(user.id, {
+          user_metadata: { ...user.user_metadata, read_notif_ids: updatedReadIds },
+        });
+      }
+
+      // Se não for um ID puramente computado (começando com reminder- ou staff-), atualiza no Supabase
+      if (!id.startsWith("reminder-") && !id.startsWith("staff-")) {
+        await adminSupabase
+          .from("notifications")
+          .update({ is_read: true })
+          .eq("id", id);
+      }
     }
 
     return NextResponse.json({ success: true });

@@ -243,11 +243,6 @@ export default function HashikoAdminAgendaPage() {
   // 3. Filtragem Inteligente Estilo Hashiko
   const filteredAppointments = useMemo(() => {
     return appointments.filter((app) => {
-      // Ocultar agendamentos que já foram redirecionados para a Operação Ao Vivo ([OPERACAO])
-      if (app.notes?.includes("[OPERACAO]")) {
-        return false;
-      }
-
       // Filtro de cancelados ocultos
       if (hideCanceled && app.status === "cancelado") {
         return false;
@@ -472,8 +467,6 @@ export default function HashikoAdminAgendaPage() {
       ? existingNotes
       : `[OPERACAO] | [STEP:0] | ${existingNotes}`;
 
-    // Remover imediatamente da lista local da Agenda (exclui da visualização do calendário)
-    setAppointments((prev) => prev.filter((item) => item.id !== app.id));
     setSelectedAppointmentDetail(null);
 
     try {
@@ -548,53 +541,54 @@ export default function HashikoAdminAgendaPage() {
 
   return (
     <div className="w-full min-h-screen bg-matte-canvas text-on-surface p-4 md:p-8 space-y-6">
-      {/* 1. Header Bar Identica ao Hashiko */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-surface-container border border-hairline-border p-4 rounded-2xl extruded-shadow">
+      {/* 1. Header Bar Identica ao Hashiko (Totalmente Responsiva no Mobile) */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-surface-container border border-hairline-border p-4 rounded-2xl extruded-shadow">
         {/* Date Controls (< Hoje > + Título) */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1 bg-surface-container-high border border-hairline-border rounded-xl p-1">
+        <div className="flex flex-wrap items-center justify-between sm:justify-start gap-3 w-full md:w-auto">
+          <div className="flex items-center gap-1 bg-surface-container-high border border-hairline-border rounded-xl p-1 shrink-0">
             <button
               onClick={handlePrev}
               title="Anterior"
-              className="px-3 py-1.5 hover:bg-surface-container-highest rounded-lg text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer"
+              className="px-2.5 py-1.5 hover:bg-surface-container-highest rounded-lg text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer text-xs font-bold"
             >
               &lt;
             </button>
             <button
               onClick={handleToday}
-              className="px-4 py-1.5 bg-matte-canvas hover:bg-surface-container-highest rounded-lg font-bold text-xs text-on-surface transition-colors cursor-pointer"
+              className="px-3 py-1.5 bg-matte-canvas hover:bg-surface-container-highest rounded-lg font-bold text-xs text-on-surface transition-colors cursor-pointer"
             >
               Hoje
             </button>
             <button
               onClick={handleNext}
               title="Próximo"
-              className="px-3 py-1.5 hover:bg-surface-container-highest rounded-lg text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer"
+              className="px-2.5 py-1.5 hover:bg-surface-container-highest rounded-lg text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer text-xs font-bold"
             >
               &gt;
             </button>
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-primary text-xl">calendar_today</span>
-            <h1 className="font-headline-md text-headline-md font-bold text-on-surface">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="material-symbols-outlined text-primary text-xl shrink-0">calendar_today</span>
+            <h1 className="font-headline-md text-base sm:text-lg font-bold text-on-surface truncate">
               {currentMonthYearTitle}
             </h1>
           </div>
         </div>
 
         {/* Right Header: View Mode Tabs + + Novo Agendamento */}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
           {/* View Mode Tabs (Mês, Semana, Dia, Lista) */}
-          <div className="flex bg-surface-container-high rounded-xl p-1 border border-hairline-border">
+          <div className="grid grid-cols-4 bg-surface-container-high rounded-xl p-1 border border-hairline-border w-full sm:w-auto">
             {(["mes", "semana", "dia", "lista"] as const).map((mode) => (
               <button
                 key={mode}
                 onClick={() => setViewMode(mode)}
-                className={`px-4 py-1.5 rounded-lg text-xs font-bold capitalize transition-all cursor-pointer ${viewMode === mode
-                  ? "bg-primary text-on-primary shadow-sm"
-                  : "text-on-surface-variant hover:text-on-surface"
-                  }`}
+                className={`px-2 sm:px-3 py-1.5 rounded-lg text-xs font-bold capitalize transition-all cursor-pointer text-center ${
+                  viewMode === mode
+                    ? "bg-primary text-on-primary shadow-sm"
+                    : "text-on-surface-variant hover:text-on-surface"
+                }`}
               >
                 {mode === "mes" ? "Mês" : mode === "semana" ? "Semana" : mode === "dia" ? "Dia" : "Lista"}
               </button>
@@ -607,7 +601,7 @@ export default function HashikoAdminAgendaPage() {
               setFormDate(new Date().toISOString().slice(0, 10));
               setIsModalOpen(true);
             }}
-            className="bg-primary text-on-primary font-bold text-xs px-5 py-2.5 rounded-xl flex items-center gap-2 extruded-shadow hover:brightness-110 active:scale-95 transition-all cursor-pointer"
+            className="w-full sm:w-auto justify-center bg-primary text-on-primary font-bold text-xs px-5 py-2.5 rounded-xl flex items-center gap-2 extruded-shadow hover:brightness-110 active:scale-95 transition-all cursor-pointer shrink-0"
           >
             <span className="material-symbols-outlined text-lg">add</span>
             Novo Agendamento
@@ -615,10 +609,10 @@ export default function HashikoAdminAgendaPage() {
         </div>
       </div>
 
-      {/* 2. Rich Filter Bar (Filtros Hashiko) */}
-      <div className="bg-surface-container border border-hairline-border p-4 rounded-2xl flex flex-wrap items-center justify-between gap-4">
+      {/* 2. Rich Filter Bar (Filtros Responsivos no Mobile) */}
+      <div className="bg-surface-container border border-hairline-border p-4 rounded-2xl flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
         {/* Search Input */}
-        <div className="flex-1 relative min-w-[240px]">
+        <div className="relative w-full md:flex-1 min-w-0">
           <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg">
             search
           </span>
@@ -627,17 +621,17 @@ export default function HashikoAdminAgendaPage() {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Buscar por pet, tutor ou profissional..."
-            className="w-full bg-matte-canvas border border-hairline-border rounded-xl pl-10 pr-4 py-2 text-xs text-on-surface placeholder:text-outline focus:border-primary outline-none"
+            className="w-full bg-matte-canvas border border-hairline-border rounded-xl pl-10 pr-4 py-2.5 text-xs text-on-surface placeholder:text-outline focus:border-primary outline-none"
           />
         </div>
 
         {/* Dropdowns de Filtro */}
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-wrap items-center gap-2 w-full md:w-auto">
           {/* Profissionais */}
           <select
             value={selectedProfessional}
             onChange={(e) => setSelectedProfessional(e.target.value)}
-            className="bg-matte-canvas border border-hairline-border rounded-xl px-3 py-2 text-xs text-on-surface focus:border-primary outline-none cursor-pointer"
+            className="w-full sm:w-auto bg-matte-canvas border border-hairline-border rounded-xl px-3 py-2 text-xs text-on-surface focus:border-primary outline-none cursor-pointer truncate"
           >
             <option value="Todos os profissionais">Todos os profissionais</option>
             {professionalsList.map((p) => (
@@ -649,7 +643,7 @@ export default function HashikoAdminAgendaPage() {
           <select
             value={selectedType}
             onChange={(e) => setSelectedType(e.target.value)}
-            className="bg-matte-canvas border border-hairline-border rounded-xl px-3 py-2 text-xs text-on-surface focus:border-primary outline-none cursor-pointer"
+            className="w-full sm:w-auto bg-matte-canvas border border-hairline-border rounded-xl px-3 py-2 text-xs text-on-surface focus:border-primary outline-none cursor-pointer truncate"
           >
             <option value="Todos os tipos">Todos os tipos</option>
             {catalogList.map((s) => (
@@ -663,7 +657,7 @@ export default function HashikoAdminAgendaPage() {
           <select
             value={selectedStatus}
             onChange={(e) => setSelectedStatus(e.target.value)}
-            className="bg-matte-canvas border border-hairline-border rounded-xl px-3 py-2 text-xs text-on-surface focus:border-primary outline-none cursor-pointer"
+            className="w-full sm:w-auto bg-matte-canvas border border-hairline-border rounded-xl px-3 py-2 text-xs text-on-surface focus:border-primary outline-none cursor-pointer truncate"
           >
             <option value="Todos os status">Todos os status</option>
             <option value="Agendado">Agendado</option>
@@ -675,10 +669,11 @@ export default function HashikoAdminAgendaPage() {
           {/* Toggle Cancelados Ocultos */}
           <button
             onClick={() => setHideCanceled(!hideCanceled)}
-            className={`px-3 py-2 rounded-xl text-xs font-bold border transition-colors cursor-pointer flex items-center gap-1.5 ${hideCanceled
-              ? "bg-surface-container-high border-hairline-border text-on-surface-variant"
-              : "bg-rose-500/20 border-rose-500/30 text-rose-400"
-              }`}
+            className={`w-full sm:w-auto justify-center px-3 py-2 rounded-xl text-xs font-bold border transition-colors cursor-pointer flex items-center gap-1.5 ${
+              hideCanceled
+                ? "bg-surface-container-high border-hairline-border text-on-surface-variant"
+                : "bg-rose-500/20 border-rose-500/30 text-rose-400"
+            }`}
           >
             <span className="material-symbols-outlined text-sm">
               {hideCanceled ? "visibility_off" : "visibility"}
@@ -689,7 +684,7 @@ export default function HashikoAdminAgendaPage() {
           {/* Atalhos */}
           <button
             onClick={() => setIsShortcutsOpen(true)}
-            className="px-3 py-2 bg-matte-canvas border border-hairline-border hover:border-primary/50 text-on-surface-variant hover:text-on-surface rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1"
+            className="hidden sm:flex items-center justify-center gap-1 px-3 py-2 bg-matte-canvas border border-hairline-border hover:border-primary/50 text-on-surface-variant hover:text-on-surface rounded-xl text-xs font-bold transition-colors cursor-pointer"
           >
             <span className="material-symbols-outlined text-sm">keyboard</span>
             Atalhos

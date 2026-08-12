@@ -163,6 +163,7 @@ export interface AppointmentsRow {
   paid_via_package_id: string | null;
   reminder_sent_at: string | null;
   recurring_booking_id: string | null;
+  updated_by: string | null;
   created_at: string;
   updated_at: string;
 }

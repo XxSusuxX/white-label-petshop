@@ -37,8 +37,6 @@ export function AdminBottomNav() {
       }
     }
     loadNotifications();
-    const interval = setInterval(loadNotifications, 60000);
-    return () => clearInterval(interval);
   }, []);
 
   const handleLogout = async () => {

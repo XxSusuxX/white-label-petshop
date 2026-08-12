@@ -33,7 +33,6 @@ export const GET = withTenantRoute(async (request: Request) => {
         adminSupabase
           .from("weight_logs")
           .select("*")
-          .eq("pet_shop_id", getTenantId())
           .eq("pet_id", petId)
           .order("recorded_at", { ascending: false }),
       ]);
@@ -105,7 +104,7 @@ export const POST = withTenantRoute(async (request: Request) => {
       const { weight } = body;
       const { data, error } = await adminSupabase
         .from("weight_logs")
-        .insert({ pet_shop_id: getTenantId(), pet_id, weight })
+        .insert({ pet_id, weight })
         .select()
         .single();
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });

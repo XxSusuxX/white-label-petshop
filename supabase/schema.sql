@@ -121,6 +121,7 @@ CREATE TABLE IF NOT EXISTS public.appointments (
     paid_via_package_id UUID,
     reminder_sent_at TIMESTAMP WITH TIME ZONE,
     recurring_booking_id UUID,
+    updated_by UUID,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );

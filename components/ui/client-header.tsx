@@ -91,8 +91,12 @@ export function ClientHeader() {
         setNotifications(fetched);
         setUnreadCount(data.unreadCount || 0);
 
+        const now = Date.now();
         fetched.forEach((n) => {
-          if (!n.is_read && !shownClientNotifIds.has(n.id)) {
+          const createdTime = new Date(n.created_at).getTime();
+          const isRecent = !isNaN(createdTime) && now - createdTime < 10 * 60 * 1000;
+
+          if (!n.is_read && isRecent && !shownClientNotifIds.has(n.id)) {
             shownClientNotifIds.add(n.id);
             sendBrowserNotification(n.title, { body: n.body });
           }
@@ -107,7 +111,7 @@ export function ClientHeader() {
 
   useEffect(() => {
     loadNotifications();
-    const interval = setInterval(loadNotifications, 30000);
+    const interval = setInterval(loadNotifications, 60000);
     return () => clearInterval(interval);
   }, []);
 
@@ -130,13 +134,11 @@ export function ClientHeader() {
     if (notif.is_read) return;
     setNotifications((prev) => prev.map((n) => (n.id === notif.id ? { ...n, is_read: true } : n)));
     setUnreadCount((c) => Math.max(0, c - 1));
-    if (!notif.computed) {
-      await fetch("/api/notifications", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: notif.id }),
-      }).catch(() => {});
-    }
+    await fetch("/api/notifications", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: notif.id }),
+    }).catch(() => {});
   };
 
   const handleMarkAllRead = async () => {
