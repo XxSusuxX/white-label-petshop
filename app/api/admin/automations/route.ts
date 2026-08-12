@@ -7,12 +7,44 @@ const PET_SHOP_ID = "00000000-0000-0000-0000-000000000001";
 
 const DEFAULT_RULES = [
   {
-    rule_key: "lembrete_24h",
-    title: "Lembrete de Agendamento (24h antes)",
-    category: "lembrete",
+    rule_key: "agendamento_realizado",
+    title: "Agendamento Realizado (Confirmação Inicial)",
+    category: "operacao",
     enabled: true,
     message_template:
-      "Olá {tutor_name}! Lembramos que o agendamento de {service_name} para o pet {pet_name} está confirmado para amanhã às {time}. Responda 1 para confirmar ou 2 para reagendar.",
+      "Olá {tutor_name}! Seu agendamento de {service_name} para o pet {pet_name} em {date} às {time} foi realizado com sucesso! 🐾",
+  },
+  {
+    rule_key: "agendamento_confirmado",
+    title: "Agendamento Confirmado pela Equipe",
+    category: "operacao",
+    enabled: true,
+    message_template:
+      "Olá {tutor_name}! Seu agendamento de {service_name} para o pet {pet_name} foi confirmado pela nossa recepção. Esperamos vocês!",
+  },
+  {
+    rule_key: "agendamento_cancelado",
+    title: "Agendamento Cancelado",
+    category: "operacao",
+    enabled: true,
+    message_template:
+      "Olá {tutor_name}! Informamos que o agendamento de {service_name} para {pet_name} foi cancelado. Caso deseje reagendar, acesse nosso link ou entre em contato.",
+  },
+  {
+    rule_key: "atendimento_iniciado",
+    title: "Atendimento Iniciado na Operação",
+    category: "operacao",
+    enabled: true,
+    message_template:
+      "Olá {tutor_name}! O atendimento de {service_name} do seu pet {pet_name} acabou de ser iniciado pela nossa equipe! ✂️🛁",
+  },
+  {
+    rule_key: "atendimento_em_andamento",
+    title: "Atualização de Etapa em Andamento",
+    category: "operacao",
+    enabled: true,
+    message_template:
+      "Olá {tutor_name}! O pet {pet_name} está em atendimento ({current_step}). Em breve estará cheiroso e pronto!",
   },
   {
     rule_key: "pet_pronto",
@@ -21,6 +53,30 @@ const DEFAULT_RULES = [
     enabled: true,
     message_template:
       "Parabéns {tutor_name}! O {pet_name} já terminou o banho e está cheiroso e pronto para ser retirado na recepção! 🐾",
+  },
+  {
+    rule_key: "atendimento_concluido",
+    title: "Atendimento Concluído / Entregue",
+    category: "operacao",
+    enabled: true,
+    message_template:
+      "Olá {tutor_name}! O atendimento de {service_name} do pet {pet_name} foi concluído com sucesso. Muito obrigado pela confiança! 🐾",
+  },
+  {
+    rule_key: "boas_vindas_novo_cliente",
+    title: "Boas-Vindas para Novos Clientes (Link de Agendamento)",
+    category: "marketing",
+    enabled: true,
+    message_template:
+      "Olá {tutor_name}! Seja muito bem-vindo ao nosso petshop! 🐾 Para facilitar seu dia a dia, você pode agendar o atendimento do seu pet online no horário de sua preferência acessando: {booking_url}",
+  },
+  {
+    rule_key: "lembrete_24h",
+    title: "Lembrete de Agendamento (24h antes)",
+    category: "lembrete",
+    enabled: true,
+    message_template:
+      "Olá {tutor_name}! Lembramos que o agendamento de {service_name} para o pet {pet_name} está confirmado para amanhã às {time}. Responda 1 para confirmar ou 2 para reagendar.",
   },
   {
     rule_key: "aniversario",

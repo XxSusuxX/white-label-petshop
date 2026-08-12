@@ -52,21 +52,22 @@ export default function OperacaoPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Não foi possível carregar a operação.");
 
-      const todayStr = new Date().toISOString().slice(0, 10);
+      const today = new Date();
+      const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 
       const mapped: OpTask[] = (data.appointments || [])
         .filter((a: any) => {
           if (a.status === "bloqueio") return false;
 
-          // Incluir se tiver tag de operacao [OPERACAO] ou sub-etapa [STEP:
-          if (a.notes?.includes("[OPERACAO]") || a.notes?.includes("[STEP:")) return true;
-
-          // Incluir se estiver em atendimento, pronto, em rota, concluido ou cancelado
-          if (["em_atendimento", "pronto", "em_rota", "concluido", "cancelado"].includes(a.status)) return true;
-
-          // Verificar se e a data de hoje
+          // Verificar se e a data de hoje (Formato YYYY-MM-DD local ou ISO)
           const apptDateStr = a.date_iso ? String(a.date_iso).slice(0, 10) : "";
-          return apptDateStr === todayStr;
+
+          // Incluir se for hoje OU se já possuir marcação de esteira em andamento
+          if (apptDateStr === todayStr) return true;
+          if (a.notes?.includes("[OPERACAO]") || a.notes?.includes("[STEP:")) return true;
+          if (["em_atendimento", "pronto", "em_rota"].includes(a.status)) return true;
+
+          return false;
         })
         .map((a: any) => {
           const rawNotes = a.notes || "";

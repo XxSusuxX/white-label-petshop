@@ -170,13 +170,28 @@ export async function POST(request: Request) {
     const adminSupabase = createAdminClient();
     const body = await request.json();
 
-    const { pet_id, service_id, service_type, service_date, notes, address, professional, price, force, use_package_id, recurring_interval_days } = body;
+    const { pet_id, service_id, service_type, service_date, notes, address, professional, price, force, use_package_id, recurring_interval_days, client_id } = body;
 
     if (!pet_id || !service_type || !service_date) {
       return NextResponse.json(
         { error: "pet_id, service_type e service_date são obrigatórios" },
         { status: 400 }
       );
+    }
+
+    if (client_id) {
+      const { data: pet, error: petErr } = await adminSupabase
+        .from("pets")
+        .select("client_id")
+        .eq("id", pet_id)
+        .maybeSingle();
+
+      if (petErr || !pet || pet.client_id !== client_id) {
+        return NextResponse.json(
+          { error: "O pet selecionado não pertence ao cliente informado." },
+          { status: 400 }
+        );
+      }
     }
 
     if (!force) {
@@ -402,12 +417,36 @@ export async function PATCH(request: Request) {
         const msg = STATUS_MESSAGES[status];
         if (msg) await createNotification({ clientId, appointmentId: id, ...msg });
 
-        // Dispara automações reais de WhatsApp (best-effort, não trava a resposta)
-        if (status === "pronto" || status === "concluido") {
-          const info = await getBookingContactInfo(data.pet_id);
-          if (info?.tutorPhone) {
-            const ruleKey = status === "pronto" ? "pet_pronto" : "pedido_avaliacao";
+        // Dispara automações reais de WhatsApp para qualquer mudança de status (best-effort)
+        const info = await getBookingContactInfo(data.pet_id);
+        if (info?.tutorPhone) {
+          const RULE_KEYS: Record<string, string> = {
+            confirmado: "agendamento_confirmado",
+            em_atendimento: "atendimento_iniciado",
+            pronto: "pet_pronto",
+            concluido: "atendimento_concluido",
+            cancelado: "agendamento_cancelado",
+          };
+          const ruleKey = RULE_KEYS[status];
+          if (ruleKey) {
+            const dateStr = data.scheduled_at
+              ? new Date(data.scheduled_at).toLocaleDateString("pt-BR")
+              : "";
+            const timeStr = data.scheduled_at
+              ? new Date(data.scheduled_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
+              : "";
+
             await triggerAutomation(ruleKey, info.tutorPhone, {
+              tutor_name: info.tutorName,
+              pet_name: info.petName,
+              service_name: data.service_type || "Serviço",
+              date: dateStr,
+              time: timeStr,
+            });
+          }
+
+          if (status === "concluido") {
+            await triggerAutomation("pedido_avaliacao", info.tutorPhone, {
               tutor_name: info.tutorName,
               pet_name: info.petName,
               service_name: data.service_type || "",

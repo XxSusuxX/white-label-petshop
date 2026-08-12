@@ -35,6 +35,10 @@ function relativeTime(iso: string) {
   return `há ${diffD}d`;
 }
 
+import { requestNotificationPermission, sendBrowserNotification, registerServiceWorker } from "@/lib/client/push-notifications";
+
+const shownClientNotifIds = new Set<string>();
+
 export function ClientHeader() {
   const pathname = usePathname();
   const [userName, setUserName] = useState("Tutor");
@@ -45,6 +49,11 @@ export function ClientHeader() {
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [isLoadingNotif, setIsLoadingNotif] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    registerServiceWorker();
+    requestNotificationPermission();
+  }, []);
 
   useEffect(() => {
     async function loadUserProfile() {
@@ -78,8 +87,16 @@ export function ClientHeader() {
       const res = await fetch("/api/notifications");
       const data = await res.json();
       if (res.ok) {
-        setNotifications(data.notifications || []);
+        const fetched: NotificationItem[] = data.notifications || [];
+        setNotifications(fetched);
         setUnreadCount(data.unreadCount || 0);
+
+        fetched.forEach((n) => {
+          if (!n.is_read && !shownClientNotifIds.has(n.id)) {
+            shownClientNotifIds.add(n.id);
+            sendBrowserNotification(n.title, { body: n.body });
+          }
+        });
       }
     } catch (err) {
       console.warn("Aviso ao carregar notificações:", err);
@@ -90,7 +107,7 @@ export function ClientHeader() {
 
   useEffect(() => {
     loadNotifications();
-    const interval = setInterval(loadNotifications, 60000);
+    const interval = setInterval(loadNotifications, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -177,7 +194,7 @@ export function ClientHeader() {
         </p>
       </div>
 
-      <div className="flex items-center gap-2 md:gap-3">
+      <div className="hidden md:flex items-center gap-2 md:gap-3">
         {/* Notification Bell */}
         <div className="relative" ref={notifRef}>
           <button
@@ -267,6 +284,76 @@ export function ClientHeader() {
         </div>
 
         {/* Logout Button */}
+        <button
+          onClick={handleLogout}
+          title="Sair da Conta"
+          className="p-2.5 rounded-xl bg-surface-container border border-hairline-border hover:bg-red-500/10 hover:border-red-500/30 text-on-surface-variant hover:text-red-400 transition-colors flex items-center justify-center cursor-pointer"
+        >
+          <span className="material-symbols-outlined text-lg">logout</span>
+        </button>
+      </div>
+
+      {/* Mobile-only actions */}
+      <div className="flex md:hidden items-center justify-between gap-2">
+        <div className="relative" ref={notifRef}>
+          <button
+            onClick={handleOpenNotifications}
+            className="p-2.5 rounded-xl bg-surface-container border border-hairline-border text-on-surface-variant hover:text-on-surface transition-colors relative cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-lg">notifications</span>
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-on-primary text-[10px] font-bold flex items-center justify-center">
+                {unreadCount > 9 ? "9+" : unreadCount}
+              </span>
+            )}
+          </button>
+
+          {isNotifOpen && (
+            <div className="absolute right-0 mt-2 w-[calc(100vw-2rem)] max-w-sm bg-elevated-card border border-hairline-border rounded-2xl shadow-2xl z-50 overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-hairline-border">
+                <h3 className="font-bold text-sm text-on-surface">Notificações</h3>
+                {unreadCount > 0 && (
+                  <button onClick={handleMarkAllRead} className="text-[11px] font-bold text-primary hover:underline cursor-pointer">
+                    Marcar todas como lidas
+                  </button>
+                )}
+              </div>
+              <div className="max-h-96 overflow-y-auto">
+                {isLoadingNotif ? (
+                  <p className="text-xs text-on-surface-variant text-center py-8">Carregando...</p>
+                ) : notifications.length === 0 ? (
+                  <div className="text-center py-8 px-4">
+                    <span className="material-symbols-outlined text-3xl text-outline mb-2 block">notifications_off</span>
+                    <p className="text-xs text-on-surface-variant">Nenhuma notificação por aqui.</p>
+                  </div>
+                ) : (
+                  notifications.map((notif) => (
+                    <button
+                      key={notif.id}
+                      onClick={() => handleMarkRead(notif)}
+                      className={`w-full text-left px-4 py-3 border-b border-hairline-border/50 last:border-b-0 flex items-start gap-3 transition-colors cursor-pointer ${
+                        notif.is_read ? "hover:bg-surface-container" : "bg-primary/5 hover:bg-primary/10"
+                      }`}
+                    >
+                      <span className={`material-symbols-outlined text-lg mt-0.5 ${notif.is_read ? "text-on-surface-variant" : "text-primary"}`}>
+                        {TYPE_ICON[notif.type] || "notifications"}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className={`text-xs font-bold ${notif.is_read ? "text-on-surface-variant" : "text-on-surface"}`}>{notif.title}</p>
+                          {!notif.is_read && <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0"></span>}
+                        </div>
+                        <p className="text-[11px] text-on-surface-variant mt-0.5 leading-relaxed">{notif.body}</p>
+                        <p className="text-[10px] text-outline mt-1">{relativeTime(notif.created_at)}</p>
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
         <button
           onClick={handleLogout}
           title="Sair da Conta"

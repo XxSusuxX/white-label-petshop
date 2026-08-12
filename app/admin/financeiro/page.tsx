@@ -333,30 +333,46 @@ export default function FinanceiroPage() {
               <p className="text-xs text-on-surface-variant">Nenhuma venda vinculada a um cliente ainda.</p>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="text-left text-on-surface-variant border-b border-hairline-border">
-                      <th className="pb-2 font-bold">Cliente</th>
-                      <th className="pb-2 font-bold text-right">Total Gasto</th>
-                      <th className="pb-2 font-bold text-right">Compras</th>
-                      <th className="pb-2 font-bold text-right">Ticket Médio</th>
-                      <th className="pb-2 font-bold text-right">Última Compra</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {report.top_clients.map((c) => (
-                      <tr key={c.client_id} className="border-b border-hairline-border/50 last:border-0">
-                        <td className="py-2 font-bold text-on-surface">{c.full_name}</td>
-                        <td className="py-2 text-right text-primary font-bold">{fmt(c.total_spent)}</td>
-                        <td className="py-2 text-right text-on-surface-variant">{c.purchase_count}</td>
-                        <td className="py-2 text-right text-on-surface-variant">{fmt(c.avg_ticket)}</td>
-                        <td className="py-2 text-right text-on-surface-variant">
-                          {new Date(c.last_purchase_at).toLocaleDateString("pt-BR")}
-                        </td>
+                <div className="hidden md:block">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="text-left text-on-surface-variant border-b border-hairline-border">
+                        <th className="pb-2 font-bold">Cliente</th>
+                        <th className="pb-2 font-bold text-right">Total Gasto</th>
+                        <th className="pb-2 font-bold text-right">Compras</th>
+                        <th className="pb-2 font-bold text-right">Ticket Médio</th>
+                        <th className="pb-2 font-bold text-right">Última Compra</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {report.top_clients.map((c) => (
+                        <tr key={c.client_id} className="border-b border-hairline-border/50 last:border-0">
+                          <td className="py-2 font-bold text-on-surface">{c.full_name}</td>
+                          <td className="py-2 text-right text-primary font-bold">{fmt(c.total_spent)}</td>
+                          <td className="py-2 text-right text-on-surface-variant">{c.purchase_count}</td>
+                          <td className="py-2 text-right text-on-surface-variant">{fmt(c.avg_ticket)}</td>
+                          <td className="py-2 text-right text-on-surface-variant">
+                            {new Date(c.last_purchase_at).toLocaleDateString("pt-BR")}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="md:hidden space-y-2">
+                  {report.top_clients.map((c) => (
+                    <div key={c.client_id} className="bg-surface-container border border-hairline-border rounded-xl p-3 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-on-surface text-sm">{c.full_name}</span>
+                        <span className="text-[10px] text-on-surface-variant">{new Date(c.last_purchase_at).toLocaleDateString("pt-BR")}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-[11px] text-on-surface-variant">
+                        <span>Total: <strong className="text-primary">{fmt(c.total_spent)}</strong></span>
+                        <span>Ticket: {fmt(c.avg_ticket)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>

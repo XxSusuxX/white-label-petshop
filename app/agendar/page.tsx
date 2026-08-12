@@ -5,6 +5,8 @@ import Link from "next/link";
 
 export default function AgendarPublicPage() {
   const [step, setStep] = useState<number>(1);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   // Form selections
   const [selectedService, setSelectedService] = useState({
@@ -14,7 +16,7 @@ export default function AgendarPublicPage() {
     duration: "60 min",
   });
   const [selectedProfessional, setSelectedProfessional] = useState("Qualquer Profissional Disponível");
-  const [selectedDate, setSelectedDate] = useState("2026-07-29");
+  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [selectedTime, setSelectedTime] = useState("09:00");
 
   const [tutorName, setTutorName] = useState("");
@@ -31,13 +33,45 @@ export default function AgendarPublicPage() {
 
   const timeSlots = ["08:00", "09:00", "10:30", "13:00", "14:30", "16:00", "17:15"];
 
-  const handleFinishBooking = (e: React.FormEvent) => {
+  const handleFinishBooking = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!tutorName || !tutorPhone || !petName) {
       alert("Por favor, preencha os dados de contato e do seu pet.");
       return;
     }
-    setStep(4);
+
+    setIsSubmitting(true);
+    setSubmitError(null);
+
+    try {
+      const res = await fetch("/api/agendar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tutor_name: tutorName,
+          tutor_phone: tutorPhone,
+          pet_name: petName,
+          pet_breed: petBreed,
+          service_name: selectedService.name,
+          service_price: selectedService.price,
+          date: selectedDate,
+          time: selectedTime,
+          professional: selectedProfessional,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Não foi possível concluir seu agendamento.");
+      }
+
+      setStep(4);
+    } catch (err: any) {
+      console.error("Erro ao agendar:", err);
+      setSubmitError(err.message || "Ocorreu um erro ao processar seu agendamento.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const openWhatsAppConfirmation = () => {
@@ -69,10 +103,37 @@ export default function AgendarPublicPage() {
           </div>
         </div>
 
-        <Link href="/" className="text-caption font-label-bold text-on-surface-variant hover:text-primary transition-colors">
-          Voltar ao Início
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link href="/auth/login" className="text-xs font-label-bold text-on-surface-variant hover:text-primary transition-colors hidden sm:block">
+            Já tenho conta
+          </Link>
+          <Link href="/" className="text-xs font-label-bold text-on-surface-variant hover:text-primary transition-colors">
+            Voltar
+          </Link>
+        </div>
       </header>
+
+      {/* Banner de Incentivo ao Cadastro do Cliente (Item 7) */}
+      <section className="w-full max-w-3xl mx-auto mb-6 bg-gradient-to-r from-primary/15 via-surface-container to-surface-container border border-primary/30 p-4 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-md">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-primary/20 text-primary flex items-center justify-center shrink-0">
+            <span className="material-symbols-outlined text-lg">person_add</span>
+          </div>
+          <div>
+            <h3 className="font-bold text-xs text-on-surface">Quer acompanhar seus agendamentos em tempo real?</h3>
+            <p className="text-[11px] text-on-surface-variant">
+              Crie sua conta para historicos e prontuário. O cadastro é opcional e você pode agendar abaixo normalmente!
+            </p>
+          </div>
+        </div>
+
+        <Link
+          href="/auth/register"
+          className="px-3.5 py-2 bg-primary text-on-primary font-bold text-xs rounded-xl hover:brightness-110 transition-all shrink-0 w-full sm:w-auto text-center"
+        >
+          Criar Conta Grátis
+        </Link>
+      </section>
 
       {/* Main Form Container */}
       <main className="w-full max-w-3xl mx-auto bg-surface-container border border-hairline-border rounded-3xl p-6 md:p-10 extruded-shadow flex-1 flex flex-col gap-8">
@@ -142,6 +203,7 @@ export default function AgendarPublicPage() {
               <input
                 type="date"
                 value={selectedDate}
+                min={new Date().toISOString().slice(0, 10)}
                 onChange={(e) => setSelectedDate(e.target.value)}
                 className="w-full bg-elevated-card border border-hairline-border rounded-xl px-4 py-3 text-on-surface text-body-sm outline-none focus:border-primary cursor-pointer"
               />
@@ -155,7 +217,7 @@ export default function AgendarPublicPage() {
                     key={t}
                     type="button"
                     onClick={() => setSelectedTime(t)}
-                    className={`py-3 rounded-xl border text-center text-body-sm font-label-bold transition-all ${
+                    className={`py-3 rounded-xl border text-center text-body-sm font-label-bold transition-all cursor-pointer ${
                       selectedTime === t
                         ? "bg-primary text-on-primary border-primary"
                         : "bg-elevated-card border-hairline-border text-on-surface hover:border-primary/50"
@@ -206,9 +268,16 @@ export default function AgendarPublicPage() {
               <h2 className="text-headline-md font-bold text-on-surface">Dados do Tutor e do Pet</h2>
             </div>
 
+            {submitError && (
+              <div className="p-4 bg-rose-500/15 border border-rose-500/30 rounded-xl text-rose-400 text-xs font-bold flex items-center gap-2">
+                <span className="material-symbols-outlined">error</span>
+                {submitError}
+              </div>
+            )}
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-caption font-label-bold text-on-surface-variant mb-1.5">Seu Nome Completo</label>
+                <label className="block text-caption font-label-bold text-on-surface-variant mb-1.5">Seu Nome Completo *</label>
                 <input
                   type="text"
                   placeholder="Ex: Carlos Eduardo"
@@ -220,7 +289,7 @@ export default function AgendarPublicPage() {
               </div>
 
               <div>
-                <label className="block text-caption font-label-bold text-on-surface-variant mb-1.5">WhatsApp / Celular</label>
+                <label className="block text-caption font-label-bold text-on-surface-variant mb-1.5">WhatsApp / Celular *</label>
                 <input
                   type="tel"
                   placeholder="(11) 99999-9999"
@@ -229,10 +298,11 @@ export default function AgendarPublicPage() {
                   required
                   className="w-full bg-elevated-card border border-hairline-border rounded-xl px-4 py-3 text-on-surface text-body-sm outline-none focus:border-primary"
                 />
+                <span className="text-[11px] text-on-surface-variant mt-1 block">Utilizado para mensagens e confirmação do atendimento</span>
               </div>
 
               <div>
-                <label className="block text-caption font-label-bold text-on-surface-variant mb-1.5">Nome do Pet</label>
+                <label className="block text-caption font-label-bold text-on-surface-variant mb-1.5">Nome do Pet *</label>
                 <input
                   type="text"
                   placeholder="Ex: Thor"
@@ -259,16 +329,27 @@ export default function AgendarPublicPage() {
               <button
                 type="button"
                 onClick={() => setStep(2)}
-                className="w-1/3 bg-surface-container-high border border-hairline-border text-on-surface font-label-bold py-4 rounded-xl hover:bg-surface-container transition-all cursor-pointer"
+                disabled={isSubmitting}
+                className="w-1/3 bg-surface-container-high border border-hairline-border text-on-surface font-label-bold py-4 rounded-xl hover:bg-surface-container transition-all cursor-pointer disabled:opacity-50"
               >
                 Voltar
               </button>
               <button
                 type="submit"
-                className="w-2/3 bg-primary text-on-primary font-label-bold py-4 rounded-xl hover:brightness-110 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                disabled={isSubmitting}
+                className="w-2/3 bg-primary text-on-primary font-label-bold py-4 rounded-xl hover:brightness-110 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
               >
-                Concluir Agendamento
-                <span className="material-symbols-outlined">check_circle</span>
+                {isSubmitting ? (
+                  <>
+                    <span className="material-symbols-outlined text-base animate-spin">sync</span>
+                    Agendando...
+                  </>
+                ) : (
+                  <>
+                    Concluir Agendamento
+                    <span className="material-symbols-outlined">check_circle</span>
+                  </>
+                )}
               </button>
             </div>
           </form>
@@ -302,6 +383,19 @@ export default function AgendarPublicPage() {
               <span className="material-symbols-outlined">chat</span>
               Enviar Confirmação por WhatsApp
             </button>
+
+            {/* CTA Secundário para Cadastro do Tutor */}
+            <div className="pt-4 border-t border-hairline-border/60 max-w-md w-full text-center space-y-2">
+              <p className="text-xs text-on-surface-variant">
+                Deseja criar sua senha para gerenciar seus agendamentos no app?
+              </p>
+              <Link
+                href={`/auth/register?phone=${tutorPhone}`}
+                className="text-xs font-bold text-primary hover:underline inline-block"
+              >
+                Concluir meu cadastro no SaaS Petshop →
+              </Link>
+            </div>
           </div>
         )}
       </main>

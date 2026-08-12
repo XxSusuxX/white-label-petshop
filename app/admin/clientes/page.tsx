@@ -785,24 +785,59 @@ export default function ClientesPage() {
           {isLoading ? (
             <div className="p-4 text-center text-on-surface-variant">Carregando...</div>
           ) : activeTab === "clientes" ? (
-            filteredClients.map((client) => (
-              <div
-                key={client.id}
-                onClick={() => setSelectedClient(client)}
-                className="bg-elevated-card border border-hairline-border p-4 rounded-xl space-y-3 cursor-pointer"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-primary font-bold text-sm shrink-0">
-                    {getInitials(client.full_name)}
+            filteredClients.map((client) => {
+              const petCount = (client.pets || []).length;
+              const statusLabel = client.status === "active" ? "Ativo" : "Inativo";
+              const statusColor = client.status === "active" ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" : "bg-surface-container-high text-on-surface-variant border-hairline-border";
+
+              return (
+                <div
+                  key={client.id}
+                  onClick={() => setSelectedClient(client)}
+                  className="bg-elevated-card border border-hairline-border p-4 rounded-xl space-y-3 cursor-pointer"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-primary font-bold text-sm shrink-0">
+                      {getInitials(client.full_name)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="font-bold text-on-surface truncate">{client.full_name}</h3>
+                        <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border ${statusColor}`}>
+                          {statusLabel}
+                        </span>
+                      </div>
+                      <p className="text-xs text-on-surface-variant">{client.phone}</p>
+                      <p className="text-[11px] text-outline truncate">{client.email}</p>
+                      <p className="text-[11px] text-on-surface-variant">{petCount} pet(s) cadastrado(s)</p>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-bold text-on-surface truncate">{client.full_name}</h3>
-                    <p className="text-xs text-on-surface-variant">{client.phone}</p>
-                    <p className="text-[11px] text-outline truncate">{client.email}</p>
+                  <div className="flex items-center gap-2">
+                    <a
+                      href={`https://wa.me/55${client.phone.replace(/\D/g, "")}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex-1 bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-bold py-2.5 rounded-xl flex items-center justify-center gap-1.5 hover:bg-emerald-500/25 transition-all"
+                    >
+                      <span className="material-symbols-outlined text-base">chat</span>
+                      WhatsApp
+                    </a>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedClient(client);
+                        setShowAddPetModal(true);
+                      }}
+                      className="flex-1 bg-primary/15 border border-primary/40 text-primary text-xs font-bold py-2.5 rounded-xl flex items-center justify-center gap-1.5 hover:bg-primary/25 transition-all"
+                    >
+                      <span className="material-symbols-outlined text-base">pets</span>
+                      Add Pet
+                    </button>
                   </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           ) : (
             filteredEmployees.map((emp) => (
               <div key={emp.id} className="bg-elevated-card border border-hairline-border p-4 rounded-xl space-y-2">

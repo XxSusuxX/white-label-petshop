@@ -421,14 +421,14 @@ export default function PdvAdminPage() {
                     <div className="flex items-center gap-2 shrink-0">
                       <button
                         onClick={() => updateQty(item.id, -1)}
-                        className="w-7 h-7 bg-surface-container-high rounded-lg flex items-center justify-center text-on-surface hover:bg-primary/20 hover:text-primary transition-all"
+                        className="w-11 h-11 bg-surface-container-high rounded-xl flex items-center justify-center text-on-surface hover:bg-primary/20 hover:text-primary transition-all text-lg font-bold"
                       >
                         -
                       </button>
-                      <span className="font-label-bold text-body-sm px-1 min-w-[20px] text-center">{item.qty}</span>
+                      <span className="font-label-bold text-body-sm px-1 min-w-[24px] text-center">{item.qty}</span>
                       <button
                         onClick={() => updateQty(item.id, 1)}
-                        className="w-7 h-7 bg-surface-container-high rounded-lg flex items-center justify-center text-on-surface hover:bg-primary/20 hover:text-primary transition-all"
+                        className="w-11 h-11 bg-surface-container-high rounded-xl flex items-center justify-center text-on-surface hover:bg-primary/20 hover:text-primary transition-all text-lg font-bold"
                       >
                         +
                       </button>

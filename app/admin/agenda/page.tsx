@@ -101,7 +101,9 @@ export default function HashikoAdminAgendaPage() {
 
   // Form State para Novo Agendamento
   const [formPetId, setFormPetId] = useState("");
+  const [formClientId, setFormClientId] = useState("");
   const [formServiceId, setFormServiceId] = useState("");
+  const [tutorSearch, setTutorSearch] = useState("");
   const [formProfessional, setFormProfessional] = useState("Ana Costa (Banhista)");
   const [formDate, setFormDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [formTime, setFormTime] = useState("09:00");
@@ -110,14 +112,13 @@ export default function HashikoAdminAgendaPage() {
   const [formUsePackage, setFormUsePackage] = useState(true);
   const [formRecurringDays, setFormRecurringDays] = useState("0");
 
-  // Ao trocar o pet no formulário, busca os pacotes ativos do tutor dele
+  // Ao trocar o cliente no formulário, busca os pacotes ativos dele
   useEffect(() => {
-    const pet = petsList.find((p) => p.id === formPetId);
-    if (!pet?.client_id) {
+    if (!formClientId) {
       setTutorPackages([]);
       return;
     }
-    fetch(`/api/admin/client-packages?client_id=${pet.client_id}`)
+    fetch(`/api/admin/client-packages?client_id=${formClientId}`)
       .then((res) => res.json())
       .then((data) => {
         const active = (data.packages || [])
@@ -126,13 +127,32 @@ export default function HashikoAdminAgendaPage() {
         setTutorPackages(active);
       })
       .catch(() => setTutorPackages([]));
-  }, [formPetId, petsList]);
+  }, [formClientId]);
 
   const formMatchingPackage = tutorPackages.find((p) => p.service_id === formServiceId);
+
+  const filteredPets = useMemo(
+    () => petsList.filter((p) => !formClientId || p.client_id === formClientId),
+    [petsList, formClientId]
+  );
 
   useEffect(() => {
     setFormUsePackage(true);
   }, [formServiceId, formPetId]);
+
+  useEffect(() => {
+    if (isModalOpen) {
+      setFormClientId("");
+      setFormPetId("");
+      setTutorSearch("");
+      setTutorPackages([]);
+    }
+  }, [isModalOpen]);
+
+  useEffect(() => {
+    setFormPetId("");
+    setTutorPackages([]);
+  }, [formClientId]);
 
   // 1. Carregar agendamentos e cadastros do Supabase
   const loadAgendaData = async () => {
@@ -317,6 +337,10 @@ export default function HashikoAdminAgendaPage() {
   // 4. Salvar Novo Agendamento no Supabase
   const handleSaveAppointment = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formClientId) {
+      alert("Por favor, selecione um cliente.");
+      return;
+    }
     if (!formPetId) {
       alert("Por favor, selecione um pet.");
       return;
@@ -333,6 +357,7 @@ export default function HashikoAdminAgendaPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           pet_id: formPetId,
+          client_id: formClientId,
           service_id: selectedService.id,
           service_type: selectedService.name,
           service_date: `${formDate}T${formTime}:00.000Z`,
@@ -693,20 +718,20 @@ export default function HashikoAdminAgendaPage() {
         /* VISÃO MÊS (GRADE DE CALENDÁRIO HASHIKO) */
         <div className="bg-elevated-card border border-hairline-border rounded-2xl overflow-hidden extruded-shadow">
           {/* Cabeçalho dos Dias (DOM, SEG, TER, QUA, QUI, SEX, SÁB) */}
-          <div className="grid grid-cols-7 bg-surface-container-low border-b border-hairline-border text-center">
-            {["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"].map((d) => (
-              <div key={d} className="py-3 text-caption font-bold text-on-surface-variant uppercase tracking-wider">
+          <div className="grid grid-cols-4 md:grid-cols-7 bg-surface-container-low border-b border-hairline-border text-center">
+            {["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"].map((d, idx) => (
+              <div key={d} className={`py-2 md:py-3 text-caption font-bold text-on-surface-variant uppercase tracking-wider ${idx >= 4 ? "hidden md:block" : ""}`}>
                 {d}
               </div>
             ))}
           </div>
 
           {/* Grade real do mês (dias reais + preenchimento do mês anterior/seguinte) */}
-          <div className="grid grid-cols-7">
+          <div className="grid grid-cols-4 md:grid-cols-7">
             {monthGridCells.map((cell, cellIdx) => {
               if (!cell.inCurrentMonth) {
                 return (
-                  <div key={`out-${cellIdx}`} className="p-3 border-r border-b border-hairline-border bg-surface/30 opacity-30 min-h-[120px]">
+                  <div key={`out-${cellIdx}`} className="p-2 md:p-3 border-r border-b border-hairline-border bg-surface/30 opacity-30 min-h-[80px] md:min-h-[120px]">
                     <span className="text-xs font-bold text-on-surface-variant">{cell.day}</span>
                   </div>
                 );
@@ -740,7 +765,7 @@ export default function HashikoAdminAgendaPage() {
                     setFormDate(`${yyyy}-${mm}-${dd}`);
                     setIsModalOpen(true);
                   }}
-                  className={`p-2 border-r border-b border-hairline-border min-h-[120px] transition-all cursor-pointer relative flex flex-col justify-between group ${isToday ? "bg-primary/5" : "hover:bg-surface-container-highest/40"
+                  className={`p-2 md:p-2 border-r border-b border-hairline-border min-h-[80px] md:min-h-[120px] transition-all cursor-pointer relative flex flex-col justify-between group ${isToday ? "bg-primary/5" : "hover:bg-surface-container-highest/40"
                     }`}
                 >
                   <div className="flex justify-between items-center mb-1">
@@ -786,7 +811,7 @@ export default function HashikoAdminAgendaPage() {
                         onClick={openDayDrawer}
                         className="w-full text-[9px] font-bold text-primary text-center hover:underline cursor-pointer py-1 bg-primary/10 hover:bg-primary/20 rounded transition-colors"
                       >
-                        + {dayAppts.length - 2} mais (ver todos)
+                        + {dayAppts.length - 2} mais
                       </button>
                     )}
                   </div>
@@ -797,9 +822,9 @@ export default function HashikoAdminAgendaPage() {
         </div>
       ) : viewMode === "semana" ? (
         /* VISÃO SEMANA (CRONOGRAMA DE 7 DIAS POR HORÁRIO) */
-        <div className="bg-elevated-card border border-hairline-border rounded-2xl p-6 space-y-4">
+        <div className="bg-elevated-card border border-hairline-border rounded-2xl p-4 md:p-6 space-y-4">
           <h2 className="font-bold text-lg text-primary">Visão Semanal de Agendamentos</h2>
-          <div className="grid grid-cols-7 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-3">
             {weekDates.map((wd) => {
               const dayLabels = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
               const label = `${dayLabels[wd.getDay()]} ${String(wd.getDate()).padStart(2, "0")}/${String(wd.getMonth() + 1).padStart(2, "0")}`;
@@ -929,65 +954,110 @@ export default function HashikoAdminAgendaPage() {
         /* VISÃO LISTA (TABELA COMPLETA COM AÇÕES) */
         <div className="bg-elevated-card border border-hairline-border rounded-2xl overflow-hidden extruded-shadow">
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-hairline-border bg-surface-container-low text-xs text-on-surface-variant uppercase font-bold">
-                  <th className="p-4">Horário / Data</th>
-                  <th className="p-4">Pet / Raça</th>
-                  <th className="p-4">Tutor</th>
-                  <th className="p-4">Serviço</th>
-                  <th className="p-4">Profissional</th>
-                  <th className="p-4 text-center">Status</th>
-                  <th className="p-4 text-right">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-hairline-border text-xs">
-                {filteredAppointments.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="p-8 text-center text-on-surface-variant">
-                      Nenhum agendamento encontrado para os filtros selecionados.
-                    </td>
+            <div className="hidden md:block">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-hairline-border bg-surface-container-low text-xs text-on-surface-variant uppercase font-bold">
+                    <th className="p-4">Horário / Data</th>
+                    <th className="p-4">Pet / Raça</th>
+                    <th className="p-4">Tutor</th>
+                    <th className="p-4">Serviço</th>
+                    <th className="p-4">Profissional</th>
+                    <th className="p-4 text-center">Status</th>
+                    <th className="p-4 text-right">Ações</th>
                   </tr>
-                ) : (
-                  filteredAppointments.map((app) => (
-                    <tr key={app.id} className="hover:bg-surface-container-high/30 transition-colors">
-                      <td className="p-4 font-bold text-primary cursor-pointer" onClick={() => openAppointmentDetail(app)}>
-                        {app.time} ({String(app.day).padStart(2, "0")}/{String(app.month).padStart(2, "0")})
-                      </td>
-                      <td className="p-4 font-bold text-on-surface cursor-pointer" onClick={() => openAppointmentDetail(app)}>
-                        {app.pet_name} <span className="text-[10px] text-on-surface-variant font-normal">({app.pet_breed})</span>
-                      </td>
-                      <td className="p-4 text-on-surface-variant">{app.tutor_name}</td>
-                      <td className="p-4 font-bold text-on-surface">{app.service_type}</td>
-                      <td className="p-4 text-on-surface-variant">{app.professional}</td>
-                      <td className="p-4 text-center">{renderStatusBadge(app.status)}</td>
-                      <td className="p-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <select
-                            value={app.status}
-                            onChange={(e) => handleUpdateStatus(app.id, e.target.value as Appointment["status"])}
-                            className="bg-matte-canvas border border-hairline-border rounded px-2 py-1 text-[11px] text-on-surface cursor-pointer"
-                          >
-                            <option value="agendado">Agendado</option>
-                            <option value="confirmado">Confirmado</option>
-                            <option value="em_atendimento">Em Atendimento</option>
-                            <option value="concluido">Concluído</option>
-                            <option value="cancelado">Cancelado</option>
-                          </select>
-                          <button
-                            onClick={() => openAppointmentDetail(app)}
-                            title="Ver detalhes"
-                            className="p-1.5 rounded-lg bg-surface-container hover:bg-primary/20 text-on-surface-variant hover:text-primary transition-colors cursor-pointer"
-                          >
-                            <span className="material-symbols-outlined text-sm">visibility</span>
-                          </button>
-                        </div>
+                </thead>
+                <tbody className="divide-y divide-hairline-border text-xs">
+                  {filteredAppointments.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="p-8 text-center text-on-surface-variant">
+                        Nenhum agendamento encontrado para os filtros selecionados.
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  ) : (
+                    filteredAppointments.map((app) => (
+                      <tr key={app.id} className="hover:bg-surface-container-high/30 transition-colors">
+                        <td className="p-4 font-bold text-primary cursor-pointer" onClick={() => openAppointmentDetail(app)}>
+                          {app.time} ({String(app.day).padStart(2, "0")}/{String(app.month).padStart(2, "0")})
+                        </td>
+                        <td className="p-4 font-bold text-on-surface cursor-pointer" onClick={() => openAppointmentDetail(app)}>
+                          {app.pet_name} <span className="text-[10px] text-on-surface-variant font-normal">({app.pet_breed})</span>
+                        </td>
+                        <td className="p-4 text-on-surface-variant">{app.tutor_name}</td>
+                        <td className="p-4 font-bold text-on-surface">{app.service_type}</td>
+                        <td className="p-4 text-on-surface-variant">{app.professional}</td>
+                        <td className="p-4 text-center">{renderStatusBadge(app.status)}</td>
+                        <td className="p-4 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <select
+                              value={app.status}
+                              onChange={(e) => handleUpdateStatus(app.id, e.target.value as Appointment["status"])}
+                              className="bg-matte-canvas border border-hairline-border rounded px-2 py-1.5 text-[11px] text-on-surface cursor-pointer"
+                            >
+                              <option value="agendado">Agendado</option>
+                              <option value="confirmado">Confirmado</option>
+                              <option value="em_atendimento">Em Atendimento</option>
+                              <option value="concluido">Concluído</option>
+                              <option value="cancelado">Cancelado</option>
+                            </select>
+                            <button
+                              onClick={() => openAppointmentDetail(app)}
+                              title="Ver detalhes"
+                              className="p-2 rounded-lg bg-surface-container hover:bg-primary/20 text-on-surface-variant hover:text-primary transition-colors cursor-pointer"
+                            >
+                              <span className="material-symbols-outlined text-sm">visibility</span>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <div className="md:hidden space-y-3">
+              {filteredAppointments.length === 0 ? (
+                <p className="p-4 text-center text-on-surface-variant text-xs">Nenhum agendamento encontrado.</p>
+              ) : (
+                filteredAppointments.map((app) => (
+                  <div key={app.id} className="bg-surface-container border border-hairline-border rounded-xl p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-bold text-on-surface text-sm">{app.pet_name} <span className="text-[10px] text-on-surface-variant font-normal">({app.pet_breed})</span></p>
+                        <p className="text-[11px] text-on-surface-variant">{app.tutor_name}</p>
+                      </div>
+                      <span className="text-xs font-mono bg-matte-canvas px-2.5 py-1 rounded text-on-surface-variant font-bold">
+                        {app.time}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-bold text-on-surface">{app.service_type}</span>
+                      <span className="text-on-surface-variant">{app.professional}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={app.status}
+                        onChange={(e) => handleUpdateStatus(app.id, e.target.value as Appointment["status"])}
+                        className="flex-1 bg-matte-canvas border border-hairline-border rounded-xl px-3 py-2.5 text-xs text-on-surface cursor-pointer"
+                      >
+                        <option value="agendado">Agendado</option>
+                        <option value="confirmado">Confirmado</option>
+                        <option value="em_atendimento">Em Atendimento</option>
+                        <option value="concluido">Concluído</option>
+                        <option value="cancelado">Cancelado</option>
+                      </select>
+                      <button
+                        onClick={() => openAppointmentDetail(app)}
+                        title="Ver detalhes"
+                        className="p-2.5 rounded-xl bg-matte-canvas border border-hairline-border hover:bg-primary/20 text-on-surface-variant hover:text-primary transition-colors cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined text-lg">visibility</span>
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -1198,17 +1268,42 @@ export default function HashikoAdminAgendaPage() {
             </div>
 
             <form onSubmit={handleSaveAppointment} className="space-y-4 text-xs">
-              {/* Seleção do Pet do Banco */}
+              {/* Seleção do Cliente/Tutor */}
               <div>
-                <label className="block font-bold text-on-surface mb-1">Selecione o Pet (Cadastrado no Banco)</label>
+                <label className="block font-bold text-on-surface mb-1">Cliente / Tutor</label>
+                <input
+                  type="text"
+                  required
+                  value={tutorSearch}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setTutorSearch(val);
+                    const match = tutorsList.find((t) => (t.full_name || "") === val);
+                    setFormClientId(match ? match.id : "");
+                  }}
+                  list="tutors-list"
+                  placeholder="Buscar cliente..."
+                  className="w-full bg-matte-canvas border border-hairline-border rounded-xl p-3 text-on-surface focus:border-primary outline-none"
+                />
+                <datalist id="tutors-list">
+                  {tutorsList.map((t) => (
+                    <option key={t.id} value={t.full_name || "Sem nome"} />
+                  ))}
+                </datalist>
+              </div>
+
+              {/* Seleção do Pet do Banco (filtrado pelo cliente) */}
+              <div>
+                <label className="block font-bold text-on-surface mb-1">Selecione o Pet</label>
                 <select
                   required
                   value={formPetId}
                   onChange={(e) => setFormPetId(e.target.value)}
-                  className="w-full bg-matte-canvas border border-hairline-border rounded-xl p-3 text-on-surface focus:border-primary outline-none cursor-pointer"
+                  disabled={!formClientId}
+                  className="w-full bg-matte-canvas border border-hairline-border rounded-xl p-3 text-on-surface focus:border-primary outline-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <option value="">-- Selecione o Pet --</option>
-                  {petsList.map((p) => (
+                  {filteredPets.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name} ({p.breed || "Vira-lata"})
                     </option>

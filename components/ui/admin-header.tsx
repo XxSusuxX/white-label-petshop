@@ -35,6 +35,11 @@ function relativeTime(iso: string) {
   return `há ${diffD}d`;
 }
 
+import { requestNotificationPermission, sendBrowserNotification, registerServiceWorker } from "@/lib/client/push-notifications";
+
+// Rastrear IDs de notificações já disparadas no sistema nativo
+const shownNotifIds = new Set<string>();
+
 export function AdminHeader() {
   const pathname = usePathname();
   const [userName, setUserName] = useState("Gestor Admin");
@@ -50,6 +55,9 @@ export function AdminHeader() {
   const notifRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    registerServiceWorker();
+    requestNotificationPermission();
+
     async function loadAdminProfile() {
       try {
         const supabase = createClient();
@@ -118,8 +126,17 @@ export function AdminHeader() {
       const res = await fetch("/api/notifications");
       const data = await res.json();
       if (res.ok) {
-        setNotifications(data.notifications || []);
+        const fetched: NotificationItem[] = data.notifications || [];
+        setNotifications(fetched);
         setUnreadCount(data.unreadCount || 0);
+
+        // Disparar notificação nativa do navegador para itens não lidos inéditos
+        fetched.forEach((n) => {
+          if (!n.is_read && !shownNotifIds.has(n.id)) {
+            shownNotifIds.add(n.id);
+            sendBrowserNotification(n.title, { body: n.body });
+          }
+        });
       }
     } catch (err) {
       console.warn("Aviso ao carregar notificações em AdminHeader:", err);
@@ -130,7 +147,7 @@ export function AdminHeader() {
 
   useEffect(() => {
     loadNotifications();
-    const interval = setInterval(loadNotifications, 60000);
+    const interval = setInterval(loadNotifications, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -238,19 +255,19 @@ export function AdminHeader() {
   };
 
   return (
-    <header className="sticky top-0 z-40 bg-matte-canvas/90 backdrop-blur-md border-b border-hairline-border px-6 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <header className="sticky top-0 z-40 bg-matte-canvas/90 backdrop-blur-md border-b border-hairline-border px-4 md:px-6 py-3 md:py-4 flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4">
       {/* Título e Subtítulo da Página Admin */}
       <div>
         <h1 className="font-headline-lg text-xl md:text-2xl font-extrabold text-on-surface flex items-center gap-2">
           {details.title}
         </h1>
-        <p className="font-body-base text-xs text-on-surface-variant mt-0.5">
+        <p className="font-body-base text-xs text-on-surface-variant mt-0.5 hidden sm:block">
           {details.subtitle}
         </p>
       </div>
 
-      {/* Ações e Badge do Usuário Admin */}
-      <div className="flex items-center gap-3">
+      {/* Desktop actions */}
+      <div className="hidden md:flex items-center gap-3">
         {/* Ícone e Dropdown de Notificações do Admin */}
         <div className="relative" ref={notifRef}>
           <button
@@ -381,6 +398,96 @@ export function AdminHeader() {
             <span className="material-symbols-outlined text-lg">logout</span>
           </button>
         </div>
+      </div>
+
+      {/* Mobile-only actions */}
+      <div className="flex md:hidden items-center justify-between gap-2">
+        <div className="relative" ref={notifRef}>
+          <button
+            onClick={handleOpenNotifications}
+            title="Notificações"
+            className="p-2.5 rounded-xl bg-surface-container border border-hairline-border text-on-surface-variant hover:text-on-surface transition-colors relative cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-lg">notifications</span>
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-on-primary text-[10px] font-bold flex items-center justify-center shadow-md">
+                {unreadCount > 9 ? "9+" : unreadCount}
+              </span>
+            )}
+          </button>
+
+          {isNotifOpen && (
+            <div className="absolute right-0 mt-2 w-[calc(100vw-2rem)] max-w-sm bg-elevated-card border border-hairline-border rounded-2xl shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in duration-150">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-hairline-border bg-surface-container/50">
+                <h3 className="font-bold text-sm text-on-surface flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary text-base">notifications</span>
+                  Notificações do Gestor
+                </h3>
+                {unreadCount > 0 && (
+                  <button
+                    onClick={handleMarkAllRead}
+                    className="text-[11px] font-bold text-primary hover:underline cursor-pointer"
+                  >
+                    Marcar lidas
+                  </button>
+                )}
+              </div>
+
+              <div className="max-h-96 overflow-y-auto divide-y divide-hairline-border/50">
+                {isLoadingNotif ? (
+                  <div className="text-center py-8 text-xs text-on-surface-variant flex items-center justify-center gap-2">
+                    <span className="material-symbols-outlined text-lg animate-spin text-primary">sync</span>
+                    Carregando notificações...
+                  </div>
+                ) : notifications.length === 0 ? (
+                  <div className="text-center py-8 px-4">
+                    <span className="material-symbols-outlined text-3xl text-outline mb-2 block">notifications_off</span>
+                    <p className="text-xs text-on-surface-variant font-bold">Nenhuma notificação recente.</p>
+                    <p className="text-[11px] text-outline mt-1">Os alertas operacionais e agendamentos aparecerão aqui.</p>
+                  </div>
+                ) : (
+                  notifications.map((notif) => (
+                    <button
+                      key={notif.id}
+                      onClick={() => handleMarkRead(notif)}
+                      className={`w-full text-left px-4 py-3 flex items-start gap-3 transition-colors cursor-pointer ${
+                        notif.is_read ? "hover:bg-surface-container" : "bg-primary/5 hover:bg-primary/10"
+                      }`}
+                    >
+                      <span className={`material-symbols-outlined text-lg mt-0.5 ${notif.is_read ? "text-on-surface-variant" : "text-primary"}`}>
+                        {TYPE_ICON[notif.type] || "notifications"}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className={`text-xs font-bold ${notif.is_read ? "text-on-surface-variant" : "text-on-surface"}`}>
+                            {notif.title}
+                          </p>
+                          {!notif.is_read && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0 animate-pulse"></span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-on-surface-variant mt-0.5 leading-relaxed">
+                          {notif.body}
+                        </p>
+                        <p className="text-[10px] text-outline mt-1 font-mono">
+                          {relativeTime(notif.created_at)}
+                        </p>
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <button
+          onClick={handleLogout}
+          title="Sair da Conta"
+          className="p-2.5 rounded-xl bg-surface-container border border-hairline-border hover:bg-red-500/10 hover:border-red-500/30 text-on-surface-variant hover:text-red-400 transition-colors flex items-center justify-center cursor-pointer"
+        >
+          <span className="material-symbols-outlined text-lg">logout</span>
+        </button>
       </div>
     </header>
   );
