@@ -4,11 +4,10 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { findSchedulingConflict } from "@/lib/server/booking";
 import { createNotification } from "@/lib/server/notifications";
 import { createRecurringBooking } from "@/lib/server/recurring";
-
-const PET_SHOP_ID = "00000000-0000-0000-0000-000000000001";
+import { getTenantId, withTenantRoute } from "@/lib/server/tenant";
 
 // GET: Histórico/agenda do próprio tutor autenticado (usado em /client/historico e /client/agenda)
-export async function GET() {
+export const GET = withTenantRoute(async () => {
   try {
     const supabase = createClient();
     const {
@@ -71,10 +70,10 @@ export async function GET() {
     console.error("Erro em GET /api/appointments:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
-}
+});
 
 // POST: Cliente cria um agendamento para um dos seus próprios pets
-export async function POST(request: Request) {
+export const POST = withTenantRoute(async (request: Request) => {
   try {
     const supabase = createClient();
     const {
@@ -117,27 +116,23 @@ export async function POST(request: Request) {
     }
 
     // Se o tutor optou por pagar com um pacote, valida que o pacote é dele, cobre
-    // esse serviço e ainda tem crédito — e consome 1 crédito de forma atômica.
+    // esse serviço e ainda tem crédito. O CONSUMO do crédito + INSERT acontecem de
+    // forma ATÔMICA dentro da RPC book_appointment() — antes, o crédito era
+    // consumido antes do insert, e se o insert falhasse o crédito se perdia.
     let finalPrice = price ?? 0;
-    let usedPackageId: string | null = null;
     if (use_package_id) {
       const { data: pkg } = await adminSupabase
         .from("client_packages")
-        .select("*")
+        .select("id, service_id, status, used_credits, total_credits")
         .eq("id", use_package_id)
+        .eq("pet_shop_id", getTenantId())
         .eq("client_id", user.id)
         .maybeSingle();
 
       if (!pkg || pkg.service_id !== service_id || pkg.status !== "ativo" || pkg.used_credits >= pkg.total_credits) {
         return NextResponse.json({ error: "Pacote inválido ou sem créditos disponíveis." }, { status: 400 });
       }
-
-      const { data: consumed } = await adminSupabase.rpc("use_package_credit", { package_id: use_package_id });
-      if (!consumed) {
-        return NextResponse.json({ error: "Não foi possível usar o crédito do pacote. Tente novamente." }, { status: 409 });
-      }
       finalPrice = 0;
-      usedPackageId = use_package_id;
     }
 
     let recurringBookingId: string | null = null;
@@ -153,28 +148,45 @@ export async function POST(request: Request) {
       });
     }
 
-    const { data: appointment, error } = await adminSupabase
-      .from("appointments")
-      .insert({
-        pet_id,
-        service_id: service_id || null,
-        pet_shop_id: PET_SHOP_ID,
-        service_type,
-        scheduled_at: service_date,
-        professional: "Não atribuído",
-        price: finalPrice,
-        status: "agendado",
-        notes: notes || "",
-        address: address || "",
-        paid_via_package_id: usedPackageId,
-        recurring_booking_id: recurringBookingId,
-      })
-      .select()
-      .single();
+    const { data: appointment, error } = await adminSupabase.rpc("book_appointment", {
+      p_pet_id: pet_id,
+      p_pet_shop_id: getTenantId(),
+      p_service_id: service_id || null,
+      p_service_type: service_type,
+      p_scheduled_at: service_date,
+      p_professional: "Não atribuído",
+      p_price: finalPrice,
+      p_notes: notes || "",
+      p_address: address || "",
+      p_package_id: use_package_id || null,
+      p_recurring_booking_id: recurringBookingId,
+      p_exclude_appointment_id: null,
+      p_force: false,
+    });
 
     if (error) {
+      // Se o agendamento não pôde ser criado, desfaz a recorrência criada acima
+      // (o crédito do pacote já é revertido automaticamente pela RPC).
+      if (recurringBookingId) {
+        await adminSupabase
+          .from("recurring_bookings")
+          .delete()
+          .eq("id", recurringBookingId)
+          .then(() => {}, () => {});
+      }
+
+      const msg = error.message || "";
+      if (msg.includes("horario_ocupado")) {
+        return NextResponse.json(
+          { error: "Esse horário acabou de ser reservado por outro agendamento. Escolha outro horário." },
+          { status: 409 }
+        );
+      }
+      if (msg.includes("pacote_sem_credito")) {
+        return NextResponse.json({ error: "Pacote inválido ou sem créditos disponíveis." }, { status: 409 });
+      }
       console.error("Erro ao criar agendamento do cliente:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error: msg }, { status: 500 });
     }
 
     if (address) {
@@ -195,10 +207,10 @@ export async function POST(request: Request) {
     console.error("Erro em POST /api/appointments:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
-}
+});
 
 // PATCH: Cliente cancela um agendamento próprio (único status que o tutor pode alterar)
-export async function PATCH(request: Request) {
+export const PATCH = withTenantRoute(async (request: Request) => {
   try {
     const supabase = createClient();
     const {
@@ -241,6 +253,7 @@ export async function PATCH(request: Request) {
     const { data: updated, error } = await adminSupabase
       .from("appointments")
       .update({ status: "cancelado", updated_at: new Date().toISOString() })
+      .eq("pet_shop_id", getTenantId())
       .eq("id", id)
       .select()
       .single();
@@ -255,4 +268,4 @@ export async function PATCH(request: Request) {
     console.error("Erro em PATCH /api/appointments:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
-}
+});

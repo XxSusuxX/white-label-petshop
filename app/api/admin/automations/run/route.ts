@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { triggerAutomation, getBookingContactInfo } from "@/lib/server/automations";
+import { getTenantId, withTenant } from "@/lib/server/tenant";
 
 export const dynamic = "force-dynamic";
-
-const PET_SHOP_ID = "00000000-0000-0000-0000-000000000001";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
@@ -21,6 +20,7 @@ async function runLembrete24h(adminSupabase: AdminClient) {
   const { data: appointments } = await adminSupabase
     .from("appointments")
     .select("*")
+    .eq("pet_shop_id", getTenantId())
     .gte("scheduled_at", windowStart)
     .lte("scheduled_at", windowEnd)
     .is("reminder_sent_at", null)
@@ -55,6 +55,7 @@ async function runAniversario(adminSupabase: AdminClient) {
   const { data: pets } = await adminSupabase
     .from("pets")
     .select("id, name, client_id, birth_date, last_birthday_greeted_year")
+    .eq("pet_shop_id", getTenantId())
     .not("birth_date", "is", null);
 
   let sent = 0;
@@ -68,6 +69,7 @@ async function runAniversario(adminSupabase: AdminClient) {
     const { data: profile } = await adminSupabase
       .from("profiles")
       .select("full_name, phone")
+      .eq("pet_shop_id", getTenantId())
       .eq("id", pet.client_id)
       .maybeSingle();
     if (!profile?.phone) continue;
@@ -88,6 +90,7 @@ async function runPacoteVencendo(adminSupabase: AdminClient) {
   const { data: packages } = await adminSupabase
     .from("client_packages")
     .select("*")
+    .eq("pet_shop_id", getTenantId())
     .eq("status", "ativo")
     .is("low_credit_notified_at", null);
 
@@ -98,6 +101,7 @@ async function runPacoteVencendo(adminSupabase: AdminClient) {
     const { data: profile } = await adminSupabase
       .from("profiles")
       .select("full_name, phone")
+      .eq("pet_shop_id", getTenantId())
       .eq("id", pkg.client_id)
       .maybeSingle();
     if (!profile?.phone) continue;
@@ -119,7 +123,7 @@ async function runResumoDiario(adminSupabase: AdminClient) {
   const { data: config } = await adminSupabase
     .from("whatsapp_config")
     .select("*")
-    .eq("pet_shop_id", PET_SHOP_ID)
+    .eq("pet_shop_id", getTenantId())
     .maybeSingle();
 
   if (!config?.admin_notify_phone) {
@@ -135,18 +139,24 @@ async function runResumoDiario(adminSupabase: AdminClient) {
   startOfDay.setUTCHours(0, 0, 0, 0);
   const startIso = startOfDay.toISOString();
 
-  const { data: sales } = await adminSupabase.from("sales").select("total").gte("created_at", startIso);
+  const { data: sales } = await adminSupabase
+    .from("sales")
+    .select("total")
+    .eq("pet_shop_id", getTenantId())
+    .gte("created_at", startIso);
   const totalToday = (sales || []).reduce((sum, s: any) => sum + Number(s.total || 0), 0);
 
   const { count: completedCount } = await adminSupabase
     .from("appointments")
     .select("id", { count: "exact", head: true })
+    .eq("pet_shop_id", getTenantId())
     .eq("status", "concluido")
     .gte("updated_at", startIso);
 
   const { count: newClientsCount } = await adminSupabase
     .from("profiles")
     .select("id", { count: "exact", head: true })
+    .eq("pet_shop_id", getTenantId())
     .eq("role", "client")
     .gte("created_at", startIso);
 
@@ -160,7 +170,7 @@ async function runResumoDiario(adminSupabase: AdminClient) {
     await adminSupabase
       .from("whatsapp_config")
       .update({ resumo_diario_last_sent_date: todayStr })
-      .eq("pet_shop_id", PET_SHOP_ID);
+      .eq("pet_shop_id", getTenantId());
   }
   return result;
 }
@@ -172,11 +182,16 @@ async function runClienteInativo(adminSupabase: AdminClient) {
   const { data: clients } = await adminSupabase
     .from("profiles")
     .select("id, full_name, phone, last_winback_sent_at")
+    .eq("pet_shop_id", getTenantId())
     .eq("role", "client");
-  const { data: pets } = await adminSupabase.from("pets").select("id, name, client_id");
+  const { data: pets } = await adminSupabase
+    .from("pets")
+    .select("id, name, client_id")
+    .eq("pet_shop_id", getTenantId());
   const { data: recentAppointments } = await adminSupabase
     .from("appointments")
     .select("pet_id, scheduled_at")
+    .eq("pet_shop_id", getTenantId())
     .gte("scheduled_at", sixtyDaysAgo);
 
   const petToClient = new Map((pets || []).map((p: any) => [p.id, p.client_id]));
@@ -222,21 +237,39 @@ export async function POST(request: Request) {
 
   try {
     const adminSupabase = createAdminClient();
-    const { data: rules } = await adminSupabase
-      .from("automation_rules")
-      .select("rule_key, enabled")
-      .eq("pet_shop_id", PET_SHOP_ID);
-    const enabledKeys = new Set((rules || []).filter((r) => r.enabled).map((r) => r.rule_key));
+    const { data: petshops } = await adminSupabase.from("pet_shops").select("id");
+    const tenantIds = (petshops || []).map((p) => p.id);
 
-    const results: Record<string, any> = {};
+    if (tenantIds.length === 0) {
+      return NextResponse.json({ success: true, tenants: {}, note: "Nenhum pet shop cadastrado." });
+    }
 
-    if (enabledKeys.has("lembrete_24h")) results.lembrete_24h = await runLembrete24h(adminSupabase);
-    if (enabledKeys.has("aniversario")) results.aniversario = await runAniversario(adminSupabase);
-    if (enabledKeys.has("pacote_vencendo")) results.pacote_vencendo = await runPacoteVencendo(adminSupabase);
-    if (enabledKeys.has("resumo_diario")) results.resumo_diario = await runResumoDiario(adminSupabase);
-    if (enabledKeys.has("cliente_inativo")) results.cliente_inativo = await runClienteInativo(adminSupabase);
+    const allResults: Record<string, any> = {};
 
-    return NextResponse.json({ success: true, results });
+    for (const tenantId of tenantIds) {
+      const tenantResults = await withTenant(tenantId, async () => {
+        const tenantAdmin = createAdminClient();
+        const { data: rules } = await tenantAdmin
+          .from("automation_rules")
+          .select("rule_key, enabled")
+          .eq("pet_shop_id", tenantId);
+        const enabledKeys = new Set((rules || []).filter((r) => r.enabled).map((r) => r.rule_key));
+
+        const results: Record<string, any> = {};
+
+        if (enabledKeys.has("lembrete_24h")) results.lembrete_24h = await runLembrete24h(tenantAdmin);
+        if (enabledKeys.has("aniversario")) results.aniversario = await runAniversario(tenantAdmin);
+        if (enabledKeys.has("pacote_vencendo")) results.pacote_vencendo = await runPacoteVencendo(tenantAdmin);
+        if (enabledKeys.has("resumo_diario")) results.resumo_diario = await runResumoDiario(tenantAdmin);
+        if (enabledKeys.has("cliente_inativo")) results.cliente_inativo = await runClienteInativo(tenantAdmin);
+
+        return results;
+      });
+
+      allResults[tenantId] = tenantResults;
+    }
+
+    return NextResponse.json({ success: true, tenants: allResults });
   } catch (err: any) {
     console.error("Erro em POST /api/admin/automations/run:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });

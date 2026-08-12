@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getTenantId, withTenantRoute } from "@/lib/server/tenant";
 
 export const dynamic = "force-dynamic";
 
 // GET ?client_id=xxx — Pacotes de um tutor específico (usado no admin: agenda e ficha do cliente)
-export async function GET(request: Request) {
+export const GET = withTenantRoute(async (request: Request) => {
   try {
     const { searchParams } = new URL(request.url);
     const clientId = searchParams.get("client_id");
@@ -17,6 +18,7 @@ export async function GET(request: Request) {
     const { data: packages, error } = await adminSupabase
       .from("client_packages")
       .select("*")
+      .eq("pet_shop_id", getTenantId())
       .eq("client_id", clientId)
       .order("purchased_at", { ascending: false });
 
@@ -36,4 +38,4 @@ export async function GET(request: Request) {
     console.error("Erro em GET /api/admin/client-packages:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
-}
+});

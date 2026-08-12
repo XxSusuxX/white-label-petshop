@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getTenantId, withTenantRoute } from "@/lib/server/tenant";
 
 export const dynamic = "force-dynamic";
 
 // GET: Pacotes ativos do próprio tutor autenticado
-export async function GET() {
+export const GET = withTenantRoute(async () => {
   try {
     const supabase = createClient();
     const {
@@ -20,6 +21,7 @@ export async function GET() {
     const { data: packages, error } = await adminSupabase
       .from("client_packages")
       .select("*")
+      .eq("pet_shop_id", getTenantId())
       .eq("client_id", user.id)
       .order("purchased_at", { ascending: false });
 
@@ -40,4 +42,4 @@ export async function GET() {
     console.error("Erro em GET /api/client-packages:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
-}
+});

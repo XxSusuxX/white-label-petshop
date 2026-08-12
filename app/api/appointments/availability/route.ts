@@ -2,16 +2,16 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { generateSlotsForDate } from "@/lib/server/business-hours";
+import { getTenantId, withTenantRoute } from "@/lib/server/tenant";
 
 export const dynamic = "force-dynamic";
 
-const PET_SHOP_ID = "00000000-0000-0000-0000-000000000001";
 const DEFAULT_DURATION_MINUTES = 60;
 
 // GET ?date=YYYY-MM-DD&duration_minutes=60
 // Retorna os intervalos de horário já ocupados naquele dia (para o cliente filtrar
 // os horários disponíveis no agendamento). Não expõe dados de outros tutores.
-export async function GET(request: Request) {
+export const GET = withTenantRoute(async (request: Request) => {
   try {
     const supabase = createClient();
     const {
@@ -40,7 +40,7 @@ export async function GET(request: Request) {
     const { data: appointments, error } = await adminSupabase
       .from("appointments")
       .select("scheduled_at, service_id")
-      .eq("pet_shop_id", PET_SHOP_ID)
+      .eq("pet_shop_id", getTenantId())
       .gte("scheduled_at", dayStart.toISOString())
       .lte("scheduled_at", dayEnd.toISOString())
       .not("status", "in", "(cancelado,bloqueio)");
@@ -72,4 +72,4 @@ export async function GET(request: Request) {
     console.error("Erro em GET /api/appointments/availability:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
-}
+});

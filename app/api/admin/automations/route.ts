@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getTenantId, withTenantRoute } from "@/lib/server/tenant";
 
 export const dynamic = "force-dynamic";
-
-const PET_SHOP_ID = "00000000-0000-0000-0000-000000000001";
 
 const DEFAULT_RULES = [
   {
@@ -121,14 +120,14 @@ const DEFAULT_RULES = [
 ];
 
 // GET: Lista as regras de automação, semeando os padrões na primeira vez
-export async function GET() {
+export const GET = withTenantRoute(async () => {
   try {
     const adminSupabase = createAdminClient();
 
     const { data: existing, error } = await adminSupabase
       .from("automation_rules")
       .select("*")
-      .eq("pet_shop_id", PET_SHOP_ID);
+      .eq("pet_shop_id", getTenantId());
 
     if (error) {
       console.error("Erro ao buscar automation_rules:", error);
@@ -144,7 +143,7 @@ export async function GET() {
     if (missingRules.length > 0) {
       const { data: seeded, error: seedErr } = await adminSupabase
         .from("automation_rules")
-        .insert(missingRules.map((r) => ({ ...r, pet_shop_id: PET_SHOP_ID })))
+        .insert(missingRules.map((r) => ({ ...r, pet_shop_id: getTenantId() })))
         .select();
 
       if (seedErr) {
@@ -154,7 +153,7 @@ export async function GET() {
           const { data: retry, error: retryErr } = await adminSupabase
             .from("automation_rules")
             .select("*")
-            .eq("pet_shop_id", PET_SHOP_ID);
+            .eq("pet_shop_id", getTenantId());
           if (!retryErr) return NextResponse.json({ rules: retry || [] });
         }
         console.error("Erro ao semear automation_rules:", seedErr);
@@ -168,10 +167,10 @@ export async function GET() {
     console.error("Erro em GET /api/admin/automations:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
-}
+});
 
 // PUT: Atualiza enabled/message_template de uma regra (por rule_key)
-export async function PUT(request: Request) {
+export const PUT = withTenantRoute(async (request: Request) => {
   try {
     const adminSupabase = createAdminClient();
     const body = await request.json();
@@ -188,7 +187,7 @@ export async function PUT(request: Request) {
     const { data, error } = await adminSupabase
       .from("automation_rules")
       .update(updateData)
-      .eq("pet_shop_id", PET_SHOP_ID)
+      .eq("pet_shop_id", getTenantId())
       .eq("rule_key", rule_key)
       .select()
       .single();
@@ -203,4 +202,4 @@ export async function PUT(request: Request) {
     console.error("Erro em PUT /api/admin/automations:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
-}
+});

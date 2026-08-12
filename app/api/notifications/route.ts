@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getTenantId, withTenantRoute } from "@/lib/server/tenant";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,7 @@ const STAFF_ROLES = [
 ];
 
 // GET: Notificações filtradas por cargo (Admin, Dono, Veterinário, Banhista/Tosador, Recepcionista, Entregador, Auxiliar, Tutor)
-export async function GET() {
+export const GET = withTenantRoute(async () => {
   try {
     const supabase = createClient();
     const {
@@ -44,6 +45,7 @@ export async function GET() {
       const { data: stored, error } = await adminSupabase
         .from("notifications")
         .select("*")
+        .eq("pet_shop_id", getTenantId())
         .order("created_at", { ascending: false })
         .limit(40);
 
@@ -55,10 +57,14 @@ export async function GET() {
       const { data: appts } = await adminSupabase
         .from("appointments")
         .select("id, pet_id, service_type, scheduled_at, status, notes")
+        .eq("pet_shop_id", getTenantId())
         .order("scheduled_at", { ascending: false })
         .limit(50);
 
-      const { data: pets } = await adminSupabase.from("pets").select("id, name");
+      const { data: pets } = await adminSupabase
+        .from("pets")
+        .select("id, name")
+        .eq("pet_shop_id", getTenantId());
       const petMap = new Map((pets || []).map((p) => [p.id, p.name]));
 
       const todayStr = new Date().toISOString().slice(0, 10);
@@ -248,10 +254,10 @@ export async function GET() {
     console.error("Erro em GET /api/notifications:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
-}
+});
 
 // PATCH: Marcar notificação(ões) como lida(s)
-export async function PATCH(request: Request) {
+export const PATCH = withTenantRoute(async (request: Request) => {
   try {
     const supabase = createClient();
     const {
@@ -281,6 +287,7 @@ export async function PATCH(request: Request) {
         const { error } = await adminSupabase
           .from("notifications")
           .update({ is_read: true })
+          .eq("pet_shop_id", getTenantId())
           .eq("is_read", false);
         if (error) return NextResponse.json({ error: error.message }, { status: 500 });
       } else {
@@ -302,6 +309,7 @@ export async function PATCH(request: Request) {
       const { error } = await adminSupabase
         .from("notifications")
         .update({ is_read: true })
+        .eq("pet_shop_id", getTenantId())
         .eq("id", id);
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     } else {
@@ -318,4 +326,4 @@ export async function PATCH(request: Request) {
     console.error("Erro em PATCH /api/notifications:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
-}
+});

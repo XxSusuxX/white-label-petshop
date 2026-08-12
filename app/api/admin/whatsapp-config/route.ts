@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ensureWhatsAppConfig } from "@/lib/server/whatsapp";
+import { getTenantId, withTenantRoute } from "@/lib/server/tenant";
 
 export const dynamic = "force-dynamic";
 
-const PET_SHOP_ID = "00000000-0000-0000-0000-000000000001";
 const SECRET_FIELDS = ["evolution_api_key", "official_access_token", "twilio_auth_token", "uazapi_token"];
 const MASK = "••••••••";
 
@@ -14,7 +14,7 @@ function maskSecret(value: string | null | undefined) {
 }
 
 // GET: Retorna a configuração atual do WhatsApp com os campos sensíveis mascarados
-export async function GET() {
+export const GET = withTenantRoute(async () => {
   try {
     const config = await ensureWhatsAppConfig();
     const masked = { ...config } as any;
@@ -31,12 +31,12 @@ export async function GET() {
     console.error("Erro em GET /api/admin/whatsapp-config:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
-}
+});
 
 // PUT: Salva a configuração. Campos secretos só são sobrescritos se um valor novo
 // (não mascarado) for enviado — assim o formulário pode reenviar o resto sem
 // precisar que o admin redigite a chave toda vez.
-export async function PUT(request: Request) {
+export const PUT = withTenantRoute(async (request: Request) => {
   try {
     const adminSupabase = createAdminClient();
     const body = await request.json();
@@ -75,7 +75,7 @@ export async function PUT(request: Request) {
     const { data, error } = await adminSupabase
       .from("whatsapp_config")
       .update(updateData)
-      .eq("pet_shop_id", PET_SHOP_ID)
+      .eq("pet_shop_id", getTenantId())
       .select()
       .single();
 
@@ -89,16 +89,16 @@ export async function PUT(request: Request) {
     console.error("Erro em PUT /api/admin/whatsapp-config:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
-}
+});
 
 // PATCH: Desconecta a instância sem apagar as credenciais salvas (facilita reconectar depois)
-export async function PATCH() {
+export const PATCH = withTenantRoute(async () => {
   try {
     const adminSupabase = createAdminClient();
     const { error } = await adminSupabase
       .from("whatsapp_config")
       .update({ is_connected: false, connected_number: "", updated_at: new Date().toISOString() })
-      .eq("pet_shop_id", PET_SHOP_ID);
+      .eq("pet_shop_id", getTenantId());
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ success: true });
@@ -106,4 +106,4 @@ export async function PATCH() {
     console.error("Erro em PATCH /api/admin/whatsapp-config:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
-}
+});

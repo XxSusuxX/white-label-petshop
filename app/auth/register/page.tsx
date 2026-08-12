@@ -41,53 +41,57 @@ export default function RegisterPage() {
     setCpf(formatCpf(e.target.value));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    e.stopPropagation();
     setIsLoading(true);
-    const supabase = createClient();
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: fullName,
-          phone: phone,
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName,
+            phone: phone,
+          },
         },
-      },
-    });
-
-    if (error) {
-      setIsLoading(false);
-      alert("Erro ao criar conta: " + error.message);
-      return;
-    }
-
-    if (data.user) {
-      // 1. Salvar perfil do Tutor em profiles sem pet_shop_id fictício
-      await supabase.from("profiles").upsert({
-        id: data.user.id,
-        full_name: fullName,
-        phone: phone,
-        role: "client",
       });
 
-      // 2. Se o pet já tiver sido preenchido, salva no banco via API do servidor
-      if (petName.trim()) {
-        await fetch("/api/pets", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: petName,
-            species: species || "Cachorro",
-            breed: breed || "Vira-lata",
-            sex: sex,
-          }),
-        });
+      if (error) {
+        setIsLoading(false);
+        alert("Erro ao criar conta: " + error.message);
+        return;
       }
-    }
 
-    setIsLoading(false);
-    router.push("/client");
+      if (data.user) {
+        await supabase.from("profiles").upsert({
+          id: data.user.id,
+          full_name: fullName,
+          phone: phone,
+          role: "client",
+        });
+
+        if (petName.trim()) {
+          await fetch("/api/pets", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              name: petName,
+              species: species || "Cachorro",
+              breed: breed || "Vira-lata",
+              sex: sex,
+            }),
+          });
+        }
+      }
+
+      setIsLoading(false);
+      router.push("/client");
+    } catch (err) {
+      setIsLoading(false);
+      alert("Erro ao criar conta. Tente novamente.");
+    }
   };
 
   return (

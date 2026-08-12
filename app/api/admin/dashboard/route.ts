@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getTenantId, withTenantRoute } from "@/lib/server/tenant";
 
 export const dynamic = "force-dynamic";
-
-const PET_SHOP_ID = "00000000-0000-0000-0000-000000000001";
 
 function startOfDay(d: Date) {
   const copy = new Date(d);
@@ -11,7 +10,7 @@ function startOfDay(d: Date) {
   return copy;
 }
 
-export async function GET() {
+export const GET = withTenantRoute(async () => {
   try {
     const adminSupabase = createAdminClient();
 
@@ -25,11 +24,11 @@ export async function GET() {
     weekAgo.setDate(weekAgo.getDate() - 7);
 
     const [salesRes, appointmentsRes, petsRes, profilesRes, automationsRes] = await Promise.all([
-      adminSupabase.from("sales").select("total, created_at").eq("pet_shop_id", PET_SHOP_ID),
-      adminSupabase.from("appointments").select("*").eq("pet_shop_id", PET_SHOP_ID),
-      adminSupabase.from("pets").select("id, name, breed, species, client_id"),
-      adminSupabase.from("profiles").select("id, full_name, phone, role, created_at").eq("role", "client"),
-      adminSupabase.from("automation_rules").select("enabled").eq("pet_shop_id", PET_SHOP_ID),
+      adminSupabase.from("sales").select("total, created_at").eq("pet_shop_id", getTenantId()),
+      adminSupabase.from("appointments").select("*").eq("pet_shop_id", getTenantId()),
+      adminSupabase.from("pets").select("id, name, breed, species, client_id").eq("pet_shop_id", getTenantId()),
+      adminSupabase.from("profiles").select("id, full_name, phone, role, created_at").eq("pet_shop_id", getTenantId()).eq("role", "client"),
+      adminSupabase.from("automation_rules").select("enabled").eq("pet_shop_id", getTenantId()),
     ]);
 
     const sales = salesRes.data || [];
@@ -104,4 +103,4 @@ export async function GET() {
     console.error("Erro em GET /api/admin/dashboard:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
-}
+});

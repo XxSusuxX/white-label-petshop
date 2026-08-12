@@ -1,17 +1,19 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getTenantId, withTenantRoute } from "@/lib/server/tenant";
 
 export const dynamic = "force-dynamic";
 
 // GET: Catálogo de serviços ativos — leitura pública (usada pelo agendamento
 // do cliente e pela página pública /agendar), sem dados sensíveis.
-export async function GET() {
+export const GET = withTenantRoute(async () => {
   try {
     const adminSupabase = createAdminClient();
 
     const { data: services, error } = await adminSupabase
       .from("services")
       .select("id, name, description, duration_minutes, price, category")
+      .eq("pet_shop_id", getTenantId())
       .eq("is_active", true)
       .eq("category", "service")
       .order("name", { ascending: true });
@@ -25,7 +27,7 @@ export async function GET() {
     console.error("Erro em GET /api/services:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
-}
+});
 
 function getDefaultServices() {
   return [

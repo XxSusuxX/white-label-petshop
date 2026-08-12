@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-
-const PET_SHOP_ID = "00000000-0000-0000-0000-000000000001";
+import { getTenantId, withTenantRoute } from "@/lib/server/tenant";
 
 interface CheckoutItem {
   id: string;
@@ -14,7 +13,7 @@ interface CheckoutItem {
 // POST: Finaliza uma venda do PDV, persistindo o cabeçalho (sales), os itens (sale_items),
 // a movimentação de entrada no caixa aberto, a baixa de estoque de produtos e a
 // criação de pacotes/créditos para o tutor (quando o carrinho tiver itens de pacote).
-export async function POST(request: Request) {
+export const POST = withTenantRoute(async (request: Request) => {
   try {
     const adminSupabase = createAdminClient();
     const body = await request.json();
@@ -44,7 +43,7 @@ export async function POST(request: Request) {
     const { data: openSession } = await adminSupabase
       .from("cash_sessions")
       .select("id")
-      .eq("pet_shop_id", PET_SHOP_ID)
+      .eq("pet_shop_id", getTenantId())
       .eq("status", "aberto")
       .maybeSingle();
 
@@ -83,7 +82,7 @@ export async function POST(request: Request) {
     const { data: sale, error: saleErr } = await adminSupabase
       .from("sales")
       .insert({
-        pet_shop_id: PET_SHOP_ID,
+        pet_shop_id: getTenantId(),
         client_id: client_id || null,
         payment_method,
         subtotal,
@@ -146,7 +145,7 @@ export async function POST(request: Request) {
           : null;
 
         const { error: pkgErr } = await adminSupabase.from("client_packages").insert({
-          pet_shop_id: PET_SHOP_ID,
+          pet_shop_id: getTenantId(),
           client_id,
           service_id: item.id,
           package_name: item.name,
@@ -168,4 +167,4 @@ export async function POST(request: Request) {
     console.error("Erro em POST /api/admin/pdv/checkout:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
-}
+});

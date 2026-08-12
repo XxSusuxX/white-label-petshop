@@ -1,18 +1,17 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getTenantId, withTenantRoute } from "@/lib/server/tenant";
 
 export const dynamic = "force-dynamic";
 
-const PET_SHOP_ID = "00000000-0000-0000-0000-000000000001";
-
 // GET: Lista datas bloqueadas (feriados/fechamentos pontuais), mais recentes primeiro
-export async function GET() {
+export const GET = withTenantRoute(async () => {
   try {
     const adminSupabase = createAdminClient();
     const { data, error } = await adminSupabase
       .from("blocked_dates")
       .select("*")
-      .eq("pet_shop_id", PET_SHOP_ID)
+      .eq("pet_shop_id", getTenantId())
       .order("blocked_date", { ascending: true });
 
     if (error) {
@@ -25,10 +24,10 @@ export async function GET() {
     console.error("Erro em GET /api/admin/blocked-dates:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
-}
+});
 
 // POST: Bloqueia uma data (feriado, fechamento pontual)
-export async function POST(request: Request) {
+export const POST = withTenantRoute(async (request: Request) => {
   try {
     const adminSupabase = createAdminClient();
     const body = await request.json();
@@ -40,7 +39,7 @@ export async function POST(request: Request) {
 
     const { data, error } = await adminSupabase
       .from("blocked_dates")
-      .insert({ pet_shop_id: PET_SHOP_ID, blocked_date, reason: reason || "" })
+      .insert({ pet_shop_id: getTenantId(), blocked_date, reason: reason || "" })
       .select()
       .single();
 
@@ -57,10 +56,10 @@ export async function POST(request: Request) {
     console.error("Erro em POST /api/admin/blocked-dates:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
-}
+});
 
 // DELETE: Remove um bloqueio de data (?id=)
-export async function DELETE(request: Request) {
+export const DELETE = withTenantRoute(async (request: Request) => {
   try {
     const adminSupabase = createAdminClient();
     const { searchParams } = new URL(request.url);
@@ -70,7 +69,11 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "id é obrigatório" }, { status: 400 });
     }
 
-    const { error } = await adminSupabase.from("blocked_dates").delete().eq("id", id);
+    const { error } = await adminSupabase
+      .from("blocked_dates")
+      .delete()
+      .eq("pet_shop_id", getTenantId())
+      .eq("id", id);
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
@@ -80,4 +83,4 @@ export async function DELETE(request: Request) {
     console.error("Erro em DELETE /api/admin/blocked-dates:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
-}
+});

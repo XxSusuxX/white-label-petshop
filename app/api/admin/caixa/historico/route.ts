@@ -1,19 +1,18 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getTenantId, withTenantRoute } from "@/lib/server/tenant";
 
 export const dynamic = "force-dynamic";
 
-const PET_SHOP_ID = "00000000-0000-0000-0000-000000000001";
-
 // GET: Histórico de caixas fechados (mais recentes primeiro)
-export async function GET() {
+export const GET = withTenantRoute(async () => {
   try {
     const adminSupabase = createAdminClient();
 
     const { data: sessions, error } = await adminSupabase
       .from("cash_sessions")
       .select("*")
-      .eq("pet_shop_id", PET_SHOP_ID)
+      .eq("pet_shop_id", getTenantId())
       .eq("status", "fechado")
       .order("closed_at", { ascending: false })
       .limit(30);
@@ -28,4 +27,4 @@ export async function GET() {
     console.error("Erro em GET /api/admin/caixa/historico:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
-}
+});

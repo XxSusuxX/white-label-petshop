@@ -1,6 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-
-const PET_SHOP_ID = "00000000-0000-0000-0000-000000000001";
+import { getTenantId } from "@/lib/server/tenant";
 
 export type NotificationType =
   | "agendamento_criado"
@@ -21,7 +20,7 @@ export async function createNotification(params: {
   try {
     const adminSupabase = createAdminClient();
     const { error } = await adminSupabase.from("notifications").insert({
-      pet_shop_id: PET_SHOP_ID,
+      pet_shop_id: getTenantId(),
       client_id: params.clientId,
       appointment_id: params.appointmentId || null,
       type: params.type,

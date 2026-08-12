@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getTenantId, withTenantRoute } from "@/lib/server/tenant";
 
-export async function GET() {
+export const GET = withTenantRoute(async () => {
   try {
     const supabase = createClient();
     const {
@@ -19,6 +20,7 @@ export async function GET() {
     const { data: pets, error } = await adminSupabase
       .from("pets")
       .select("*")
+      .eq("pet_shop_id", getTenantId())
       .eq("client_id", user.id)
       .order("created_at", { ascending: false });
 
@@ -31,9 +33,9 @@ export async function GET() {
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
-}
+});
 
-export async function POST(request: Request) {
+export const POST = withTenantRoute(async (request: Request) => {
   try {
     const supabase = createClient();
     const {
@@ -56,19 +58,20 @@ export async function POST(request: Request) {
         user.email?.split("@")[0] ||
         "Tutor",
       role: "client",
+      pet_shop_id: getTenantId(),
     });
 
-    // 2. Garantir pet_shop padrão cadastrado
+    // 2. Garantir o tenant atual cadastrado
     await adminSupabase.from("pet_shops").upsert({
-      id: "00000000-0000-0000-0000-000000000001",
-      name: "PetNexus Matriz",
+      id: getTenantId(),
+      name: "PetNexus",
     });
 
     // 3. Inserir o pet com segurança no backend
     const { data: pet, error } = await adminSupabase
       .from("pets")
       .insert({
-        pet_shop_id: "00000000-0000-0000-0000-000000000001",
+        pet_shop_id: getTenantId(),
         client_id: user.id,
         name: body.name,
         species: body.species || "Cachorro",
@@ -93,4 +96,4 @@ export async function POST(request: Request) {
     console.error("Erro de API /api/pets:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
-}
+});

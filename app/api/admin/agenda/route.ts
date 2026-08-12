@@ -5,24 +5,29 @@ import { createNotification, getClientIdForPet } from "@/lib/server/notification
 import { triggerAutomation, getBookingContactInfo } from "@/lib/server/automations";
 import { createRecurringBooking, scheduleNextRecurrence } from "@/lib/server/recurring";
 import { checkStaffShiftCapacity } from "@/lib/server/staff";
+import { getTenantId, withTenantRoute } from "@/lib/server/tenant";
 
 export const dynamic = "force-dynamic";
 
-const PET_SHOP_ID = "00000000-0000-0000-0000-000000000001";
-
-export async function GET() {
+export const GET = withTenantRoute(async () => {
   try {
     const adminSupabase = createAdminClient();
 
     // 1. Buscar todos os pets
-    const { data: pets } = await adminSupabase.from("pets").select("*");
+    const { data: pets } = await adminSupabase
+      .from("pets")
+      .select("*")
+      .eq("pet_shop_id", getTenantId());
     const petMap = new Map<string, any>();
     if (pets) {
       pets.forEach((p) => petMap.set(p.id, p));
     }
 
     // 2. Buscar todos os tutores/profiles
-    const { data: profiles } = await adminSupabase.from("profiles").select("*");
+    const { data: profiles } = await adminSupabase
+      .from("profiles")
+      .select("*")
+      .eq("pet_shop_id", getTenantId());
     const profileMap = new Map<string, any>();
     if (profiles) {
       profiles.forEach((pr) => profileMap.set(pr.id, pr));
@@ -34,6 +39,7 @@ export async function GET() {
     const { data: appointments, error: apptErr } = await adminSupabase
       .from("appointments")
       .select("*")
+      .eq("pet_shop_id", getTenantId())
       .order("scheduled_at", { ascending: false });
 
     if (!apptErr) {
@@ -97,6 +103,7 @@ export async function GET() {
       const { data: history } = await adminSupabase
         .from("service_history")
         .select("*")
+        .eq("pet_shop_id", getTenantId())
         .order("created_at", { ascending: false });
 
       appointmentsList = (history || []).map((h) => {
@@ -162,10 +169,10 @@ export async function GET() {
     console.error("Erro no GET /api/admin/agenda:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
-}
+});
 
 // POST: Criar novo agendamento na tabela appointments (feito pelo admin)
-export async function POST(request: Request) {
+export const POST = withTenantRoute(async (request: Request) => {
   try {
     const adminSupabase = createAdminClient();
     const body = await request.json();
@@ -213,26 +220,22 @@ export async function POST(request: Request) {
       }
     }
 
-    // Se o admin optou por debitar de um pacote do tutor, valida e consome 1 crédito atomicamente
+    // Se o admin optou por debitar de um pacote do tutor, valida antes (mensagem
+    // amigável). O CONSUMO do crédito + INSERT são feitos de forma ATÔMICA pela
+    // RPC book_appointment() — se o insert falhar, o crédito não se perde.
     let finalPrice = price ?? 85.0;
-    let usedPackageId: string | null = null;
     if (use_package_id) {
       const { data: pkg } = await adminSupabase
         .from("client_packages")
-        .select("*")
+        .select("id, service_id, status, used_credits, total_credits")
         .eq("id", use_package_id)
+        .eq("pet_shop_id", getTenantId())
         .maybeSingle();
 
       if (!pkg || pkg.service_id !== service_id || pkg.status !== "ativo" || pkg.used_credits >= pkg.total_credits) {
         return NextResponse.json({ error: "Pacote inválido ou sem créditos disponíveis." }, { status: 400 });
       }
-
-      const { data: consumed } = await adminSupabase.rpc("use_package_credit", { package_id: use_package_id });
-      if (!consumed) {
-        return NextResponse.json({ error: "Não foi possível usar o crédito do pacote. Tente novamente." }, { status: 409 });
-      }
       finalPrice = 0;
-      usedPackageId = use_package_id;
     }
 
     // Se o admin marcou recorrência, cria o "molde" antes do primeiro agendamento
@@ -250,43 +253,42 @@ export async function POST(request: Request) {
       });
     }
 
-    const { data: newRow, error: insertErr } = await adminSupabase
-      .from("appointments")
-      .insert({
-        pet_id,
-        pet_shop_id: PET_SHOP_ID,
-        service_id: service_id || null,
-        service_type,
-        scheduled_at: service_date,
-        professional: professional || "Não atribuído",
-        price: finalPrice,
-        status: "agendado",
-        notes: notes || "Status: agendado | [STEP:0]",
-        address: address || "",
-        paid_via_package_id: usedPackageId,
-        recurring_booking_id: recurringBookingId,
-      })
-      .select()
-      .single();
+    const { data: newRow, error: insertErr } = await adminSupabase.rpc("book_appointment", {
+      p_pet_id: pet_id,
+      p_pet_shop_id: getTenantId(),
+      p_service_id: service_id || null,
+      p_service_type: service_type,
+      p_scheduled_at: service_date,
+      p_professional: professional || "Não atribuído",
+      p_price: finalPrice,
+      p_notes: notes || "Status: agendado | [STEP:0]",
+      p_address: address || "",
+      p_package_id: use_package_id || null,
+      p_recurring_booking_id: recurringBookingId,
+      p_exclude_appointment_id: null,
+      p_force: !!force,
+    });
 
     if (insertErr) {
-      console.warn("Tabela appointments não disponível para inserção, usando service_history:", insertErr.message);
-      const { data: legacyRow, error: legacyErr } = await adminSupabase
-        .from("service_history")
-        .insert({
-          pet_id,
-          pet_shop_id: PET_SHOP_ID,
-          service_type,
-          service_date: service_date,
-          notes: notes || `Status: agendado | Profissional: ${professional || "Groomer"}`,
-        })
-        .select()
-        .single();
-
-      if (legacyErr) {
-        return NextResponse.json({ error: legacyErr.message }, { status: 400 });
+      // Se o agendamento não pôde ser criado, desfaz a recorrência criada acima
+      // (o crédito do pacote já é revertido automaticamente pela RPC).
+      if (recurringBookingId) {
+        await adminSupabase
+          .from("recurring_bookings")
+          .delete()
+          .eq("id", recurringBookingId)
+          .then(() => {}, () => {});
       }
-      return NextResponse.json({ appointment: legacyRow, success: true });
+
+      const msg = insertErr.message || "";
+      if (msg.includes("horario_ocupado")) {
+        return NextResponse.json({ error: "Já existe um agendamento nesse horário." }, { status: 409 });
+      }
+      if (msg.includes("pacote_sem_credito")) {
+        return NextResponse.json({ error: "Pacote inválido ou sem créditos disponíveis." }, { status: 409 });
+      }
+      console.error("Erro ao criar agendamento (admin):", insertErr);
+      return NextResponse.json({ error: msg }, { status: 500 });
     }
 
     const clientId = await getClientIdForPet(pet_id);
@@ -306,10 +308,10 @@ export async function POST(request: Request) {
     console.error("Erro no POST /api/admin/agenda:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
-}
+});
 
 // PATCH: Alterar status e/ou reagendar (data, serviço, profissional, pet, observações)
-export async function PATCH(request: Request) {
+export const PATCH = withTenantRoute(async (request: Request) => {
   try {
     const adminSupabase = createAdminClient();
     const body = await request.json();
@@ -323,6 +325,7 @@ export async function PATCH(request: Request) {
     const { data: existing, error: fetchErr } = await adminSupabase
       .from("appointments")
       .select("*")
+      .eq("pet_shop_id", getTenantId())
       .eq("id", id)
       .single();
 
@@ -379,6 +382,7 @@ export async function PATCH(request: Request) {
     let { data, error } = await adminSupabase
       .from("appointments")
       .update(updateData)
+      .eq("pet_shop_id", getTenantId())
       .eq("id", id)
       .select()
       .single();
@@ -390,6 +394,7 @@ export async function PATCH(request: Request) {
       const retryRes = await adminSupabase
         .from("appointments")
         .update(fallbackData)
+        .eq("pet_shop_id", getTenantId())
         .eq("id", id)
         .select()
         .single();
@@ -484,10 +489,10 @@ export async function PATCH(request: Request) {
     console.error("Erro no PATCH /api/admin/agenda:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
-}
+});
 
 // DELETE: Excluir agendamento por ID fisicamente no Supabase
-export async function DELETE(request: Request) {
+export const DELETE = withTenantRoute(async (request: Request) => {
   try {
     const adminSupabase = createAdminClient();
     const { searchParams } = new URL(request.url);
@@ -500,11 +505,13 @@ export async function DELETE(request: Request) {
     const { error: err1 } = await adminSupabase
       .from("appointments")
       .delete()
+      .eq("pet_shop_id", getTenantId())
       .eq("id", id);
 
     const { error: err2 } = await adminSupabase
       .from("service_history")
       .delete()
+      .eq("pet_shop_id", getTenantId())
       .eq("id", id);
 
     if (err1 && err2) {
@@ -517,4 +524,4 @@ export async function DELETE(request: Request) {
     console.error("Erro no DELETE /api/admin/agenda:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
-}
+});

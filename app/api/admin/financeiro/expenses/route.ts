@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getTenantId, withTenantRoute } from "@/lib/server/tenant";
 
 export const dynamic = "force-dynamic";
 
-const PET_SHOP_ID = "00000000-0000-0000-0000-000000000001";
 const VALID_CATEGORIES = ["aluguel", "salarios", "fornecedores", "marketing", "manutencao", "outros"];
 
 // POST: Registra uma despesa manual (aluguel, salários, fornecedores, marketing, manutenção, outros)
-export async function POST(request: Request) {
+export const POST = withTenantRoute(async (request: Request) => {
   try {
     const adminSupabase = createAdminClient();
     const body = await request.json();
@@ -24,7 +24,7 @@ export async function POST(request: Request) {
     const { data, error } = await adminSupabase
       .from("financial_expenses")
       .insert({
-        pet_shop_id: PET_SHOP_ID,
+        pet_shop_id: getTenantId(),
         description: description.trim(),
         category: finalCategory,
         amount: Number(amount),
@@ -44,10 +44,10 @@ export async function POST(request: Request) {
     console.error("Erro em POST /api/admin/financeiro/expenses:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
-}
+});
 
 // DELETE: Remove uma despesa (?id=)
-export async function DELETE(request: Request) {
+export const DELETE = withTenantRoute(async (request: Request) => {
   try {
     const adminSupabase = createAdminClient();
     const { searchParams } = new URL(request.url);
@@ -57,7 +57,11 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "id é obrigatório" }, { status: 400 });
     }
 
-    const { error } = await adminSupabase.from("financial_expenses").delete().eq("id", id);
+    const { error } = await adminSupabase
+      .from("financial_expenses")
+      .delete()
+      .eq("pet_shop_id", getTenantId())
+      .eq("id", id);
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
@@ -67,4 +71,4 @@ export async function DELETE(request: Request) {
     console.error("Erro em DELETE /api/admin/financeiro/expenses:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
-}
+});

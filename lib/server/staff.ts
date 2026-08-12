@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getTenantId } from "@/lib/server/tenant";
 
 const STAFF_ROLES = [
   "admin",
@@ -50,6 +51,7 @@ export async function getActiveStaffList(): Promise<StaffMember[]> {
   const { data: profiles } = await adminSupabase
     .from("profiles")
     .select("id, full_name, role")
+    .eq("pet_shop_id", getTenantId())
     .in("role", STAFF_ROLES);
 
   return (profiles || []).map((p) => {
@@ -90,6 +92,7 @@ export async function checkStaffShiftCapacity(
   const { count: configuredDays } = await adminSupabase
     .from("staff_schedules")
     .select("id", { count: "exact", head: true })
+    .eq("pet_shop_id", getTenantId())
     .eq("staff_id", staff.id);
   if (!configuredDays) return { ok: true };
 
@@ -99,6 +102,7 @@ export async function checkStaffShiftCapacity(
   const { data: schedule } = await adminSupabase
     .from("staff_schedules")
     .select("*")
+    .eq("pet_shop_id", getTenantId())
     .eq("staff_id", staff.id)
     .eq("day_of_week", dayOfWeek)
     .maybeSingle();

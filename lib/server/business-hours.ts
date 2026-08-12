@@ -1,6 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getTenantId } from "@/lib/server/tenant";
 
-const PET_SHOP_ID = "00000000-0000-0000-0000-000000000001";
 const DEFAULT_INTERVAL_MINUTES = 60;
 
 export interface BusinessHoursRow {
@@ -25,7 +25,7 @@ export async function ensureBusinessHours(): Promise<BusinessHoursRow[]> {
   const { data: existing } = await adminSupabase
     .from("business_hours")
     .select("*")
-    .eq("pet_shop_id", PET_SHOP_ID);
+    .eq("pet_shop_id", getTenantId());
 
   const existingDays = new Set((existing || []).map((r) => r.day_of_week));
   const missing = FALLBACK_ROWS.filter((r) => !existingDays.has(r.day_of_week));
@@ -33,7 +33,7 @@ export async function ensureBusinessHours(): Promise<BusinessHoursRow[]> {
   if (missing.length > 0) {
     const { data: seeded, error } = await adminSupabase
       .from("business_hours")
-      .insert(missing.map((r) => ({ ...r, pet_shop_id: PET_SHOP_ID })))
+      .insert(missing.map((r) => ({ ...r, pet_shop_id: getTenantId() })))
       .select();
     if (!error && seeded) {
       return [...(existing || []), ...seeded].sort((a, b) => a.day_of_week - b.day_of_week);
@@ -64,7 +64,7 @@ export async function generateSlotsForDate(
   const { data: blocked } = await adminSupabase
     .from("blocked_dates")
     .select("*")
-    .eq("pet_shop_id", PET_SHOP_ID)
+    .eq("pet_shop_id", getTenantId())
     .eq("blocked_date", dateStr)
     .maybeSingle();
 
@@ -77,7 +77,7 @@ export async function generateSlotsForDate(
   const { data: hoursRow } = await adminSupabase
     .from("business_hours")
     .select("*")
-    .eq("pet_shop_id", PET_SHOP_ID)
+    .eq("pet_shop_id", getTenantId())
     .eq("day_of_week", dayOfWeek)
     .maybeSingle();
 

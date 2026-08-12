@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getTenantId, withTenantRoute } from "@/lib/server/tenant";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +39,7 @@ const ROLE_LABELS: Record<string, string> = {
   tutor: "Cliente / Tutor",
 };
 
-export async function GET() {
+export const GET = withTenantRoute(async () => {
   try {
     const adminSupabase = createAdminClient();
 
@@ -46,6 +47,7 @@ export async function GET() {
     const { data: profiles, error: profileErr } = await adminSupabase
       .from("profiles")
       .select("*")
+      .eq("pet_shop_id", getTenantId())
       .order("created_at", { ascending: false });
 
     if (profileErr) {
@@ -70,12 +72,16 @@ export async function GET() {
     }
 
     // 3. Buscar pets de todos os clientes
-    const { data: pets } = await adminSupabase.from("pets").select("*");
+    const { data: pets } = await adminSupabase
+      .from("pets")
+      .select("*")
+      .eq("pet_shop_id", getTenantId());
 
     // 3b. Buscar agendamentos concluídos
     const { data: completedAppointments } = await adminSupabase
       .from("appointments")
       .select("pet_id")
+      .eq("pet_shop_id", getTenantId())
       .eq("status", "concluido");
 
     const petIdToClientId = new Map<string, string>();
@@ -177,9 +183,9 @@ export async function GET() {
     console.error("Erro em GET /api/admin/clients:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
-}
+});
 
-export async function POST(request: Request) {
+export const POST = withTenantRoute(async (request: Request) => {
   try {
     const adminSupabase = createAdminClient();
     const body = await request.json();
@@ -240,7 +246,7 @@ export async function POST(request: Request) {
         full_name: full_name.trim(),
         phone: phone.trim(),
         role: "client",
-        pet_shop_id: "00000000-0000-0000-0000-000000000001",
+        pet_shop_id: getTenantId(),
       });
 
       if (profileErr) {
@@ -256,4 +262,4 @@ export async function POST(request: Request) {
     console.error("Erro em POST /api/admin/clients:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
-}
+});

@@ -1,7 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { findSchedulingConflict } from "@/lib/server/booking";
-
-const PET_SHOP_ID = "00000000-0000-0000-0000-000000000001";
+import { getTenantId } from "@/lib/server/tenant";
 
 /** Cria a recorrência (o "molde") antes do primeiro agendamento, para que ele já
  * nasça com recurring_booking_id preenchido. Retorna null em caso de erro. */
@@ -18,7 +17,7 @@ export async function createRecurringBooking(params: {
   const { data, error } = await adminSupabase
     .from("recurring_bookings")
     .insert({
-      pet_shop_id: PET_SHOP_ID,
+      pet_shop_id: getTenantId(),
       pet_id: params.petId,
       service_id: params.serviceId,
       service_type: params.serviceType,
@@ -84,7 +83,7 @@ export async function scheduleNextRecurrence(appointment: {
 
     await adminSupabase.from("appointments").insert({
       pet_id: appointment.pet_id,
-      pet_shop_id: PET_SHOP_ID,
+      pet_shop_id: getTenantId(),
       service_id: appointment.service_id,
       service_type: appointment.service_type,
       scheduled_at: nextDateIso,

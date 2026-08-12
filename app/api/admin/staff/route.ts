@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getActiveStaffList } from "@/lib/server/staff";
+import { getTenantId, withTenantRoute } from "@/lib/server/tenant";
 
 export const dynamic = "force-dynamic";
 
-const PET_SHOP_ID = "00000000-0000-0000-0000-000000000001";
-
 // GET: Lista a equipe (perfis com cargo de staff) com a escala semanal de cada um
-export async function GET() {
+export const GET = withTenantRoute(async () => {
   try {
     const staff = await getActiveStaffList();
     const adminSupabase = createAdminClient();
@@ -15,6 +14,7 @@ export async function GET() {
     const { data: schedules } = await adminSupabase
       .from("staff_schedules")
       .select("*")
+      .eq("pet_shop_id", getTenantId())
       .in("staff_id", staff.map((s) => s.id).length > 0 ? staff.map((s) => s.id) : ["00000000-0000-0000-0000-000000000000"]);
 
     const scheduleByStaff = new Map<string, Record<number, any>>();
@@ -38,10 +38,10 @@ export async function GET() {
     console.error("Erro em GET /api/admin/staff:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
-}
+});
 
 // PUT: Cria/atualiza o turno de um membro da equipe em um dia da semana
-export async function PUT(request: Request) {
+export const PUT = withTenantRoute(async (request: Request) => {
   try {
     const adminSupabase = createAdminClient();
     const body = await request.json();
@@ -58,7 +58,7 @@ export async function PUT(request: Request) {
       .from("staff_schedules")
       .upsert(
         {
-          pet_shop_id: PET_SHOP_ID,
+          pet_shop_id: getTenantId(),
           staff_id,
           day_of_week,
           start_time: start_time || "09:00",
@@ -81,4 +81,4 @@ export async function PUT(request: Request) {
     console.error("Erro em PUT /api/admin/staff:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
-}
+});

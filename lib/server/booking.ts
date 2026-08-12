@@ -1,6 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getTenantId } from "@/lib/server/tenant";
 
-const PET_SHOP_ID = "00000000-0000-0000-0000-000000000001";
 const DEFAULT_DURATION_MINUTES = 60;
 
 interface ConflictCheckParams {
@@ -41,23 +41,22 @@ export async function findSchedulingConflict(params: ConflictCheckParams): Promi
   const start = new Date(params.scheduledAt);
   const end = new Date(start.getTime() + ownDuration * 60000);
 
+  // Busca apenas a janela relevante (margem de 12h), em vez de carregar TODOS
+  // os agendamentos do petshop em memória. O overlap exato continua sendo
+  // calculado aqui com a duração de cada serviço.
+  const WINDOW_MS = 12 * 60 * 60000;
+  const windowStart = new Date(start.getTime() - WINDOW_MS).toISOString();
+  const windowEnd = new Date(end.getTime() + WINDOW_MS).toISOString();
+
   const { data: candidates, error } = await adminSupabase
     .from("appointments")
-    .select("id, scheduled_at, service_id, professional, status")
-    .eq("pet_shop_id", PET_SHOP_ID)
-    .not("status", "in", "(cancelado,bloqueio)");
+    .select("id, scheduled_at, professional, services ( duration_minutes )")
+    .eq("pet_shop_id", getTenantId())
+    .not("status", "in", "(cancelado,bloqueio)")
+    .gte("scheduled_at", windowStart)
+    .lte("scheduled_at", windowEnd);
 
   if (error) throw new Error(error.message);
-
-  const serviceIds = Array.from(new Set((candidates || []).map((c) => c.service_id).filter(Boolean)));
-  const durationMap = new Map<string, number>();
-  if (serviceIds.length > 0) {
-    const { data: services } = await adminSupabase
-      .from("services")
-      .select("id, duration_minutes")
-      .in("id", serviceIds as string[]);
-    (services || []).forEach((s) => durationMap.set(s.id, s.duration_minutes || DEFAULT_DURATION_MINUTES));
-  }
 
   const ownProfessional = params.professional && params.professional !== "Não atribuído" ? params.professional : null;
 
@@ -70,7 +69,8 @@ export async function findSchedulingConflict(params: ConflictCheckParams): Promi
     }
 
     const cStart = new Date(c.scheduled_at);
-    const cDuration = c.service_id ? durationMap.get(c.service_id) || DEFAULT_DURATION_MINUTES : DEFAULT_DURATION_MINUTES;
+    const svc = Array.isArray(c.services) ? c.services[0] : c.services;
+    const cDuration = svc?.duration_minutes || DEFAULT_DURATION_MINUTES;
     const cEnd = new Date(cStart.getTime() + cDuration * 60000);
 
     if (start < cEnd && cStart < end) {

@@ -27,19 +27,25 @@ function LoginForm() {
     }
   }, [searchParams]);
 
-  const handleLoginSubmit = async (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    e.stopPropagation();
     setIsLoading(true);
-    const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    setIsLoading(false);
-    if (!error) {
-      router.push("/client");
-    } else {
-      alert("Erro ao fazer login: " + error.message);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      setIsLoading(false);
+      if (!error) {
+        router.push("/client");
+      } else {
+        setAuthError("Erro ao fazer login: " + error.message);
+      }
+    } catch (err) {
+      setIsLoading(false);
+      setAuthError("Erro ao fazer login. Tente novamente.");
     }
   };
 

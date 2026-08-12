@@ -1,7 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getWhatsAppConfig, sendWhatsAppMessage } from "@/lib/server/whatsapp";
-
-const PET_SHOP_ID = "00000000-0000-0000-0000-000000000001";
+import { getTenantId } from "@/lib/server/tenant";
 
 function fillTemplate(template: string, vars: Record<string, string>) {
   return template.replace(/\{(\w+)\}/g, (_match, key) => vars[key] ?? "");
@@ -26,7 +25,7 @@ export async function triggerAutomation(
     const { data: rule } = await adminSupabase
       .from("automation_rules")
       .select("*")
-      .eq("pet_shop_id", PET_SHOP_ID)
+      .eq("pet_shop_id", getTenantId())
       .eq("rule_key", ruleKey)
       .maybeSingle();
 

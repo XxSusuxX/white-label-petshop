@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getTenantId, withTenantRoute } from "@/lib/server/tenant";
 
 export const dynamic = "force-dynamic";
 
 // GET: Retorna consultas, vacinas e histórico de peso de um pet específico
-export async function GET(request: Request) {
+export const GET = withTenantRoute(async (request: Request) => {
   try {
     const { searchParams } = new URL(request.url);
     const petId = searchParams.get("pet_id");
@@ -20,16 +21,19 @@ export async function GET(request: Request) {
         adminSupabase
           .from("medical_records")
           .select("*")
+          .eq("pet_shop_id", getTenantId())
           .eq("pet_id", petId)
           .order("created_at", { ascending: false }),
         adminSupabase
           .from("vaccine_records")
           .select("*")
+          .eq("pet_shop_id", getTenantId())
           .eq("pet_id", petId)
           .order("applied_at", { ascending: false }),
         adminSupabase
           .from("weight_logs")
           .select("*")
+          .eq("pet_shop_id", getTenantId())
           .eq("pet_id", petId)
           .order("recorded_at", { ascending: false }),
       ]);
@@ -49,10 +53,10 @@ export async function GET(request: Request) {
     console.error("Erro em GET /api/admin/prontuario:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
-}
+});
 
 // POST: Cria um registro de consulta, vacina ou peso (dispatch por "type")
-export async function POST(request: Request) {
+export const POST = withTenantRoute(async (request: Request) => {
   try {
     const adminSupabase = createAdminClient();
     const body = await request.json();
@@ -67,7 +71,7 @@ export async function POST(request: Request) {
       const { data, error } = await adminSupabase
         .from("medical_records")
         .insert({
-          pet_shop_id: "00000000-0000-0000-0000-000000000001",
+          pet_shop_id: getTenantId(),
           pet_id,
           vet_name: vet_name || "",
           diagnosis: diagnosis || "",
@@ -85,7 +89,7 @@ export async function POST(request: Request) {
       const { data, error } = await adminSupabase
         .from("vaccine_records")
         .insert({
-          pet_shop_id: "00000000-0000-0000-0000-000000000001",
+          pet_shop_id: getTenantId(),
           pet_id,
           vaccine_name,
           applied_at: applied_at || null,
@@ -101,13 +105,13 @@ export async function POST(request: Request) {
       const { weight } = body;
       const { data, error } = await adminSupabase
         .from("weight_logs")
-        .insert({ pet_id, weight })
+        .insert({ pet_shop_id: getTenantId(), pet_id, weight })
         .select()
         .single();
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
       // Mantém pets.weight (peso atual) sincronizado com o último registro
-      await adminSupabase.from("pets").update({ weight }).eq("id", pet_id);
+      await adminSupabase.from("pets").update({ weight }).eq("pet_shop_id", getTenantId()).eq("id", pet_id);
 
       return NextResponse.json({ success: true, record: data });
     }
@@ -117,4 +121,4 @@ export async function POST(request: Request) {
     console.error("Erro em POST /api/admin/prontuario:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
-}
+});

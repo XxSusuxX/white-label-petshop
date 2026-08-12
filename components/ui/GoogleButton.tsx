@@ -14,20 +14,35 @@ export default function GoogleButton({
   redirectTo = "/auth/callback?next=/client",
   className = "",
 }: GoogleButtonProps) {
-  const handleGoogleLogin = async () => {
-    const supabase = createClient();
-    await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: getURL(redirectTo),
-      },
-    });
+  const handleGoogleLogin = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: getURL(redirectTo),
+          skipBrowserRedirect: false,
+        },
+      });
+      if (error) {
+        console.error("OAuth error:", error);
+      }
+    } catch (err) {
+      console.error("Login error:", err);
+    }
   };
 
   return (
     <button
       onClick={handleGoogleLogin}
       type="button"
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          handleGoogleLogin(e as any);
+        }
+      }}
       className={`w-full h-touch-target flex items-center justify-center gap-3 bg-white text-on-surface-variant font-label-bold text-label-bold rounded-lg border border-hairline-border transition-all hover:bg-surface-variant/10 active:scale-[0.98] cursor-pointer ${className}`}
     >
       <svg className="w-5 h-5" viewBox="0 0 24 24">

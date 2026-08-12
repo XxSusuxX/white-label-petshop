@@ -2,12 +2,11 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { triggerAutomation } from "@/lib/server/automations";
 import { createNotification } from "@/lib/server/notifications";
-
-const PET_SHOP_ID = "00000000-0000-0000-0000-000000000001";
+import { getTenantId, withTenantRoute } from "@/lib/server/tenant";
 
 export const dynamic = "force-dynamic";
 
-export async function POST(request: Request) {
+export const POST = withTenantRoute(async (request: Request) => {
   try {
     const adminSupabase = createAdminClient();
     const body = await request.json();
@@ -33,77 +32,89 @@ export async function POST(request: Request) {
 
     const cleanPhone = tutor_phone.replace(/\D/g, "");
 
-    // 1. Verificar se o tutor já possui cadastro na tabela profiles pelo número de telefone
+    // 1. Verificar se o tutor já possui cadastro pelo telefone NORMALIZADO (só
+    //    dígitos). Fallback legado: busca pelos últimos 8 dígitos (perfis antigos
+    //    gravados com formatação).
     let clientId: string | null = null;
     let isNewClient = false;
 
-    const { data: existingProfiles } = await adminSupabase
-      .from("profiles")
-      .select("id, full_name, phone")
-      .ilike("phone", `%${cleanPhone.slice(-8)}%`)
-      .limit(1);
+    let matchedProfile: { id: string; phone: string | null } | null = null;
 
-    if (existingProfiles && existingProfiles.length > 0) {
-      clientId = existingProfiles[0].id;
+    if (cleanPhone.length >= 8) {
+      const { data: byPhone } = await adminSupabase
+        .from("profiles")
+        .select("id, phone")
+        .eq("pet_shop_id", getTenantId())
+        .eq("phone", cleanPhone)
+        .limit(1);
+
+      matchedProfile = byPhone?.[0] || null;
+
+      if (!matchedProfile) {
+        const { data: legacyMatch } = await adminSupabase
+          .from("profiles")
+          .select("id, phone")
+          .eq("pet_shop_id", getTenantId())
+          .ilike("phone", `%${cleanPhone.slice(-8)}%`)
+          .limit(1);
+        matchedProfile = legacyMatch?.[0] || null;
+      }
+    }
+
+    if (matchedProfile) {
+      clientId = matchedProfile.id;
+      // Normaliza o telefone salvo para o formato com dígitos (facilita buscas futuras)
+      if (matchedProfile.phone !== cleanPhone) {
+        await adminSupabase
+          .from("profiles")
+          .update({ phone: cleanPhone })
+          .eq("id", matchedProfile.id)
+          .then(() => {}, () => {});
+      }
     } else {
-      // Criar cadastro básico automático para o novo cliente na tabela profiles
+      // Criar cadastro básico automático para o novo cliente. Usa role 'client'
+      // (valor aceito pelo CHECK de profiles.role). Sem conta de email por ora:
+      // se o tutor criar conta depois, register-google vincula os dados por telefone.
       isNewClient = true;
       const { data: newProfile, error: profileErr } = await adminSupabase
         .from("profiles")
         .insert({
-          pet_shop_id: PET_SHOP_ID,
+          pet_shop_id: getTenantId(),
           full_name: tutor_name,
-          phone: tutor_phone,
-          role: "tutor",
+          phone: cleanPhone,
+          role: "client",
         })
         .select()
         .single();
 
-      if (profileErr) {
+      if (profileErr || !newProfile) {
         console.error("Erro ao auto-cadastrar cliente em /api/agendar:", profileErr);
-        // Fallback: se houver erro ao criar profile, prosseguir com ID gerado temporário
-      } else if (newProfile) {
-        clientId = newProfile.id;
+        return NextResponse.json(
+          { error: "Não foi possível identificar ou cadastrar o tutor para este agendamento." },
+          { status: 400 }
+        );
       }
+      clientId = newProfile.id;
     }
 
-    // 2. Verificar ou criar cadastro do pet
+    // 2. Verificar ou criar cadastro do pet (sempre vinculado ao tutor)
     let petId: string | null = null;
-    if (clientId) {
-      const { data: existingPets } = await adminSupabase
-        .from("pets")
-        .select("id")
-        .eq("client_id", clientId)
-        .ilike("name", pet_name.trim())
-        .limit(1);
+    const { data: existingPets } = await adminSupabase
+      .from("pets")
+      .select("id")
+      .eq("pet_shop_id", getTenantId())
+      .eq("client_id", clientId)
+      .ilike("name", pet_name.trim())
+      .limit(1);
 
-      if (existingPets && existingPets.length > 0) {
-        petId = existingPets[0].id;
-      } else {
-        const { data: newPet, error: petErr } = await adminSupabase
-          .from("pets")
-          .insert({
-            client_id: clientId,
-            pet_shop_id: PET_SHOP_ID,
-            name: pet_name,
-            breed: pet_breed || "Não informada",
-            species: "Cachorro",
-          })
-          .select()
-          .single();
-
-        if (!petErr && newPet) {
-          petId = newPet.id;
-        }
-      }
-    }
-
-    // Se por alguma razão o petId ainda for null, tentar buscar um pet genérico ou criar sem client_id
-    if (!petId) {
-      const { data: fallbackPet } = await adminSupabase
+    if (existingPets && existingPets.length > 0) {
+      petId = existingPets[0].id;
+    } else {
+      const { data: newPet, error: petErr } = await adminSupabase
         .from("pets")
         .insert({
-          pet_shop_id: PET_SHOP_ID,
+          client_id: clientId,
+          pet_shop_id: getTenantId(),
           name: pet_name,
           breed: pet_breed || "Não informada",
           species: "Cachorro",
@@ -111,38 +122,59 @@ export async function POST(request: Request) {
         .select()
         .single();
 
-      if (fallbackPet) petId = fallbackPet.id;
+      if (petErr || !newPet) {
+        console.error("Erro ao cadastrar pet em /api/agendar:", petErr);
+        return NextResponse.json(
+          { error: "Não foi possível registrar o pet para o agendamento." },
+          { status: 500 }
+        );
+      }
+      petId = newPet.id;
     }
 
-    if (!petId) {
-      return NextResponse.json(
-        { error: "Não foi possível registrar o pet para o agendamento." },
-        { status: 500 }
-      );
-    }
+    // 3. Resolver serviço e preço a partir do catálogo (sem valor default hardcoded)
+    const { data: serviceMatch } = await adminSupabase
+      .from("services")
+      .select("id, price")
+      .eq("pet_shop_id", getTenantId())
+      .eq("is_active", true)
+      .ilike("name", service_name.trim())
+      .maybeSingle();
 
-    // 3. Montar data/hora do agendamento (ISO)
+    const resolvedServiceId = serviceMatch?.id || null;
+    const resolvedPrice =
+      serviceMatch?.price ?? (service_price !== undefined && service_price !== "" ? Number(service_price) : 0);
+
+    // 4. Montar data/hora do agendamento (ISO) e criar de forma ATÔMICA via RPC
+    //    (checagem de conflito + insert; evita reservar horário já tomado).
     const scheduledAt = `${date}T${time}:00`;
 
-    // 4. Inserir o agendamento na tabela appointments
-    const { data: appointment, error: apptErr } = await adminSupabase
-      .from("appointments")
-      .insert({
-        pet_id: petId,
-        pet_shop_id: PET_SHOP_ID,
-        service_type: service_name,
-        scheduled_at: scheduledAt,
-        status: "agendado",
-        price: service_price ? Number(service_price) : 85.0,
-        professional: professional || "Qualquer Profissional Disponível",
-        notes: `Status: agendado | [STEP:0] | Agendamento via Link Público por ${tutor_name} (${tutor_phone})`,
-      })
-      .select()
-      .single();
+    const { data: appointment, error: apptErr } = await adminSupabase.rpc("book_appointment", {
+      p_pet_id: petId,
+      p_pet_shop_id: getTenantId(),
+      p_service_id: resolvedServiceId,
+      p_service_type: service_name,
+      p_scheduled_at: scheduledAt,
+      p_professional: professional || "Não atribuído",
+      p_price: resolvedPrice,
+      p_notes: `Status: agendado | [STEP:0] | Agendamento via Link Público por ${tutor_name} (${tutor_phone})`,
+      p_address: "",
+      p_package_id: null,
+      p_recurring_booking_id: null,
+      p_exclude_appointment_id: null,
+      p_force: false,
+    });
 
     if (apptErr) {
+      const msg = apptErr.message || "";
+      if (msg.includes("horario_ocupado")) {
+        return NextResponse.json(
+          { error: "Esse horário acabou de ser reservado. Escolha outro horário." },
+          { status: 409 }
+        );
+      }
       console.error("Erro ao criar agendamento público:", apptErr);
-      return NextResponse.json({ error: apptErr.message }, { status: 500 });
+      return NextResponse.json({ error: msg }, { status: 500 });
     }
 
     // 5. Se for um novo cliente, enviar mensagem automática de boas-vindas com link de agendamento
@@ -188,4 +220,4 @@ export async function POST(request: Request) {
     console.error("Erro no POST /api/agendar:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
-}
+});

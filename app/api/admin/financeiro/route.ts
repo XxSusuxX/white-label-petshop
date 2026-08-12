@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getTenantId, withTenantRoute } from "@/lib/server/tenant";
 
 export const dynamic = "force-dynamic";
-
-const PET_SHOP_ID = "00000000-0000-0000-0000-000000000001";
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
@@ -15,7 +14,7 @@ function firstDayOfMonthIso() {
 }
 
 // GET ?from=YYYY-MM-DD&to=YYYY-MM-DD — Relatório financeiro do período (padrão: mês atual)
-export async function GET(request: Request) {
+export const GET = withTenantRoute(async (request: Request) => {
   try {
     const adminSupabase = createAdminClient();
     const { searchParams } = new URL(request.url);
@@ -28,7 +27,7 @@ export async function GET(request: Request) {
     const { data: sales, error: salesErr } = await adminSupabase
       .from("sales")
       .select("*")
-      .eq("pet_shop_id", PET_SHOP_ID)
+      .eq("pet_shop_id", getTenantId())
       .gte("created_at", rangeStart)
       .lte("created_at", rangeEnd);
 
@@ -75,7 +74,7 @@ export async function GET(request: Request) {
     const { data: completedAppointments } = await adminSupabase
       .from("appointments")
       .select("price, paid_via_package_id, status")
-      .eq("pet_shop_id", PET_SHOP_ID)
+      .eq("pet_shop_id", getTenantId())
       .eq("status", "concluido")
       .is("paid_via_package_id", null)
       .gte("scheduled_at", rangeStart)
@@ -87,7 +86,7 @@ export async function GET(request: Request) {
     const { data: expenses, error: expensesErr } = await adminSupabase
       .from("financial_expenses")
       .select("*")
-      .eq("pet_shop_id", PET_SHOP_ID)
+      .eq("pet_shop_id", getTenantId())
       .gte("expense_date", from)
       .lte("expense_date", to);
 
@@ -106,7 +105,7 @@ export async function GET(request: Request) {
     const { data: allSales } = await adminSupabase
       .from("sales")
       .select("client_id, total, created_at")
-      .eq("pet_shop_id", PET_SHOP_ID)
+      .eq("pet_shop_id", getTenantId())
       .not("client_id", "is", null);
 
     const clientStats = new Map<string, { total: number; count: number; last: string }>();
@@ -147,7 +146,7 @@ export async function GET(request: Request) {
     const { data: activePackages } = await adminSupabase
       .from("client_packages")
       .select("total_credits, used_credits, price_paid")
-      .eq("pet_shop_id", PET_SHOP_ID)
+      .eq("pet_shop_id", getTenantId())
       .eq("status", "ativo");
 
     let deferredPackageValue = 0;
@@ -164,7 +163,7 @@ export async function GET(request: Request) {
     const { data: recentSessions } = await adminSupabase
       .from("cash_sessions")
       .select("id, closed_at, opening_amount, expected_amount, counted_amount, difference_amount, closed_by_name")
-      .eq("pet_shop_id", PET_SHOP_ID)
+      .eq("pet_shop_id", getTenantId())
       .eq("status", "fechado")
       .order("closed_at", { ascending: false })
       .limit(5);
@@ -194,4 +193,4 @@ export async function GET(request: Request) {
     console.error("Erro em GET /api/admin/financeiro:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
-}
+});

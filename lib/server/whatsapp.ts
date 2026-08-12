@@ -1,6 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-
-const PET_SHOP_ID = "00000000-0000-0000-0000-000000000001";
+import { getTenantId } from "@/lib/server/tenant";
 
 export type WhatsAppProvider = "none" | "evolution" | "official" | "twilio" | "uazapi";
 
@@ -29,7 +28,7 @@ export async function getWhatsAppConfig(): Promise<WhatsAppConfig | null> {
   const { data } = await adminSupabase
     .from("whatsapp_config")
     .select("*")
-    .eq("pet_shop_id", PET_SHOP_ID)
+    .eq("pet_shop_id", getTenantId())
     .maybeSingle();
   return data as WhatsAppConfig | null;
 }
@@ -41,7 +40,7 @@ export async function ensureWhatsAppConfig(): Promise<WhatsAppConfig> {
   const adminSupabase = createAdminClient();
   const { data, error } = await adminSupabase
     .from("whatsapp_config")
-    .insert({ pet_shop_id: PET_SHOP_ID, provider: "none" })
+    .insert({ pet_shop_id: getTenantId(), provider: "none" })
     .select()
     .single();
 

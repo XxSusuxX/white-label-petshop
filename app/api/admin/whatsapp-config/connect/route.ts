@@ -9,15 +9,14 @@ import {
   getUazapiQrCode,
   getUazapiConnectionState,
 } from "@/lib/server/whatsapp";
+import { getTenantId, withTenantRoute } from "@/lib/server/tenant";
 
 export const dynamic = "force-dynamic";
-
-const PET_SHOP_ID = "00000000-0000-0000-0000-000000000001";
 
 // POST: Inicia a conexão com o provedor configurado.
 // - evolution: retorna um QR code real para o admin escanear no celular.
 // - official / twilio: valida as credenciais direto na API do provedor.
-export async function POST() {
+export const POST = withTenantRoute(async () => {
   try {
     const config = await getWhatsAppConfig();
     if (!config || config.provider === "none") {
@@ -32,7 +31,7 @@ export async function POST() {
         await adminSupabase
           .from("whatsapp_config")
           .update({ last_error: result.error, last_checked_at: new Date().toISOString() })
-          .eq("pet_shop_id", PET_SHOP_ID);
+          .eq("pet_shop_id", getTenantId());
         return NextResponse.json({ error: result.error }, { status: 400 });
       }
       return NextResponse.json({ qrCodeBase64: result.qrCodeBase64 });
@@ -48,7 +47,7 @@ export async function POST() {
           last_error: result.error || "",
           last_checked_at: new Date().toISOString(),
         })
-        .eq("pet_shop_id", PET_SHOP_ID);
+        .eq("pet_shop_id", getTenantId());
 
       if (!result.connected) return NextResponse.json({ error: result.error }, { status: 400 });
       return NextResponse.json({ connected: true, number: result.number });
@@ -64,7 +63,7 @@ export async function POST() {
           last_error: result.error || "",
           last_checked_at: new Date().toISOString(),
         })
-        .eq("pet_shop_id", PET_SHOP_ID);
+        .eq("pet_shop_id", getTenantId());
 
       if (!result.connected) return NextResponse.json({ error: result.error }, { status: 400 });
       return NextResponse.json({ connected: true, number: result.number });
@@ -76,7 +75,7 @@ export async function POST() {
         await adminSupabase
           .from("whatsapp_config")
           .update({ last_error: result.error, last_checked_at: new Date().toISOString() })
-          .eq("pet_shop_id", PET_SHOP_ID);
+          .eq("pet_shop_id", getTenantId());
         return NextResponse.json({ error: result.error }, { status: 400 });
       }
       if (!result.qrCodeBase64) {
@@ -89,7 +88,7 @@ export async function POST() {
             connected_number: state.number || "",
             last_checked_at: new Date().toISOString(),
           })
-          .eq("pet_shop_id", PET_SHOP_ID);
+          .eq("pet_shop_id", getTenantId());
         if (state.connected) return NextResponse.json({ connected: true, number: state.number });
         return NextResponse.json({ error: "Não foi possível obter o QR code. Verifique a URL e o token." }, { status: 400 });
       }
@@ -101,10 +100,10 @@ export async function POST() {
     console.error("Erro em POST /api/admin/whatsapp-config/connect:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
-}
+});
 
 // GET: Consulta o status de conexão atual (usado para o polling depois de escanear o QR da Evolution)
-export async function GET() {
+export const GET = withTenantRoute(async () => {
   try {
     const config = await getWhatsAppConfig();
     if (!config || config.provider === "none") {
@@ -128,11 +127,11 @@ export async function GET() {
         connected_number: state.number || "",
         last_checked_at: new Date().toISOString(),
       })
-      .eq("pet_shop_id", PET_SHOP_ID);
+      .eq("pet_shop_id", getTenantId());
 
     return NextResponse.json({ connected: state.connected, number: state.number, error: state.error });
   } catch (err: any) {
     console.error("Erro em GET /api/admin/whatsapp-config/connect:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
-}
+});

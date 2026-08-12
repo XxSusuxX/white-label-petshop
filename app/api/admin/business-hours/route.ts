@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ensureBusinessHours } from "@/lib/server/business-hours";
+import { getTenantId, withTenantRoute } from "@/lib/server/tenant";
 
 export const dynamic = "force-dynamic";
 
-const PET_SHOP_ID = "00000000-0000-0000-0000-000000000001";
-
 // GET: Lista o horário de funcionamento dos 7 dias da semana, semeando os padrões na primeira vez
-export async function GET() {
+export const GET = withTenantRoute(async () => {
   try {
     const hours = await ensureBusinessHours();
     return NextResponse.json({ hours });
@@ -15,10 +14,10 @@ export async function GET() {
     console.error("Erro em GET /api/admin/business-hours:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
-}
+});
 
 // PUT: Atualiza o horário de um dia da semana específico
-export async function PUT(request: Request) {
+export const PUT = withTenantRoute(async (request: Request) => {
   try {
     const adminSupabase = createAdminClient();
     const body = await request.json();
@@ -39,7 +38,7 @@ export async function PUT(request: Request) {
         slot_interval_minutes: slot_interval_minutes || 60,
         updated_at: new Date().toISOString(),
       })
-      .eq("pet_shop_id", PET_SHOP_ID)
+      .eq("pet_shop_id", getTenantId())
       .eq("day_of_week", day_of_week)
       .select()
       .single();
@@ -54,4 +53,4 @@ export async function PUT(request: Request) {
     console.error("Erro em PUT /api/admin/business-hours:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
-}
+});

@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getTenantId, withTenantRoute } from "@/lib/server/tenant";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export const GET = withTenantRoute(async () => {
   try {
     const adminSupabase = createAdminClient();
 
@@ -11,6 +12,7 @@ export async function GET() {
     const { data: pets, error: petsErr } = await adminSupabase
       .from("pets")
       .select("*")
+      .eq("pet_shop_id", getTenantId())
       .order("created_at", { ascending: false });
 
     if (petsErr) {
@@ -19,7 +21,10 @@ export async function GET() {
     }
 
     // 2. Buscar perfis (tutores/clientes)
-    const { data: profiles } = await adminSupabase.from("profiles").select("id, full_name, phone, role");
+    const { data: profiles } = await adminSupabase
+      .from("profiles")
+      .select("id, full_name, phone, role")
+      .eq("pet_shop_id", getTenantId());
     const profileMap = new Map<string, { full_name: string; phone: string }>();
     if (profiles) {
       profiles.forEach((p) => {
@@ -65,9 +70,9 @@ export async function GET() {
     console.error("Erro em GET /api/admin/pets:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
-}
+});
 
-export async function POST(request: Request) {
+export const POST = withTenantRoute(async (request: Request) => {
   try {
     const adminSupabase = createAdminClient();
     const body = await request.json();
@@ -125,7 +130,7 @@ export async function POST(request: Request) {
         photo_url: photo_url?.trim() || (species === "Gato"
           ? "https://images.unsplash.com/photo-1573865526739-10659fec78a5?auto=format&fit=crop&w=300&q=80"
           : "https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&w=300&q=80"),
-        pet_shop_id: "00000000-0000-0000-0000-000000000001",
+        pet_shop_id: getTenantId(),
         current_status: "Em casa",
       })
       .select()
@@ -141,4 +146,4 @@ export async function POST(request: Request) {
     console.error("Erro em POST /api/admin/pets:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
-}
+});

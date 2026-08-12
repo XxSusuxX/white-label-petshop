@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { sendWhatsAppMessage } from "@/lib/server/whatsapp";
+import { withTenantRoute } from "@/lib/server/tenant";
 
 export const dynamic = "force-dynamic";
 
 // POST: Envia uma mensagem de teste de verdade através do provedor configurado
 // (Evolution/UazAPI/Oficial/Twilio) — usado pelo botão "Testar Envio via API"
 // na tela de automações do WhatsApp, em vez do antigo link wa.me manual.
-export async function POST(request: Request) {
+export const POST = withTenantRoute(async (request: Request) => {
   try {
     const body = await request.json();
     const { phone, message } = body;
@@ -28,4 +29,4 @@ export async function POST(request: Request) {
     console.error("Erro em POST /api/admin/whatsapp-config/test-send:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
-}
+});

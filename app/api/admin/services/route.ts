@@ -1,16 +1,18 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getTenantId, withTenantRoute } from "@/lib/server/tenant";
 
 export const dynamic = "force-dynamic";
 
 // GET: List all catalog items
-export async function GET() {
+export const GET = withTenantRoute(async () => {
   try {
     const adminSupabase = createAdminClient();
 
     const { data: services, error } = await adminSupabase
       .from("services")
       .select("*")
+      .eq("pet_shop_id", getTenantId())
       .eq("is_active", true)
       .order("category", { ascending: true })
       .order("name", { ascending: true });
@@ -36,10 +38,10 @@ export async function GET() {
     console.error("Erro em GET /api/admin/services:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
-}
+});
 
 // POST: Create a new catalog item
-export async function POST(request: Request) {
+export const POST = withTenantRoute(async (request: Request) => {
   try {
     const adminSupabase = createAdminClient();
     const body = await request.json();
@@ -62,7 +64,7 @@ export async function POST(request: Request) {
         price: parseFloat(price),
         category: category || "service",
         is_active: is_active !== false,
-        pet_shop_id: "00000000-0000-0000-0000-000000000001",
+        pet_shop_id: getTenantId(),
         stock_quantity: category === "product" && stock_quantity !== undefined && stock_quantity !== "" ? parseInt(stock_quantity, 10) : null,
         package_credits: category === "package" && package_credits ? parseInt(package_credits, 10) : null,
         package_validity_days: category === "package" && package_validity_days ? parseInt(package_validity_days, 10) : null,
@@ -80,10 +82,10 @@ export async function POST(request: Request) {
     console.error("Erro em POST /api/admin/services:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
-}
+});
 
 // PUT: Update an existing catalog item
-export async function PUT(request: Request) {
+export const PUT = withTenantRoute(async (request: Request) => {
   try {
     const adminSupabase = createAdminClient();
     const body = await request.json();
@@ -107,6 +109,7 @@ export async function PUT(request: Request) {
     const { data: item, error } = await adminSupabase
       .from("services")
       .update(updateData)
+      .eq("pet_shop_id", getTenantId())
       .eq("id", id)
       .select()
       .single();
@@ -121,10 +124,10 @@ export async function PUT(request: Request) {
     console.error("Erro em PUT /api/admin/services:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
-}
+});
 
 // DELETE: Remove a catalog item
-export async function DELETE(request: Request) {
+export const DELETE = withTenantRoute(async (request: Request) => {
   try {
     const adminSupabase = createAdminClient();
     const { searchParams } = new URL(request.url);
@@ -134,7 +137,11 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "id é obrigatório" }, { status: 400 });
     }
 
-    const { error } = await adminSupabase.from("services").delete().eq("id", id);
+    const { error } = await adminSupabase
+      .from("services")
+      .delete()
+      .eq("pet_shop_id", getTenantId())
+      .eq("id", id);
 
     if (error) {
       console.error("Erro ao remover serviço:", error);
@@ -146,7 +153,7 @@ export async function DELETE(request: Request) {
     console.error("Erro em DELETE /api/admin/services:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
-}
+});
 
 function getDefaultCatalog() {
   return [

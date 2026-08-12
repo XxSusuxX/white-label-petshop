@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getTenantId, withTenantRoute } from "@/lib/server/tenant";
 
 export const dynamic = "force-dynamic";
-
-const PET_SHOP_ID = "00000000-0000-0000-0000-000000000001";
 
 async function getCurrentUserName(): Promise<{ id: string | null; name: string }> {
   try {
@@ -42,14 +41,14 @@ function summarize(movements: any[], openingAmount: number) {
 }
 
 // GET: Sessão de caixa aberta no momento (se houver), com suas movimentações e totais
-export async function GET() {
+export const GET = withTenantRoute(async () => {
   try {
     const adminSupabase = createAdminClient();
 
     const { data: session, error: sessionErr } = await adminSupabase
       .from("cash_sessions")
       .select("*")
-      .eq("pet_shop_id", PET_SHOP_ID)
+      .eq("pet_shop_id", getTenantId())
       .eq("status", "aberto")
       .order("opened_at", { ascending: false })
       .maybeSingle();
@@ -80,10 +79,10 @@ export async function GET() {
     console.error("Erro em GET /api/admin/caixa:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
-}
+});
 
 // POST: Abrir um novo caixa
-export async function POST(request: Request) {
+export const POST = withTenantRoute(async (request: Request) => {
   try {
     const adminSupabase = createAdminClient();
     const body = await request.json();
@@ -92,7 +91,7 @@ export async function POST(request: Request) {
     const { data: existing } = await adminSupabase
       .from("cash_sessions")
       .select("id")
-      .eq("pet_shop_id", PET_SHOP_ID)
+      .eq("pet_shop_id", getTenantId())
       .eq("status", "aberto")
       .maybeSingle();
 
@@ -105,7 +104,7 @@ export async function POST(request: Request) {
     const { data: session, error } = await adminSupabase
       .from("cash_sessions")
       .insert({
-        pet_shop_id: PET_SHOP_ID,
+        pet_shop_id: getTenantId(),
         opened_by: id,
         opened_by_name: name,
         opening_amount: opening_amount || 0,
@@ -124,10 +123,10 @@ export async function POST(request: Request) {
     console.error("Erro em POST /api/admin/caixa:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
-}
+});
 
 // PATCH: Registrar movimentação manual (entrada/saída) OU fechar o caixa (action: "close")
-export async function PATCH(request: Request) {
+export const PATCH = withTenantRoute(async (request: Request) => {
   try {
     const adminSupabase = createAdminClient();
     const body = await request.json();
@@ -136,7 +135,7 @@ export async function PATCH(request: Request) {
     const { data: session, error: sessionErr } = await adminSupabase
       .from("cash_sessions")
       .select("*")
-      .eq("pet_shop_id", PET_SHOP_ID)
+      .eq("pet_shop_id", getTenantId())
       .eq("status", "aberto")
       .maybeSingle();
 
@@ -209,4 +208,4 @@ export async function PATCH(request: Request) {
     console.error("Erro em PATCH /api/admin/caixa:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
-}
+});
