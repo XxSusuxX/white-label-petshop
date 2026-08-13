@@ -297,7 +297,7 @@ export const POST = withTenantRoute(async (request: Request) => {
     }
 
     if (actor) {
-      await adminSupabase.from("appointments").update({ updated_by: actor.id }).eq("id", newRow.id);
+      await adminSupabase.from("appointments").update({ updated_by: actor.id }).eq("id", newRow.id).then(() => {}, () => {});
     }
 
     const clientId = await getClientIdForPet(pet_id);
@@ -386,11 +386,19 @@ export const PATCH = withTenantRoute(async (request: Request) => {
     // Se um novo status for informado, injetar tag de status limpa na frente das notes
     if (status) {
       const baseNotes = updateData.notes !== undefined ? updateData.notes : existing.notes || "";
+      const stepMatch = baseNotes.match(/\[STEP:(\d+)\]/);
+      const stepTag = stepMatch ? `[STEP:${stepMatch[1]}] | ` : "";
+
       const cleanedNotes = baseNotes
         .replace(/Status:\s*\w+\s*\|?/gi, "")
         .replace(/\[STATUS:\w+\]\s*\|?/gi, "")
+        .replace(/\[OPERACAO\]\s*\|?/gi, "")
+        .replace(/\[STEP:\d+\]\s*\|?/gi, "")
         .trim();
-      updateData.notes = cleanedNotes ? `Status: ${status} | ${cleanedNotes}` : `Status: ${status}`;
+
+      updateData.notes = cleanedNotes
+        ? `[OPERACAO] | ${stepTag}Status: ${status} | ${cleanedNotes}`
+        : `[OPERACAO] | ${stepTag}Status: ${status}`;
     }
 
     let { data, error } = await adminSupabase
@@ -401,10 +409,27 @@ export const PATCH = withTenantRoute(async (request: Request) => {
       .select()
       .single();
 
+    // Se o banco não possui a coluna 'updated_by' (migration_phase16 não rodada ainda)
+    if (error && (error.message.includes("updated_by") || error.code === "PGRST204")) {
+      console.warn("Coluna 'updated_by' não encontrada no banco. Tentando update sem updated_by:", error.message);
+      delete updateData.updated_by;
+      const retryWithoutUpdatedBy = await adminSupabase
+        .from("appointments")
+        .update(updateData)
+        .eq("pet_shop_id", getTenantId())
+        .eq("id", id)
+        .select()
+        .single();
+
+      data = retryWithoutUpdatedBy.data;
+      error = retryWithoutUpdatedBy.error;
+    }
+
     // Se o Postgres recusar por restricao appointments_status_check ('pronto' ou 'em_rota' nao permitidos na CHECK constraint do banco)
     if (error && (error.code === "23514" || error.message.includes("appointments_status_check") || error.message.includes("check constraint"))) {
       console.warn("Restrição appointments_status_check acionada no Supabase. Usando status 'confirmado' com tag no notes:", error.message);
-      const fallbackData = { ...updateData, status: "confirmado" };
+      const fallbackData: Record<string, any> = { ...updateData, status: "confirmado" };
+      delete fallbackData.updated_by;
       const retryRes = await adminSupabase
         .from("appointments")
         .update(fallbackData)

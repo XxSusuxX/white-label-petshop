@@ -88,6 +88,80 @@ export default function ClientesPage() {
   const [newClientEmail, setNewClientEmail] = useState("");
   const [isSavingClient, setIsSavingClient] = useState(false);
 
+  // Edit User Modal States
+  const [showEditUserModal, setShowEditUserModal] = useState(false);
+  const [editingUserId, setEditingUserId] = useState("");
+  const [editUserName, setEditUserName] = useState("");
+  const [editUserPhone, setEditUserPhone] = useState("");
+  const [editUserEmail, setEditUserEmail] = useState("");
+  const [editUserRole, setEditUserRole] = useState("client");
+  const [isUpdatingUser, setIsUpdatingUser] = useState(false);
+
+  const handleOpenEditUserModal = (user: { id: string; full_name: string; phone: string; email: string; role?: string }) => {
+    setEditingUserId(user.id);
+    setEditUserName(user.full_name || "");
+    setEditUserPhone(user.phone || "");
+    setEditUserEmail(user.email || "");
+    setEditUserRole(user.role || "client");
+    setShowEditUserModal(true);
+  };
+
+  const loadAdminClients = async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch("/api/admin/clients");
+      const data = await res.json();
+      if (res.ok && data.clients) {
+        setClients(data.clients);
+        if (data.employees) {
+          setEmployees(data.employees);
+        }
+        if (data.metrics) {
+          setMetrics(data.metrics);
+        }
+      }
+    } catch (err) {
+      console.error("Erro ao carregar clientes e equipe do Supabase:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleUpdateUserSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUserId) return;
+    if (!editUserName.trim()) {
+      alert("Por favor, informe o nome completo.");
+      return;
+    }
+
+    setIsUpdatingUser(true);
+    try {
+      const res = await fetch("/api/admin/clients", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editingUserId,
+          full_name: editUserName.trim(),
+          phone: editUserPhone.trim(),
+          email: editUserEmail.trim(),
+          role: editUserRole,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erro ao atualizar usuário.");
+
+      setShowEditUserModal(false);
+      setSelectedClient(null);
+      await loadAdminClients();
+      alert("🎉 Informações do usuário atualizadas com sucesso!");
+    } catch (err: any) {
+      alert(err.message || "Falha ao atualizar dados do usuário.");
+    } finally {
+      setIsUpdatingUser(false);
+    }
+  };
+
   // Direct Add Pet Modal States (Campos completos da ficha do pet)
   const [showAddPetModal, setShowAddPetModal] = useState(false);
   const [petTargetClient, setPetTargetClient] = useState<ClientUser | null>(null);
@@ -261,26 +335,6 @@ export default function ClientesPage() {
   };
 
   useEffect(() => {
-    async function loadAdminClients() {
-      setIsLoading(true);
-      try {
-        const res = await fetch("/api/admin/clients");
-        const data = await res.json();
-        if (res.ok && data.clients) {
-          setClients(data.clients);
-          if (data.employees) {
-            setEmployees(data.employees);
-          }
-          if (data.metrics) {
-            setMetrics(data.metrics);
-          }
-        }
-      } catch (err) {
-        console.error("Erro ao carregar clientes e equipe do Supabase:", err);
-      } finally {
-        setIsLoading(false);
-      }
-    }
     loadAdminClients();
   }, []);
 
@@ -588,6 +642,13 @@ export default function ClientesPage() {
                                 <span className="material-symbols-outlined text-lg">chat</span>
                               </a>
                             )}
+                            <button
+                              onClick={() => handleOpenEditUserModal(client)}
+                              className="p-2 rounded-lg bg-primary/10 border border-primary/30 text-primary hover:bg-primary/20 transition-colors cursor-pointer"
+                              title="Editar informações do usuário"
+                            >
+                              <span className="material-symbols-outlined text-lg">edit</span>
+                            </button>
                             <button
                               onClick={() => setSelectedClient(client)}
                               className="p-2 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface transition-colors cursor-pointer"
@@ -1298,25 +1359,138 @@ export default function ClientesPage() {
               )}
             </div>
 
-            <div className="pt-2 flex gap-3">
-              {selectedClient.phone && selectedClient.phone !== "Não informado" && (
-                <a
-                  href={getWhatsAppLink(selectedClient.phone)}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex-1 bg-emerald-600 text-white font-bold text-xs py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-emerald-500 transition-colors"
-                >
-                  <span className="material-symbols-outlined text-base">chat</span>
-                  Contato no WhatsApp
-                </a>
-              )}
+            <div className="pt-2 flex flex-wrap items-center justify-between gap-3">
               <button
-                onClick={() => setSelectedClient(null)}
-                className="px-4 py-3 bg-surface-container text-on-surface font-bold text-xs rounded-xl hover:bg-surface-container-high transition-colors cursor-pointer"
+                onClick={() => {
+                  const client = selectedClient;
+                  setSelectedClient(null);
+                  handleOpenEditUserModal(client);
+                }}
+                className="px-4 py-3 bg-primary/20 border border-primary/40 text-primary font-bold text-xs rounded-xl hover:bg-primary/30 transition-all cursor-pointer flex items-center gap-1.5"
               >
-                Fechar
+                <span className="material-symbols-outlined text-base">edit</span>
+                Editar Informações
+              </button>
+
+              <div className="flex items-center gap-2">
+                {selectedClient.phone && selectedClient.phone !== "Não informado" && (
+                  <a
+                    href={getWhatsAppLink(selectedClient.phone)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-4 py-3 bg-emerald-600 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 hover:bg-emerald-500 transition-colors"
+                  >
+                    <span className="material-symbols-outlined text-base">chat</span>
+                    WhatsApp
+                  </a>
+                )}
+                <button
+                  onClick={() => setSelectedClient(null)}
+                  className="px-4 py-3 bg-surface-container text-on-surface font-bold text-xs rounded-xl hover:bg-surface-container-high transition-colors cursor-pointer"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Editar Informações do Usuário / Tutor / Funcionário */}
+      {showEditUserModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-hidden animate-in fade-in duration-200">
+          <div className="bg-surface-container border border-hairline-border rounded-2xl max-w-md w-full flex flex-col overflow-hidden shadow-2xl extruded-shadow animate-in zoom-in-95 duration-200">
+            <div className="px-6 py-4 bg-surface-container-high border-b border-hairline-border flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary text-xl">manage_accounts</span>
+                <h3 className="font-bold text-base text-on-surface">Editar Informações do Usuário</h3>
+              </div>
+              <button
+                onClick={() => setShowEditUserModal(false)}
+                className="p-1.5 rounded-xl bg-surface-container hover:bg-surface-container-highest text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-lg">close</span>
               </button>
             </div>
+
+            <form onSubmit={handleUpdateUserSubmit} className="p-6 space-y-4 text-xs">
+              <div>
+                <label className="block text-[11px] font-bold text-on-surface-variant mb-1 uppercase">
+                  Nome Completo *
+                </label>
+                <input
+                  required
+                  value={editUserName}
+                  onChange={(e) => setEditUserName(e.target.value)}
+                  placeholder="Ex: Carlos Eduardo"
+                  className="w-full bg-matte-canvas border border-hairline-border rounded-xl p-3 text-xs text-on-surface outline-none focus:border-primary font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-on-surface-variant mb-1 uppercase">
+                  Telefone / WhatsApp
+                </label>
+                <input
+                  value={editUserPhone}
+                  onChange={(e) => setEditUserPhone(e.target.value)}
+                  placeholder="(11) 99999-9999"
+                  className="w-full bg-matte-canvas border border-hairline-border rounded-xl p-3 text-xs text-on-surface outline-none focus:border-primary font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-on-surface-variant mb-1 uppercase">
+                  E-mail do Usuário
+                </label>
+                <input
+                  value={editUserEmail}
+                  onChange={(e) => setEditUserEmail(e.target.value)}
+                  placeholder="carlos@email.com"
+                  type="email"
+                  className="w-full bg-matte-canvas border border-hairline-border rounded-xl p-3 text-xs text-on-surface outline-none focus:border-primary font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-on-surface-variant mb-1 uppercase">
+                  Cargo / Perfil de Acesso
+                </label>
+                <select
+                  value={editUserRole}
+                  onChange={(e) => setEditUserRole(e.target.value)}
+                  className="w-full bg-matte-canvas border border-hairline-border rounded-xl p-3 text-xs text-on-surface outline-none focus:border-primary cursor-pointer font-medium"
+                >
+                  <option value="client">Cliente / Tutor</option>
+                  <option value="dono">Dono(a) / Gestor</option>
+                  <option value="admin">Administrador</option>
+                  <option value="recepcionista">Recepcionista</option>
+                  <option value="banhista_tosador">Banhista & Tosador(a)</option>
+                  <option value="veterinario">Médico(a) Veterinário(a)</option>
+                  <option value="entregador">Entregador</option>
+                  <option value="auxiliar">Auxiliar Geral</option>
+                  <option value="funcionario">Funcionário Geral</option>
+                </select>
+              </div>
+
+              <div className="pt-3 border-t border-hairline-border flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowEditUserModal(false)}
+                  className="px-5 py-2.5 rounded-xl bg-surface-container border border-hairline-border hover:bg-surface-container-highest font-bold text-xs text-on-surface transition-all cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isUpdatingUser}
+                  className="px-5 py-2.5 rounded-xl bg-primary text-on-primary font-bold text-xs hover:brightness-110 active:scale-95 transition-all cursor-pointer shadow-md flex items-center justify-center gap-2 disabled:opacity-60"
+                >
+                  <span className="material-symbols-outlined text-base">save</span>
+                  {isUpdatingUser ? "Salvando..." : "Salvar Alterações"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -2,11 +2,14 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
 
 interface OpTask {
   id: string;
   pet: string;
   breed: string;
+  species: string;
+  photo: string | null;
   time: string;
   service: string;
   status: "agendado" | "confirmado" | "em_atendimento" | "pronto" | "em_rota" | "concluido" | "cancelado" | "bloqueio";
@@ -38,6 +41,17 @@ const parseServiceSteps = (serviceName: string): string[] => {
   return filtered.length > 0 ? filtered : [serviceName];
 };
 
+// Limpa tags prévias de operação e status das observações
+const cleanTaskNotes = (notes?: string) => {
+  if (!notes) return "";
+  return notes
+    .replace(/Status:\s*\w+\s*\|?/gi, "")
+    .replace(/\[STATUS:\w+\]\s*\|?/gi, "")
+    .replace(/\[OPERACAO\]\s*\|?/gi, "")
+    .replace(/\[STEP:\d+\]\s*\|?/gi, "")
+    .trim();
+};
+
 export default function OperacaoPage() {
   const [tasks, setTasks] = useState<OpTask[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -53,17 +67,18 @@ export default function OperacaoPage() {
       if (!res.ok) throw new Error(data?.error || "Não foi possível carregar a operação.");
 
       const today = new Date();
-      const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+      const todayDay = today.getDate();
+      const todayMonth = today.getMonth() + 1;
+      const todayYear = today.getFullYear();
 
       const mapped: OpTask[] = (data.appointments || [])
         .filter((a: any) => {
           if (a.status === "bloqueio") return false;
 
-          // Verificar se e a data de hoje (Formato YYYY-MM-DD local ou ISO)
-          const apptDateStr = a.date_iso ? String(a.date_iso).slice(0, 10) : "";
+          const isSameDay = a.day === todayDay && a.month === todayMonth && a.year === todayYear;
 
           // Incluir se for hoje OU se já possuir marcação de esteira em andamento
-          if (apptDateStr === todayStr) return true;
+          if (isSameDay) return true;
           if (a.notes?.includes("[OPERACAO]") || a.notes?.includes("[STEP:")) return true;
           if (["em_atendimento", "pronto", "em_rota"].includes(a.status)) return true;
 
@@ -95,6 +110,8 @@ export default function OperacaoPage() {
             id: a.id,
             pet: a.pet_name,
             breed: a.pet_breed,
+            species: a.pet_species || "Cachorro",
+            photo: a.pet_photo || null,
             time: a.time,
             service: a.service_type,
             status: validStatus,
@@ -119,6 +136,22 @@ export default function OperacaoPage() {
 
   useEffect(() => {
     loadTodayOperacao();
+
+    const supabase = createClient();
+    const channel = supabase
+      .channel("realtime-operacao-board")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "appointments" },
+        () => {
+          loadTodayOperacao();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const updateAppointmentStatusInSupabase = async (
@@ -139,15 +172,23 @@ export default function OperacaoPage() {
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         console.error("Erro no PATCH do Supabase:", data);
+        alert(`Erro ao atualizar status: ${data?.error || "Falha ao salvar no banco."}`);
+        await loadTodayOperacao();
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Erro ao atualizar no Supabase:", err);
+      alert(`Erro ao atualizar status: ${err?.message || "Conexão interrompida."}`);
+      await loadTodayOperacao();
     }
   };
 
   // Iniciar Atendimento (Mover da coluna Aguardando para Em Atendimento)
   const handleStartAttendance = async (task: OpTask) => {
-    const newNotes = `[OPERACAO] | [STEP:0] | ${task.notes || ""}`;
+    const clean = cleanTaskNotes(task.notes);
+    const newNotes = clean
+      ? `[OPERACAO] | [STEP:0] | Status: em_atendimento | ${clean}`
+      : `[OPERACAO] | [STEP:0] | Status: em_atendimento`;
+
     setTasks((prev) =>
       prev.map((t) =>
         t.id === task.id
@@ -161,77 +202,74 @@ export default function OperacaoPage() {
   // Concluir Sub-etapa Atual ou Mover para Pronto para Busca no Botão Único Dinâmico
   const handleCompleteSubStep = async (task: OpTask) => {
     const steps = parseServiceSteps(task.service);
-    const isLastStep = task.currentStepIndex >= steps.length - 1;
+    const nextIdx = task.currentStepIndex + 1;
+    const clean = cleanTaskNotes(task.notes);
 
-    if (isLastStep) {
-      // É a última etapa ➔ Mover para "Pronto para Busca"
-      const finalNotes = `[OPERACAO] | [STEP:${task.currentStepIndex}] | Status: pronto | ${task.notes || ""}`;
+    if (nextIdx < steps.length) {
+      const newNotes = clean
+        ? `[OPERACAO] | [STEP:${nextIdx}] | Status: em_atendimento | ${clean}`
+        : `[OPERACAO] | [STEP:${nextIdx}] | Status: em_atendimento`;
+
       setTasks((prev) =>
         prev.map((t) =>
           t.id === task.id
-            ? { ...t, status: "pronto", notes: finalNotes }
+            ? { ...t, currentStepIndex: nextIdx, notes: newNotes }
             : t
         )
       );
-
-      await updateAppointmentStatusInSupabase(task.id, "pronto", finalNotes);
+      await updateAppointmentStatusInSupabase(task.id, "em_atendimento", newNotes);
     } else {
-      // Avançar para a próxima sub-etapa (ex: Banho ➔ Tosa)
-      const nextStepIndex = task.currentStepIndex + 1;
-      const updatedNotes = `[OPERACAO] | [STEP:${nextStepIndex}] | ${task.notes || ""}`;
+      const newNotes = clean
+        ? `[OPERACAO] | Status: pronto | ${clean}`
+        : `[OPERACAO] | Status: pronto`;
 
       setTasks((prev) =>
         prev.map((t) =>
           t.id === task.id
-            ? { ...t, currentStepIndex: nextStepIndex, notes: updatedNotes }
+            ? { ...t, status: "pronto", currentStepIndex: nextIdx, notes: newNotes }
             : t
         )
       );
-
-      await updateAppointmentStatusInSupabase(task.id, "em_atendimento", updatedNotes);
+      await updateAppointmentStatusInSupabase(task.id, "pronto", newNotes);
     }
   };
 
-  // Mover para Em Rota ou Concluído
-  const handleMoveToRouteOrFinish = async (task: OpTask, newStatus: OpTask["status"]) => {
-    const currentNotes = task.notes || "";
-    const cleaned = currentNotes
-      .replace(/Status:\s*\w+\s*\|?/gi, "")
-      .replace(/\[STATUS:\w+\]\s*\|?/gi, "")
-      .trim();
-    const notesTag = cleaned ? `Status: ${newStatus} | ${cleaned}` : `Status: ${newStatus}`;
+  // Mover de Pronto para Busca para Em Rota ou Concluído no Botão Único Dinâmico
+  const handleMoveToRouteOrFinish = async (task: OpTask, targetStatus: "em_rota" | "concluido") => {
+    const clean = cleanTaskNotes(task.notes);
+    const newNotes = clean
+      ? `[OPERACAO] | Status: ${targetStatus} | ${clean}`
+      : `[OPERACAO] | Status: ${targetStatus}`;
 
     setTasks((prev) =>
-      prev.map((t) => (t.id === task.id ? { ...t, status: newStatus, notes: notesTag } : t))
+      prev.map((t) =>
+        t.id === task.id ? { ...t, status: targetStatus, notes: newNotes } : t
+      )
     );
-    await updateAppointmentStatusInSupabase(task.id, newStatus, notesTag);
+    await updateAppointmentStatusInSupabase(task.id, targetStatus, newNotes);
   };
 
-  // Cancelar atendimento
-  const handleCancelTask = async (id: string) => {
-    if (!confirm("Tem certeza que deseja cancelar este atendimento?")) return;
-    setTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, status: "cancelado" } : t))
-    );
-    await updateAppointmentStatusInSupabase(id, "cancelado");
-  };
-
-  // Reativar atendimento
   const handleReactivateTask = async (id: string) => {
     setTasks((prev) =>
       prev.map((t) => (t.id === id ? { ...t, status: "agendado" } : t))
     );
-    await updateAppointmentStatusInSupabase(id, "agendado");
+    await updateAppointmentStatusInSupabase(id, "agendado", `Status: agendado`);
   };
 
-  // Excluir permanentemente do Supabase
   const handleDeleteTask = async (id: string) => {
-    if (!confirm("Tem certeza que deseja excluir permanentemente este atendimento?")) return;
+    if (!confirm("Tem certeza que deseja excluir permanentemente este atendimento do banco de dados?")) {
+      return;
+    }
     setTasks((prev) => prev.filter((t) => t.id !== id));
     try {
-      await fetch(`/api/admin/agenda?id=${id}`, { method: "DELETE" });
-    } catch (err) {
-      console.error("Erro ao excluir atendimento:", err);
+      const res = await fetch(`/api/admin/agenda?id=${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        alert("Erro ao excluir do banco.");
+        await loadTodayOperacao();
+      }
+    } catch {
+      alert("Erro ao conectar com o banco de dados.");
+      await loadTodayOperacao();
     }
   };
 
@@ -239,25 +277,35 @@ export default function OperacaoPage() {
   const bathingTasks = tasks.filter((t) => t.status === "em_atendimento");
   const readyTasks = tasks.filter((t) => t.status === "pronto");
   const inRouteTasks = tasks.filter((t) => t.status === "em_rota");
-
-  // Histórico de Serviços Concluídos e Cancelados do Dia (parte inferior da tela)
   const historyTasks = tasks.filter((t) => t.status === "concluido" || t.status === "cancelado");
+
   const filteredHistory = historyTasks.filter((t) => {
     if (historyFilter === "concluidos") return t.status === "concluido";
     if (historyFilter === "cancelados") return t.status === "cancelado";
     return true;
   });
 
+  const getPetPhoto = (task: OpTask) => {
+    if (task.photo && task.photo.trim()) return task.photo;
+    if (task.species === "Gato") {
+      return "https://images.unsplash.com/photo-1573865526739-10659fec78a5?auto=format&fit=crop&w=300&q=80";
+    }
+    return "https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&w=300&q=80";
+  };
+
   return (
-    <main className="p-4 md:p-8 space-y-8 max-w-7xl mx-auto w-full">
-      {/* Header */}
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-surface-container border border-hairline-border p-5 md:p-6 rounded-2xl extruded-shadow">
-        <div>
-          <div className="flex items-center gap-2 text-primary font-bold text-xs uppercase tracking-widest mb-1">
-            <span className="material-symbols-outlined text-sm">bubble_chart</span>
-            Esteira de Atendimento Ao Vivo
+    <main className="p-4 md:p-8 space-y-6 max-w-7xl mx-auto pb-24 md:pb-12 text-on-surface">
+      {/* Header com indicador em tempo real e atualização manual */}
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-surface-container p-4 md:p-6 rounded-2xl border border-hairline-border extruded-shadow">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <span className="w-3 h-3 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">
+              Painel Operacional em Tempo Real
+            </span>
           </div>
-          <h1 className="text-xl md:text-2xl font-bold text-on-surface">Painel de Operação</h1>
+          <h1 className="text-xl md:text-2xl font-bold text-on-surface">Painel de Operações</h1>
+          <p className="text-xs text-on-surface-variant">Gerencie serviços ativos, filas e fotos dos pets.</p>
         </div>
 
         <div className="flex items-center gap-3">
@@ -318,14 +366,26 @@ export default function OperacaoPage() {
                   key={t.id}
                   className="bg-elevated-card border border-hairline-border rounded-xl p-4 space-y-3 extruded-shadow hover:border-hairline-border/80 transition-all"
                 >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h4 className="font-bold text-on-surface text-sm">{t.pet}</h4>
-                      <p className="text-xs text-on-surface-variant">{t.breed} • {t.tutor}</p>
+                  <div className="flex items-center gap-3">
+                    {/* Foto Avatar do Pet */}
+                    <div className="w-14 h-14 rounded-2xl overflow-hidden border border-hairline-border bg-surface-container shrink-0 shadow-md">
+                      <img
+                        src={getPetPhoto(t)}
+                        alt={t.pet}
+                        className="w-full h-full object-cover"
+                      />
                     </div>
-                    <span className="text-xs font-mono bg-surface-container px-2 py-0.5 rounded text-on-surface-variant font-bold">
-                      {t.time}
-                    </span>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-start">
+                        <h4 className="font-bold text-on-surface text-sm truncate">{t.pet}</h4>
+                        <span className="text-[11px] font-mono bg-surface-container px-1.5 py-0.5 rounded text-on-surface-variant font-bold shrink-0 ml-1">
+                          {t.time}
+                        </span>
+                      </div>
+                      <p className="text-xs text-on-surface-variant truncate">{t.breed || t.species}</p>
+                      <p className="text-[11px] text-on-surface-variant/80 truncate">Tutor: {t.tutor}</p>
+                    </div>
                   </div>
 
                   <span className="text-xs font-bold bg-amber-500/10 text-amber-400 px-2.5 py-1 rounded-md block border border-amber-500/20 truncate">
@@ -371,14 +431,26 @@ export default function OperacaoPage() {
                     key={t.id}
                     className="bg-elevated-card border border-blue-500/40 rounded-xl p-4 space-y-3 extruded-shadow relative overflow-hidden"
                   >
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h4 className="font-bold text-on-surface text-sm">{t.pet}</h4>
-                        <p className="text-xs text-on-surface-variant">{t.breed} • {t.tutor}</p>
+                    <div className="flex items-center gap-3">
+                      {/* Foto Avatar do Pet */}
+                      <div className="w-14 h-14 rounded-2xl overflow-hidden border border-hairline-border bg-surface-container shrink-0 shadow-md">
+                        <img
+                          src={getPetPhoto(t)}
+                          alt={t.pet}
+                          className="w-full h-full object-cover"
+                        />
                       </div>
-                      <span className="text-xs font-mono bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded font-bold">
-                        {t.time}
-                      </span>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-start">
+                          <h4 className="font-bold text-on-surface text-sm truncate">{t.pet}</h4>
+                          <span className="text-[11px] font-mono bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded font-bold shrink-0 ml-1">
+                            {t.time}
+                          </span>
+                        </div>
+                        <p className="text-xs text-on-surface-variant truncate">{t.breed || t.species}</p>
+                        <p className="text-[11px] text-on-surface-variant/80 truncate">Tutor: {t.tutor}</p>
+                      </div>
                     </div>
 
                     {/* Indicador Visual das Sub-etapas (Pills) */}
@@ -442,14 +514,26 @@ export default function OperacaoPage() {
                   key={t.id}
                   className="bg-elevated-card border border-primary/40 rounded-xl p-4 space-y-3 extruded-shadow"
                 >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h4 className="font-bold text-on-surface text-sm">{t.pet}</h4>
-                      <p className="text-xs text-on-surface-variant">{t.breed} • {t.tutor}</p>
+                  <div className="flex items-center gap-3">
+                    {/* Foto Avatar do Pet */}
+                    <div className="w-14 h-14 rounded-2xl overflow-hidden border border-hairline-border bg-surface-container shrink-0 shadow-md">
+                      <img
+                        src={getPetPhoto(t)}
+                        alt={t.pet}
+                        className="w-full h-full object-cover"
+                      />
                     </div>
-                    <span className="text-xs font-bold bg-primary/20 text-primary px-2 py-0.5 rounded">
-                      Pronto
-                    </span>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-start">
+                        <h4 className="font-bold text-on-surface text-sm truncate">{t.pet}</h4>
+                        <span className="text-[10px] font-bold bg-primary/20 text-primary px-1.5 py-0.5 rounded shrink-0 ml-1">
+                          Pronto
+                        </span>
+                      </div>
+                      <p className="text-xs text-on-surface-variant truncate">{t.breed || t.species}</p>
+                      <p className="text-[11px] text-on-surface-variant/80 truncate">Tutor: {t.tutor}</p>
+                    </div>
                   </div>
 
                   <p className="text-xs text-on-surface-variant truncate font-bold">{t.service}</p>
@@ -486,14 +570,26 @@ export default function OperacaoPage() {
                   key={t.id}
                   className="bg-elevated-card border border-purple-500/30 rounded-xl p-4 space-y-3 extruded-shadow"
                 >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h4 className="font-bold text-on-surface text-sm">{t.pet}</h4>
-                      <p className="text-xs text-on-surface-variant">{t.breed} • {t.tutor}</p>
+                  <div className="flex items-center gap-3">
+                    {/* Foto Avatar do Pet */}
+                    <div className="w-14 h-14 rounded-2xl overflow-hidden border border-hairline-border bg-surface-container shrink-0 shadow-md">
+                      <img
+                        src={getPetPhoto(t)}
+                        alt={t.pet}
+                        className="w-full h-full object-cover"
+                      />
                     </div>
-                    <span className="text-xs font-bold bg-purple-500/20 text-purple-400 border border-purple-500/30 px-2 py-0.5 rounded">
-                      Em Rota
-                    </span>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-start">
+                        <h4 className="font-bold text-on-surface text-sm truncate">{t.pet}</h4>
+                        <span className="text-[10px] font-bold bg-purple-500/20 text-purple-400 border border-purple-500/30 px-1.5 py-0.5 rounded shrink-0 ml-1">
+                          Em Rota
+                        </span>
+                      </div>
+                      <p className="text-xs text-on-surface-variant truncate">{t.breed || t.species}</p>
+                      <p className="text-[11px] text-on-surface-variant/80 truncate">Tutor: {t.tutor}</p>
+                    </div>
                   </div>
 
                   <p className="text-xs text-on-surface-variant truncate font-bold">{t.service}</p>
@@ -510,7 +606,7 @@ export default function OperacaoPage() {
             </div>
           </div>
 
-          {/* HISTÓRICO DE SERVIÇOS CONCLUÍDOS E CANCELADOS DO DIA (SOLICITADO NO ÁUDIO) */}
+          {/* HISTÓRICO DE SERVIÇOS CONCLUÍDOS E CANCELADOS DO DIA */}
           <section className="bg-surface-container border border-hairline-border p-5 md:p-6 rounded-2xl space-y-5 extruded-shadow">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-hairline-border pb-4">
               <div>
@@ -570,23 +666,34 @@ export default function OperacaoPage() {
                     className="bg-elevated-card border border-hairline-border rounded-xl p-4 space-y-3 extruded-shadow flex flex-col justify-between"
                   >
                     <div className="space-y-2">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h4 className="font-bold text-on-surface text-sm">{t.pet}</h4>
-                          <p className="text-xs text-on-surface-variant">{t.breed} • {t.tutor}</p>
+                      <div className="flex items-center gap-3">
+                        <div className="w-14 h-14 rounded-2xl overflow-hidden border border-hairline-border bg-surface-container shrink-0 shadow-md">
+                          <img
+                            src={getPetPhoto(t)}
+                            alt={t.pet}
+                            className="w-full h-full object-cover"
+                          />
                         </div>
-                        <span
-                          className={`text-xs font-bold px-2 py-0.5 rounded ${
-                            t.status === "concluido"
-                              ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                              : "bg-rose-500/20 text-rose-400 border border-rose-500/30"
-                          }`}
-                        >
-                          {t.status === "concluido" ? "Concluído" : "Cancelado"}
-                        </span>
+
+                        <div className="flex-1 min-w-0">
+                          <div className="flex justify-between items-start">
+                            <h4 className="font-bold text-on-surface text-sm truncate">{t.pet}</h4>
+                            <span
+                              className={`text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 ml-1 ${
+                                t.status === "concluido"
+                                  ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                                  : "bg-rose-500/20 text-rose-400 border border-rose-500/30"
+                              }`}
+                            >
+                              {t.status === "concluido" ? "Concluído" : "Cancelado"}
+                            </span>
+                          </div>
+                          <p className="text-xs text-on-surface-variant truncate">{t.breed || t.species}</p>
+                          <p className="text-[11px] text-on-surface-variant/80 truncate">Tutor: {t.tutor}</p>
+                        </div>
                       </div>
 
-                      <div className="flex justify-between items-center text-xs">
+                      <div className="flex justify-between items-center text-xs pt-1">
                         <span className="font-bold text-on-surface-variant truncate">{t.service}</span>
                         <span className="font-mono text-on-surface-variant">{t.time}</span>
                       </div>
@@ -594,14 +701,7 @@ export default function OperacaoPage() {
 
                     {/* Botões de Ação Rápida no Histórico */}
                     <div className="flex items-center gap-2 pt-2 border-t border-hairline-border/50">
-                      {t.status === "concluido" ? (
-                        <button
-                          onClick={() => handleCancelTask(t.id)}
-                          className="flex-1 py-2 bg-rose-500/10 border border-rose-500/30 text-rose-400 hover:bg-rose-500/20 font-bold text-xs rounded-lg transition-colors cursor-pointer"
-                        >
-                          Cancelamento
-                        </button>
-                      ) : (
+                      {t.status === "cancelado" && (
                         <button
                           onClick={() => handleReactivateTask(t.id)}
                           className="flex-1 py-2 bg-primary/10 border border-primary/30 text-primary hover:bg-primary/20 font-bold text-xs rounded-lg transition-colors cursor-pointer"
@@ -612,10 +712,11 @@ export default function OperacaoPage() {
 
                       <button
                         onClick={() => handleDeleteTask(t.id)}
-                        className="py-2 px-3 bg-surface-container border border-hairline-border text-on-surface-variant hover:text-rose-400 hover:border-rose-500/30 font-bold text-xs rounded-lg transition-colors cursor-pointer"
+                        className="flex-1 py-2 px-3 bg-surface-container border border-hairline-border text-on-surface-variant hover:text-rose-400 hover:border-rose-500/30 font-bold text-xs rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-1.5"
                         title="Excluir do banco permanentemente"
                       >
                         <span className="material-symbols-outlined text-base">delete</span>
+                        <span>Excluir</span>
                       </button>
                     </div>
                   </div>

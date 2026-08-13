@@ -64,6 +64,7 @@ export default function HashikoAdminAgendaPage() {
 
   // Calendar Navigation State
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [viewMode, setViewMode] = useState<"mes" | "semana" | "dia" | "lista">("mes");
 
   // Filters State (Exatamente como na tela do Hashiko)
@@ -326,8 +327,37 @@ export default function HashikoAdminAgendaPage() {
     });
   }, [currentDate]);
 
+  // Datas estendidas do carrossel mobile (35 dias / 5 semanas à frente para agendamentos futuros)
+  const carouselDates = useMemo(() => {
+    const base = new Date(currentDate);
+    const dow = base.getDay();
+    const diffToMonday = dow === 0 ? -6 : 1 - dow;
+    base.setDate(base.getDate() + diffToMonday);
+    return Array.from({ length: 35 }, (_, i) => {
+      const d = new Date(base);
+      d.setDate(d.getDate() + i);
+      return d;
+    });
+  }, [currentDate]);
+
   const isSameDay = (d: Date, day: number, month: number, year: number) =>
     d.getDate() === day && d.getMonth() + 1 === month && d.getFullYear() === year;
+
+  const selectedDateFullLabel = useMemo(() => {
+    const weekdays = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
+    const months = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+    const w = weekdays[selectedDate.getDay()];
+    const d = selectedDate.getDate();
+    const m = months[selectedDate.getMonth()];
+    const y = selectedDate.getFullYear();
+    return `${w}, ${d} de ${m}, ${y}`;
+  }, [selectedDate]);
+
+  const selectedDateAppointments = useMemo(() => {
+    return filteredAppointments.filter((app) =>
+      isSameDay(selectedDate, app.day, app.month, app.year)
+    );
+  }, [filteredAppointments, selectedDate]);
 
   // 4. Salvar Novo Agendamento no Supabase
   const handleSaveAppointment = async (e: React.FormEvent) => {
@@ -509,13 +539,41 @@ export default function HashikoAdminAgendaPage() {
     }
   };
 
+  const cleanDisplayNotes = (notes?: string) => {
+    if (!notes) return "";
+    return notes
+      .replace(/\[OPERACAO\]\s*\|?\s*/gi, "")
+      .replace(/\[STEP:\d+\]\s*\|?\s*/gi, "")
+      .replace(/Status:\s*\w+\s*\|?\s*/gi, "")
+      .trim();
+  };
+
   // Helper de badge de status
   const renderStatusBadge = (status: string) => {
     switch (status) {
+      case "pronto":
+      case "pronto_para_busca":
+        return (
+          <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded text-[10px] font-bold uppercase flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Pronto para Busca
+          </span>
+        );
+      case "em_rota":
+        return (
+          <span className="px-2 py-0.5 bg-purple-500/20 text-purple-400 border border-purple-500/30 rounded text-[10px] font-bold uppercase flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse"></span> Em Rota
+          </span>
+        );
       case "em_atendimento":
         return (
           <span className="px-2 py-0.5 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded text-[10px] font-bold uppercase flex items-center gap-1">
             <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span> Em Atendimento
+          </span>
+        );
+      case "confirmado":
+        return (
+          <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded text-[10px] font-bold uppercase flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span> Confirmado
           </span>
         );
       case "concluido":
@@ -710,109 +768,313 @@ export default function HashikoAdminAgendaPage() {
           </button>
         </div>
       ) : viewMode === "mes" ? (
-        /* VISÃO MÊS (GRADE DE CALENDÁRIO HASHIKO) */
-        <div className="bg-elevated-card border border-hairline-border rounded-2xl overflow-hidden extruded-shadow">
-          {/* Cabeçalho dos Dias (DOM, SEG, TER, QUA, QUI, SEX, SÁB) */}
-          <div className="grid grid-cols-4 md:grid-cols-7 bg-surface-container-low border-b border-hairline-border text-center">
-            {["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"].map((d, idx) => (
-              <div key={d} className={`py-2 md:py-3 text-caption font-bold text-on-surface-variant uppercase tracking-wider ${idx >= 4 ? "hidden md:block" : ""}`}>
-                {d}
+        /* VISÃO MÊS (DESKTOP PAINEL 2 COLUNAS + MOBILE FEED HASHIKO) */
+        <div className="space-y-6">
+          {/* DESKTOP VIEW (2 COLUNAS - PAINEL DIREITO DO DIA) */}
+          <div className="hidden md:grid grid-cols-12 gap-6 items-start">
+            {/* Coluna 1: Grade de Calendário do Mês (7 Colunas) */}
+            <div className="col-span-12 lg:col-span-7 xl:col-span-8 bg-elevated-card border border-hairline-border rounded-2xl overflow-hidden extruded-shadow">
+              {/* Cabeçalho dos Dias (DOM, SEG, TER, QUA, QUI, SEX, SÁB) */}
+              <div className="grid grid-cols-7 bg-surface-container-low border-b border-hairline-border text-center">
+                {["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"].map((d) => (
+                  <div key={d} className="py-3 text-caption font-bold text-on-surface-variant uppercase tracking-wider">
+                    {d}
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
 
-          {/* Grade real do mês (dias reais + preenchimento do mês anterior/seguinte) */}
-          <div className="grid grid-cols-4 md:grid-cols-7">
-            {monthGridCells.map((cell, cellIdx) => {
-              if (!cell.inCurrentMonth) {
-                return (
-                  <div key={`out-${cellIdx}`} className="p-2 md:p-3 border-r border-b border-hairline-border bg-surface/30 opacity-30 min-h-[80px] md:min-h-[120px]">
-                    <span className="text-xs font-bold text-on-surface-variant">{cell.day}</span>
-                  </div>
-                );
-              }
+              {/* Grade real do mês */}
+              <div className="grid grid-cols-7">
+                {monthGridCells.map((cell, cellIdx) => {
+                  if (!cell.inCurrentMonth) {
+                    return (
+                      <div key={`out-${cellIdx}`} className="p-3 border-r border-b border-hairline-border bg-surface/30 opacity-30 min-h-[95px]">
+                        <span className="text-xs font-bold text-on-surface-variant">{cell.day}</span>
+                      </div>
+                    );
+                  }
 
-              const dayNum = cell.day;
-              const now = new Date();
-              const isToday = isSameDay(now, dayNum, currentDate.getMonth() + 1, currentDate.getFullYear());
-              const dayAppts = appointmentsByDayMap.get(dayNum) || [];
+                  const dayNum = cell.day;
+                  const now = new Date();
+                  const isToday = isSameDay(now, dayNum, currentDate.getMonth() + 1, currentDate.getFullYear());
+                  const isSelected = isSameDay(selectedDate, dayNum, currentDate.getMonth() + 1, currentDate.getFullYear());
+                  const dayAppts = appointmentsByDayMap.get(dayNum) || [];
 
-              const openDayDrawer = (e: React.MouseEvent) => {
-                e.stopPropagation();
-                const yyyy = currentDate.getFullYear();
-                const mm = String(currentDate.getMonth() + 1).padStart(2, "0");
-                const dd = String(dayNum).padStart(2, "0");
-                setSelectedDayDrawer({
-                  dayNum,
-                  dateLabel: `${dd}/${mm}/${yyyy}`,
-                  formattedDate: `${yyyy}-${mm}-${dd}`,
-                  appts: dayAppts,
-                });
-              };
-
-              return (
-                <div
-                  key={`cur-${dayNum}`}
-                  onClick={() => {
-                    const yyyy = currentDate.getFullYear();
-                    const mm = String(currentDate.getMonth() + 1).padStart(2, "0");
-                    const dd = String(dayNum).padStart(2, "0");
-                    setFormDate(`${yyyy}-${mm}-${dd}`);
-                    setIsModalOpen(true);
-                  }}
-                  className={`p-2 md:p-2 border-r border-b border-hairline-border min-h-[80px] md:min-h-[120px] transition-all cursor-pointer relative flex flex-col justify-between group ${isToday ? "bg-primary/5" : "hover:bg-surface-container-highest/40"
-                    }`}
-                >
-                  <div className="flex justify-between items-center mb-1">
-                    <span
-                      className={`text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center ${isToday ? "bg-primary text-on-primary font-bold shadow-md" : "text-on-surface"
-                        }`}
+                  return (
+                    <div
+                      key={`cur-${dayNum}`}
+                      onClick={() => {
+                        const newD = new Date(currentDate.getFullYear(), currentDate.getMonth(), dayNum);
+                        setSelectedDate(newD);
+                      }}
+                      className={`p-2 border-r border-b border-hairline-border min-h-[95px] transition-all cursor-pointer relative flex flex-col justify-between group ${
+                        isSelected
+                          ? "bg-primary/10 border-2 border-primary"
+                          : isToday
+                          ? "bg-primary/5"
+                          : "hover:bg-surface-container-highest/40"
+                      }`}
                     >
-                      {dayNum}
-                    </span>
-                    {dayAppts.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={openDayDrawer}
-                        className="text-[10px] font-bold text-primary bg-primary/10 hover:bg-primary/20 px-1.5 py-0.5 rounded cursor-pointer transition-colors"
-                        title="Ver todos os agendamentos deste dia"
-                      >
-                        {dayAppts.length} agend.
-                      </button>
-                    )}
-                  </div>
+                      <div className="flex justify-between items-center mb-1">
+                        <span
+                          className={`text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center ${
+                            isSelected
+                              ? "bg-primary text-on-primary font-bold shadow-md"
+                              : isToday
+                              ? "bg-primary/30 text-primary font-bold"
+                              : "text-on-surface"
+                          }`}
+                        >
+                          {dayNum}
+                        </span>
+                        {dayAppts.length > 0 && (
+                          <span className="text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded">
+                            {dayAppts.length} agend.
+                          </span>
+                        )}
+                      </div>
 
-                  {/* Lista de Cartões/Chips dentro da Célula */}
-                  <div className="space-y-1 flex-1 overflow-hidden">
-                    {dayAppts.slice(0, 2).map((app) => (
+                      {/* Chips dos Agendamentos */}
+                      <div className="space-y-1 flex-1 overflow-hidden">
+                        {dayAppts.slice(0, 2).map((app) => (
+                          <div
+                            key={app.id}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openAppointmentDetail(app);
+                            }}
+                            className="bg-surface-container border border-hairline-border p-1.5 rounded-lg text-[10px] space-y-0.5 hover:border-primary/50 transition-colors cursor-pointer"
+                          >
+                            <div className="flex items-center justify-between font-bold">
+                              <span className="text-primary truncate">{app.pet_name}</span>
+                              <span className="text-on-surface-variant font-mono">{app.time}</span>
+                            </div>
+                            <div className="text-on-surface-variant truncate">{app.service_type}</div>
+                          </div>
+                        ))}
+                        {dayAppts.length > 2 && (
+                          <div className="text-[9px] font-bold text-primary text-center py-0.5">
+                            + {dayAppts.length - 2} mais
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Coluna 2: Painel Lateral da Agenda do Dia Selecionado (Terça-feira, 15 de Julho, 2026) */}
+            <div className="col-span-12 lg:col-span-5 xl:col-span-4 bg-elevated-card border border-hairline-border rounded-2xl p-5 space-y-4 extruded-shadow min-h-[520px] flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between border-b border-hairline-border pb-4 mb-4">
+                  <div>
+                    <h3 className="font-bold text-base text-on-surface capitalize">{selectedDateFullLabel}</h3>
+                    <p className="text-xs text-on-surface-variant mt-0.5">
+                      {selectedDateAppointments.length === 0
+                        ? "Nenhum agendamento neste dia"
+                        : `${selectedDateAppointments.length} agendamento(s) programado(s)`}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => window.print()}
+                    className="p-2.5 bg-surface-container border border-hairline-border rounded-xl text-on-surface-variant hover:text-primary transition-colors cursor-pointer"
+                    title="Imprimir agenda do dia"
+                  >
+                    <span className="material-symbols-outlined text-lg">print</span>
+                  </button>
+                </div>
+
+                {/* Timeline Cards */}
+                <div className="space-y-3 max-h-[460px] overflow-y-auto pr-1">
+                  {selectedDateAppointments.length === 0 ? (
+                    <div className="text-center py-12 text-on-surface-variant space-y-2">
+                      <span className="material-symbols-outlined text-4xl text-outline">event_busy</span>
+                      <p className="text-xs font-bold">Dia livre — nenhum agendamento nesta data</p>
+                      <button
+                        onClick={() => {
+                          const yyyy = selectedDate.getFullYear();
+                          const mm = String(selectedDate.getMonth() + 1).padStart(2, "0");
+                          const dd = String(selectedDate.getDate()).padStart(2, "0");
+                          setFormDate(`${yyyy}-${mm}-${dd}`);
+                          setIsModalOpen(true);
+                        }}
+                        className="mt-2 px-4 py-2 bg-primary text-on-primary text-xs font-bold rounded-xl cursor-pointer"
+                      >
+                        + Agendar neste dia
+                      </button>
+                    </div>
+                  ) : (
+                    selectedDateAppointments.map((app) => (
                       <div
                         key={app.id}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openAppointmentDetail(app);
-                        }}
-                        className="bg-surface-container border border-hairline-border p-1.5 rounded-lg text-[10px] space-y-0.5 hover:border-primary/50 transition-colors cursor-pointer"
+                        onClick={() => openAppointmentDetail(app)}
+                        className="bg-surface-container border border-hairline-border hover:border-primary/40 rounded-xl p-4 space-y-2 cursor-pointer transition-all extruded-shadow relative"
                       >
-                        <div className="flex items-center justify-between font-bold">
-                          <span className="text-primary truncate">{app.pet_name}</span>
-                          <span className="text-on-surface-variant font-mono">{app.time}</span>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="w-2.5 h-2.5 rounded-full bg-primary animate-pulse"></span>
+                            <span className="text-xs font-mono font-bold text-primary">{app.time}</span>
+                          </div>
+                          {renderStatusBadge(app.status)}
                         </div>
-                        <div className="text-on-surface-variant truncate">{app.service_type}</div>
+
+                        <div>
+                          <h4 className="font-bold text-on-surface text-sm">
+                            {app.service_type}: <span className="text-primary">{app.pet_name}</span> ({app.pet_breed || "SRD"})
+                          </h4>
+                          <p className="text-xs text-on-surface-variant mt-0.5">
+                            Cliente: <span className="text-on-surface font-medium">{app.tutor_name}</span>
+                            {cleanDisplayNotes(app.notes) ? ` • ${cleanDisplayNotes(app.notes)}` : ""}
+                          </p>
+                        </div>
                       </div>
-                    ))}
-                    {dayAppts.length > 2 && (
-                      <button
-                        type="button"
-                        onClick={openDayDrawer}
-                        className="w-full text-[9px] font-bold text-primary text-center hover:underline cursor-pointer py-1 bg-primary/10 hover:bg-primary/20 rounded transition-colors"
-                      >
-                        + {dayAppts.length - 2} mais
-                      </button>
-                    )}
-                  </div>
+                    ))
+                  )}
                 </div>
-              );
-            })}
+              </div>
+
+              {/* Botão de Impressão Rodapé */}
+              <div className="pt-3 border-t border-hairline-border flex justify-center">
+                <button
+                  onClick={() => window.print()}
+                  className="text-xs font-bold text-on-surface-variant hover:text-primary flex items-center gap-1.5 transition-colors cursor-pointer uppercase tracking-wider"
+                >
+                  <span className="material-symbols-outlined text-base">print</span>
+                  Imprimir Agenda do Dia
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* MOBILE VIEW (Identica à imagem Agenda Mobile - PetFlow) */}
+          <div className="block md:hidden space-y-5">
+            {/* Mobile Header & Action */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-on-surface">Agenda</h2>
+                <p className="text-xs text-on-surface-variant">{currentMonthYearTitle}</p>
+              </div>
+              <button
+                onClick={() => {
+                  setFormDate(selectedDate.toISOString().slice(0, 10));
+                  setIsModalOpen(true);
+                }}
+                className="bg-primary text-on-primary font-bold text-xs px-4 py-2.5 rounded-xl flex items-center gap-1 extruded-shadow active:scale-95 transition-all cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-base">add</span>
+                + New
+              </button>
+            </div>
+
+            {/* Horizontal Weekday Carousel Date Selector (35 dias com rolagem horizontal livre) */}
+            <div className="flex gap-2.5 overflow-x-auto overflow-y-hidden touch-pan-x scrollbar-none -mx-4 px-4 py-1 my-1">
+              {carouselDates.map((wd) => {
+                const weekdaysShort = ["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"];
+                const dayName = weekdaysShort[wd.getDay()];
+                const dayNum = wd.getDate();
+                const isSelected = isSameDay(selectedDate, dayNum, wd.getMonth() + 1, wd.getFullYear());
+                const hasAppts = appointments.some((a) => isSameDay(wd, a.day, a.month, a.year));
+
+                return (
+                  <button
+                    key={wd.toISOString()}
+                    onClick={() => setSelectedDate(wd)}
+                    className={`min-w-[62px] py-3 rounded-2xl flex flex-col items-center justify-center transition-all cursor-pointer border shrink-0 ${
+                      isSelected
+                        ? "bg-primary text-on-primary border-primary font-bold shadow-lg scale-105"
+                        : "bg-surface-container border-hairline-border text-on-surface-variant hover:text-on-surface"
+                    }`}
+                  >
+                    <span className="text-[10px] uppercase font-bold tracking-wider">{dayName}</span>
+                    <span className="text-lg font-mono font-bold mt-0.5">{dayNum}</span>
+                    {hasAppts && !isSelected && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-primary mt-1"></span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Vertical Timeline List of Appointments */}
+            <div className="space-y-4 pt-1">
+              {selectedDateAppointments.length === 0 ? (
+                <div className="bg-surface-container border border-hairline-border rounded-2xl p-8 text-center space-y-2">
+                  <span className="material-symbols-outlined text-4xl text-outline">event_busy</span>
+                  <p className="text-xs font-bold text-on-surface">Nenhum agendamento para esta data</p>
+                  <button
+                    onClick={() => {
+                      setFormDate(selectedDate.toISOString().slice(0, 10));
+                      setIsModalOpen(true);
+                    }}
+                    className="mt-2 px-4 py-2 bg-primary text-on-primary text-xs font-bold rounded-xl"
+                  >
+                    + Agendar Novo
+                  </button>
+                </div>
+              ) : (
+                selectedDateAppointments.map((app) => (
+                  <div key={app.id} className="flex gap-3 items-start">
+                    {/* Coluna do Horário */}
+                    <div className="flex flex-col items-center pt-1 min-w-[55px]">
+                      <span className="text-xs font-mono font-bold text-on-surface-variant">{app.time}</span>
+                      <span className="w-2.5 h-2.5 rounded-full bg-primary mt-1.5"></span>
+                    </div>
+
+                    {/* Card do Agendamento */}
+                    <div
+                      onClick={() => openAppointmentDetail(app)}
+                      className="flex-1 bg-surface-container border border-hairline-border rounded-2xl p-4 space-y-2.5 extruded-shadow cursor-pointer hover:border-primary/40 transition-all"
+                    >
+                      <div className="flex items-center justify-between">
+                        {renderStatusBadge(app.status)}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openAppointmentDetail(app);
+                          }}
+                          className="text-on-surface-variant hover:text-on-surface p-1"
+                        >
+                          <span className="material-symbols-outlined text-base">more_vert</span>
+                        </button>
+                      </div>
+
+                      <div>
+                        <h4 className="font-bold text-on-surface text-sm">
+                          {app.service_type}: <span className="text-primary">{app.pet_name}</span> ({app.pet_breed || "SRD"})
+                        </h4>
+                        <p className="text-xs text-on-surface-variant mt-0.5">
+                          Cliente: {app.tutor_name}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center justify-between text-[11px] text-on-surface-variant border-t border-hairline-border/40 pt-2">
+                        <div className="flex items-center gap-1">
+                          <span className="material-symbols-outlined text-xs">person</span>
+                          <span>{app.professional}</span>
+                        </div>
+                        <div className="flex items-center gap-1 font-mono font-bold text-primary">
+                          <span className="material-symbols-outlined text-xs">schedule</span>
+                          <span>60m</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Floating Action Button (FAB +) Flutuante */}
+            <button
+              onClick={() => {
+                setFormDate(selectedDate.toISOString().slice(0, 10));
+                setIsModalOpen(true);
+              }}
+              className="fixed bottom-24 right-5 z-40 bg-primary text-on-primary w-14 h-14 rounded-full shadow-2xl flex items-center justify-center hover:scale-105 active:scale-95 transition-transform cursor-pointer extruded-shadow"
+              title="Novo Agendamento"
+            >
+              <span className="material-symbols-outlined text-2xl font-bold">add</span>
+            </button>
           </div>
         </div>
       ) : viewMode === "semana" ? (

@@ -78,12 +78,22 @@ export const GET = withTenantRoute(async () => {
         const pet = petMap.get(a.pet_id);
         const tutor = pet?.client_id ? profileMap.get(pet.client_id) : null;
         const d = new Date(a.scheduled_at);
+
+        let effectiveStatus = a.status || "agendado";
+        const statusMatch = a.notes?.match(/Status:\s*(\w+)/i);
+        if (statusMatch && statusMatch[1]) {
+          const parsed = statusMatch[1].toLowerCase();
+          if (["agendado", "confirmado", "em_atendimento", "pronto", "em_rota", "concluido", "cancelado"].includes(parsed)) {
+            effectiveStatus = parsed;
+          }
+        }
+
         return {
           time: `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`,
           pet: pet?.name || "Pet",
           breed: pet?.breed || pet?.species || "",
           service: a.service_type,
-          status: a.status,
+          status: effectiveStatus,
           tutor: tutor?.full_name || "Tutor",
         };
       });

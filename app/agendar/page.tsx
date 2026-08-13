@@ -1,20 +1,32 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import GoogleButton from "@/components/ui/GoogleButton";
+import { createClient } from "@/lib/supabase/client";
+
+interface ServiceItem {
+  id: string;
+  name: string;
+  price: number;
+  duration: string;
+  icon: string;
+}
 
 export default function AgendarPublicPage() {
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
   const [step, setStep] = useState<number>(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
+  // Dynamic services from DB
+  const [services, setServices] = useState<ServiceItem[]>([]);
+  const [isLoadingServices, setIsLoadingServices] = useState(true);
+
   // Form selections
-  const [selectedService, setSelectedService] = useState({
-    id: "s1",
-    name: "Banho & Tosa Completo",
-    price: 85.0,
-    duration: "60 min",
-  });
+  const [selectedService, setSelectedService] = useState<ServiceItem | null>(null);
   const [selectedProfessional, setSelectedProfessional] = useState("Qualquer Profissional Disponível");
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [selectedTime, setSelectedTime] = useState("09:00");
@@ -22,21 +34,80 @@ export default function AgendarPublicPage() {
   const [tutorName, setTutorName] = useState("");
   const [tutorPhone, setTutorPhone] = useState("");
   const [petName, setPetName] = useState("");
+  const [petAge, setPetAge] = useState("1 ano");
   const [petBreed, setPetBreed] = useState("");
-
-  const services = [
-    { id: "s1", name: "Banho & Tosa Completo", price: 85.0, duration: "60 min", icon: "content_cut" },
-    { id: "s2", name: "Banho Simples + Higienização", price: 55.0, duration: "45 min", icon: "shower" },
-    { id: "s3", name: "Hidratação Profunda de Pelagem", price: 40.0, duration: "30 min", icon: "water_drop" },
-    { id: "s4", name: "Consulta Veterinária Geral", price: 150.0, duration: "40 min", icon: "stethoscope" },
-  ];
 
   const timeSlots = ["08:00", "09:00", "10:30", "13:00", "14:30", "16:00", "17:15"];
 
+  // 1. Verificar Autenticação Obrigatória no Início
+  useEffect(() => {
+    async function checkAuth() {
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          setCurrentUser(user);
+          const name = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split("@")[0] || "";
+          setTutorName(name);
+        }
+      } catch (err) {
+        console.error("Erro ao checar auth:", err);
+      } finally {
+        setCheckingAuth(false);
+      }
+    }
+    checkAuth();
+  }, []);
+
+  // 2. Carregar Serviços Dinâmicos do Banco de Dados
+  useEffect(() => {
+    async function loadServices() {
+      setIsLoadingServices(true);
+      try {
+        const res = await fetch("/api/admin/services");
+        const data = await res.json();
+        if (data.services && Array.isArray(data.services) && data.services.length > 0) {
+          const formatted: ServiceItem[] = data.services
+            .filter((s: any) => s.is_active !== false)
+            .map((s: any) => ({
+              id: s.id,
+              name: s.name,
+              price: Number(s.price) || 0,
+              duration: `${s.duration_minutes || 30} min`,
+              icon: s.category === "product" ? "inventory_2" : s.category === "package" ? "card_membership" : "content_cut",
+            }));
+          setServices(formatted);
+          if (formatted.length > 0) {
+            setSelectedService(formatted[0]);
+          }
+        } else {
+          // Fallback caso não haja serviços cadastrados
+          const defaults: ServiceItem[] = [
+            { id: "s1", name: "Banho & Tosa Completo", price: 85.0, duration: "60 min", icon: "content_cut" },
+            { id: "s2", name: "Banho Simples + Higienização", price: 55.0, duration: "45 min", icon: "shower" },
+            { id: "s3", name: "Hidratação Profunda de Pelagem", price: 40.0, duration: "30 min", icon: "water_drop" },
+            { id: "s4", name: "Consulta Veterinária Geral", price: 150.0, duration: "40 min", icon: "stethoscope" },
+          ];
+          setServices(defaults);
+          setSelectedService(defaults[0]);
+        }
+      } catch (err) {
+        console.error("Erro ao carregar serviços do banco:", err);
+      } finally {
+        setIsLoadingServices(false);
+      }
+    }
+    loadServices();
+  }, []);
+
   const handleFinishBooking = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedService) {
+      alert("Por favor, selecione um serviço.");
+      return;
+    }
     if (!tutorName || !tutorPhone || !petName) {
-      alert("Por favor, preencha os dados de contato e do seu pet.");
+      alert("Por favor, preencha seus dados e o nome do seu pet.");
       return;
     }
 
@@ -51,6 +122,7 @@ export default function AgendarPublicPage() {
           tutor_name: tutorName,
           tutor_phone: tutorPhone,
           pet_name: petName,
+          pet_age: petAge,
           pet_breed: petBreed,
           service_name: selectedService.name,
           service_price: selectedService.price,
@@ -75,18 +147,72 @@ export default function AgendarPublicPage() {
   };
 
   const openWhatsAppConfirmation = () => {
+    if (!selectedService) return;
     const formattedPhone = tutorPhone.replace(/\D/g, "");
     const msg = encodeURIComponent(
       `Olá! Gostaria de confirmar meu agendamento online no SaaS Petshop:\n\n` +
         `Tutor: ${tutorName}\n` +
-        `Pet: ${petName} (${petBreed || "Sem raça"})\n` +
+        `Pet: ${petName} (${petAge}) ${petBreed ? `- ${petBreed}` : ""}\n` +
         `Serviço: ${selectedService.name} (R$ ${selectedService.price.toFixed(2)})\n` +
-        `Data/Hora: ${selectedDate} às ${selectedTime}\n` +
-        `Profissional: ${selectedProfessional}`
+        `Data/Hora: ${selectedDate} às ${selectedTime}`
     );
     window.open(`https://wa.me/55${formattedPhone}?text=${msg}`, "_blank");
   };
 
+  // 3. TELA DE CARREGAMENTO INICIAL
+  if (checkingAuth) {
+    return (
+      <div className="min-h-screen bg-matte-canvas text-on-surface flex items-center justify-center">
+        <div className="flex items-center gap-3 text-primary font-bold text-sm">
+          <span className="material-symbols-outlined animate-spin text-2xl">sync</span>
+          <span>Verificando acesso...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // 4. BLOQUEIO OBRIGATÓRIO DE AUTENTICAÇÃO ANTES DA TELA DE SERVIÇOS
+  if (!currentUser) {
+    return (
+      <div className="min-h-screen bg-matte-canvas text-on-surface font-body-base antialiased flex flex-col items-center justify-center p-4 md:p-8">
+        <div className="w-full max-w-md bg-surface-container border border-hairline-border rounded-3xl p-8 extruded-shadow text-center space-y-6">
+          <div className="w-16 h-16 bg-primary/20 text-primary rounded-2xl mx-auto flex items-center justify-center border border-primary/30">
+            <span className="material-symbols-outlined text-3xl">pets</span>
+          </div>
+
+          <div>
+            <span className="text-caption font-bold text-primary uppercase tracking-widest block mb-1">Agendamento Expresso</span>
+            <h1 className="text-xl font-bold text-on-surface">Entre com o Google para Agendar</h1>
+            <p className="text-xs text-on-surface-variant mt-2">
+              Para sua segurança e sincronização do seu pet com o petshop, o cadastro ou login via Google é <strong className="text-primary">obrigatório antes de ver os serviços</strong>.
+            </p>
+          </div>
+
+          <div className="pt-2 space-y-4">
+            <GoogleButton
+              text="Continuar com o Google"
+              redirectTo="/auth/callback?next=/agendar"
+              className="py-3.5 text-black font-bold shadow-lg"
+            />
+
+            <div className="relative py-1">
+              <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-hairline-border"></div></div>
+              <div className="relative flex justify-center text-[10px] uppercase font-bold text-on-surface-variant"><span className="bg-surface-container px-2">Ou</span></div>
+            </div>
+
+            <Link
+              href="/auth/login?next=/agendar"
+              className="block w-full py-3 bg-surface-container-high border border-hairline-border text-on-surface font-bold text-xs rounded-xl hover:bg-surface-container-highest transition-colors text-center"
+            >
+              Entrar com E-mail e Senha
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 5. FLUXO DE AGENDAMENTO (USUÁRIO AUTENTICADO)
   return (
     <div className="min-h-screen bg-matte-canvas text-on-surface font-body-base antialiased flex flex-col items-center justify-between p-4 md:p-8">
       {/* Top Header */}
@@ -99,41 +225,19 @@ export default function AgendarPublicPage() {
           </div>
           <div>
             <h1 className="text-headline-md font-bold text-primary leading-none">Petshop Patinhas Felizes</h1>
-            <span className="text-caption text-on-surface-variant">Agendamento Online 24/7</span>
+            <span className="text-caption text-on-surface-variant">Link Direto de Agendamento Rápido</span>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
-          <Link href="/auth/login" className="text-xs font-label-bold text-on-surface-variant hover:text-primary transition-colors hidden sm:block">
-            Já tenho conta
-          </Link>
+          <span className="text-xs text-on-surface font-bold hidden sm:inline">
+            Olá, {tutorName || "Cliente"}
+          </span>
           <Link href="/" className="text-xs font-label-bold text-on-surface-variant hover:text-primary transition-colors">
-            Voltar
+            Sair
           </Link>
         </div>
       </header>
-
-      {/* Banner de Incentivo ao Cadastro do Cliente (Item 7) */}
-      <section className="w-full max-w-3xl mx-auto mb-6 bg-gradient-to-r from-primary/15 via-surface-container to-surface-container border border-primary/30 p-4 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-md">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-primary/20 text-primary flex items-center justify-center shrink-0">
-            <span className="material-symbols-outlined text-lg">person_add</span>
-          </div>
-          <div>
-            <h3 className="font-bold text-xs text-on-surface">Quer acompanhar seus agendamentos em tempo real?</h3>
-            <p className="text-[11px] text-on-surface-variant">
-              Crie sua conta para historicos e prontuário. O cadastro é opcional e você pode agendar abaixo normalmente!
-            </p>
-          </div>
-        </div>
-
-        <Link
-          href="/auth/register"
-          className="px-3.5 py-2 bg-primary text-on-primary font-bold text-xs rounded-xl hover:brightness-110 transition-all shrink-0 w-full sm:w-auto text-center"
-        >
-          Criar Conta Grátis
-        </Link>
-      </section>
 
       {/* Main Form Container */}
       <main className="w-full max-w-3xl mx-auto bg-surface-container border border-hairline-border rounded-3xl p-6 md:p-10 extruded-shadow flex-1 flex flex-col gap-8">
@@ -145,7 +249,7 @@ export default function AgendarPublicPage() {
           ></div>
         </div>
 
-        {/* STEP 1: Select Service */}
+        {/* STEP 1: Select Service (Carregado Dinamicamente do Banco de Dados) */}
         {step === 1 && (
           <div className="space-y-6">
             <div>
@@ -153,36 +257,50 @@ export default function AgendarPublicPage() {
               <h2 className="text-headline-md font-bold text-on-surface">Selecione o Serviço para seu Pet</h2>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {services.map((s) => (
-                <div
-                  key={s.id}
-                  onClick={() => setSelectedService(s)}
-                  className={`p-5 rounded-2xl border cursor-pointer transition-all flex items-center justify-between gap-4 ${
-                    selectedService.id === s.id
-                      ? "bg-primary/15 border-primary ring-1 ring-primary"
-                      : "bg-elevated-card border-hairline-border hover:border-primary/40"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-xl bg-surface-container flex items-center justify-center text-primary">
-                      <span className="material-symbols-outlined text-2xl">{s.icon}</span>
+            {isLoadingServices ? (
+              <div className="py-12 text-center text-on-surface-variant space-y-2">
+                <span className="material-symbols-outlined text-3xl animate-spin text-primary">sync</span>
+                <p className="text-xs font-bold">Carregando serviços do catálogo...</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {services.map((s) => (
+                  <div
+                    key={s.id}
+                    onClick={() => setSelectedService(s)}
+                    className={`p-5 rounded-2xl border cursor-pointer transition-all flex items-center justify-between gap-4 ${
+                      selectedService?.id === s.id
+                        ? "bg-primary/15 border-primary ring-1 ring-primary"
+                        : "bg-elevated-card border-hairline-border hover:border-primary/40"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-xl bg-surface-container flex items-center justify-center text-primary">
+                        <span className="material-symbols-outlined text-2xl">{s.icon}</span>
+                      </div>
+                      <div>
+                        <h3 className="font-label-bold text-on-surface text-body-sm">{s.name}</h3>
+                        <span className="text-caption text-on-surface-variant">{s.duration}</span>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="font-label-bold text-on-surface text-body-sm">{s.name}</h3>
-                      <span className="text-caption text-on-surface-variant">{s.duration}</span>
-                    </div>
+                    <strong className="text-primary text-headline-sm font-bold shrink-0">
+                      R$ {s.price.toFixed(2).replace(".", ",")}
+                    </strong>
                   </div>
-                  <strong className="text-primary text-headline-sm font-bold shrink-0">
-                    R$ {s.price.toFixed(2).replace(".", ",")}
-                  </strong>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
 
             <button
-              onClick={() => setStep(2)}
-              className="w-full bg-primary text-on-primary font-label-bold py-4 rounded-xl hover:brightness-110 transition-all flex items-center justify-center gap-2 cursor-pointer mt-4"
+              onClick={() => {
+                if (!selectedService) {
+                  alert("Por favor, selecione um serviço.");
+                  return;
+                }
+                setStep(2);
+              }}
+              disabled={isLoadingServices || !selectedService}
+              className="w-full bg-primary text-on-primary font-label-bold py-4 rounded-xl hover:brightness-110 transition-all flex items-center justify-center gap-2 cursor-pointer mt-4 disabled:opacity-50"
             >
               Continuar para Data e Horário
               <span className="material-symbols-outlined">arrow_forward</span>
@@ -229,19 +347,6 @@ export default function AgendarPublicPage() {
               </div>
             </div>
 
-            <div>
-              <label className="block text-caption font-label-bold text-on-surface-variant mb-2">Profissional Preferencial</label>
-              <select
-                value={selectedProfessional}
-                onChange={(e) => setSelectedProfessional(e.target.value)}
-                className="w-full bg-elevated-card border border-hairline-border rounded-xl px-4 py-3 text-on-surface text-body-sm outline-none cursor-pointer"
-              >
-                <option value="Qualquer Profissional Disponível">Qualquer Profissional Disponível</option>
-                <option value="Ana Silva (Tosadora Sênior)">Ana Silva (Tosadora Sênior)</option>
-                <option value="Dr. Carlos Eduardo (Veterinário)">Dr. Carlos Eduardo (Veterinário)</option>
-              </select>
-            </div>
-
             <div className="flex gap-3 pt-2">
               <button
                 onClick={() => setStep(1)}
@@ -260,7 +365,7 @@ export default function AgendarPublicPage() {
           </div>
         )}
 
-        {/* STEP 3: Customer & Pet Data */}
+        {/* STEP 3: Customer & Pet Data (Simplificado) */}
         {step === 3 && (
           <form onSubmit={handleFinishBooking} className="space-y-6">
             <div>
@@ -305,7 +410,7 @@ export default function AgendarPublicPage() {
                 <label className="block text-caption font-label-bold text-on-surface-variant mb-1.5">Nome do Pet *</label>
                 <input
                   type="text"
-                  placeholder="Ex: Thor"
+                  placeholder="Ex: Thor, Bob, Mel..."
                   value={petName}
                   onChange={(e) => setPetName(e.target.value)}
                   required
@@ -314,14 +419,35 @@ export default function AgendarPublicPage() {
               </div>
 
               <div>
-                <label className="block text-caption font-label-bold text-on-surface-variant mb-1.5">Raça do Pet</label>
+                <label className="block text-caption font-label-bold text-on-surface-variant mb-1.5">Idade Aproximada do Pet *</label>
+                <select
+                  value={petAge}
+                  onChange={(e) => setPetAge(e.target.value)}
+                  required
+                  className="w-full bg-elevated-card border border-hairline-border rounded-xl px-4 py-3 text-on-surface text-body-sm outline-none focus:border-primary cursor-pointer font-medium"
+                >
+                  <option value="Filhote (< 1 ano)">Filhote (&lt; 1 ano)</option>
+                  <option value="1 ano">1 ano</option>
+                  <option value="2 anos">2 anos</option>
+                  <option value="3 anos">3 anos</option>
+                  <option value="4 anos">4 anos</option>
+                  <option value="5+ anos">5+ anos</option>
+                  <option value="Idoso (8+ anos)">Idoso (8+ anos)</option>
+                </select>
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="block text-caption font-label-bold text-on-surface-variant mb-1.5">Raça do Pet (Opcional)</label>
                 <input
                   type="text"
-                  placeholder="Ex: Golden Retriever"
+                  placeholder="Ex: Golden, Poodle, SRD (opcional)"
                   value={petBreed}
                   onChange={(e) => setPetBreed(e.target.value)}
                   className="w-full bg-elevated-card border border-hairline-border rounded-xl px-4 py-3 text-on-surface text-body-sm outline-none focus:border-primary"
                 />
+                <span className="text-[11px] text-on-surface-variant mt-1.5 block">
+                  💡 Demais informações (peso, pelagem, cor) não são obrigatórias agora e podem ser preenchidas depois no perfil do pet!
+                </span>
               </div>
             </div>
 
@@ -365,15 +491,15 @@ export default function AgendarPublicPage() {
             <div>
               <h2 className="text-headline-md font-bold text-on-surface">Agendamento Realizado com Sucesso!</h2>
               <p className="text-body-base text-on-surface-variant max-w-md mx-auto mt-2">
-                Seu horário para <strong className="text-primary">{selectedService.name}</strong> do pet <strong>{petName}</strong> foi reservado para o dia <strong>{selectedDate} às {selectedTime}</strong>.
+                Seu horário para <strong className="text-primary">{selectedService?.name}</strong> do pet <strong>{petName}</strong> foi reservado para o dia <strong>{selectedDate} às {selectedTime}</strong>.
               </p>
             </div>
 
             <div className="bg-elevated-card border border-hairline-border p-5 rounded-2xl w-full text-left space-y-2 text-body-sm text-on-surface-variant max-w-md">
-              <p className="flex justify-between"><span>Serviço:</span> <strong className="text-on-surface">{selectedService.name}</strong></p>
-              <p className="flex justify-between"><span>Valor:</span> <strong className="text-primary font-bold">R$ {selectedService.price.toFixed(2).replace(".", ",")}</strong></p>
+              <p className="flex justify-between"><span>Serviço:</span> <strong className="text-on-surface">{selectedService?.name}</strong></p>
+              <p className="flex justify-between"><span>Valor:</span> <strong className="text-primary font-bold">R$ {selectedService?.price.toFixed(2).replace(".", ",")}</strong></p>
               <p className="flex justify-between"><span>Tutor:</span> <strong className="text-on-surface">{tutorName}</strong></p>
-              <p className="flex justify-between"><span>Profissional:</span> <strong className="text-on-surface">{selectedProfessional}</strong></p>
+              <p className="flex justify-between"><span>Data/Hora:</span> <strong className="text-on-surface">{selectedDate} às {selectedTime}</strong></p>
             </div>
 
             <button
@@ -384,16 +510,15 @@ export default function AgendarPublicPage() {
               Enviar Confirmação por WhatsApp
             </button>
 
-            {/* CTA Secundário para Cadastro do Tutor */}
             <div className="pt-4 border-t border-hairline-border/60 max-w-md w-full text-center space-y-2">
               <p className="text-xs text-on-surface-variant">
-                Deseja criar sua senha para gerenciar seus agendamentos no app?
+                Seu cadastro foi salvo com sucesso no SaaS Petshop!
               </p>
               <Link
-                href={`/auth/register?phone=${tutorPhone}`}
+                href="/client/pets"
                 className="text-xs font-bold text-primary hover:underline inline-block"
               >
-                Concluir meu cadastro no SaaS Petshop →
+                Acessar Meus Pets e Perfil →
               </Link>
             </div>
           </div>

@@ -45,6 +45,16 @@ export const GET = withTenantRoute(async () => {
 
     const mapped = (appointments || []).map((a) => {
       const pet = petMap.get(a.pet_id);
+
+      let effectiveStatus = a.status || "agendado";
+      const statusMatch = a.notes?.match(/Status:\s*(\w+)/i);
+      if (statusMatch && statusMatch[1]) {
+        const parsed = statusMatch[1].toLowerCase();
+        if (["agendado", "confirmado", "em_atendimento", "pronto", "em_rota", "concluido", "cancelado"].includes(parsed)) {
+          effectiveStatus = parsed;
+        }
+      }
+
       return {
         id: a.id,
         pet_id: a.pet_id,
@@ -53,7 +63,7 @@ export const GET = withTenantRoute(async () => {
         pet_photo: pet?.photo_url || null,
         service_id: a.service_id || null,
         service_type: a.service_type,
-        status: a.status,
+        status: effectiveStatus,
         professional: a.professional,
         price: a.price,
         scheduled_at: a.scheduled_at,

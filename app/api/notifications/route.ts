@@ -43,170 +43,13 @@ export const GET = withTenantRoute(async () => {
     const userRole = profile?.role || "cliente";
     const isStaff = STAFF_ROLES.includes(userRole);
 
+    // Por instrução do projeto: Notificações desativadas para equipe (Staff) por enquanto, focando 100% no cliente
     if (isStaff) {
-      // -------------------------------------------------------------
-      // FLUXO DA EQUIPE / GESTOR (STAFF)
-      // -------------------------------------------------------------
-      const { data: stored, error } = await adminSupabase
-        .from("notifications")
-        .select("*")
-        .eq("pet_shop_id", getTenantId())
-        .order("created_at", { ascending: false })
-        .limit(40);
-
-      if (error) {
-        console.error("Erro ao buscar notificações do sistema:", error);
-      }
-
-      // Alertas operacionais da esteira de agendamentos
-      const { data: appts } = await adminSupabase
-        .from("appointments")
-        .select("id, pet_id, service_type, scheduled_at, status, notes, updated_by")
-        .eq("pet_shop_id", getTenantId())
-        .order("scheduled_at", { ascending: false })
-        .limit(50);
-
-      const { data: pets } = await adminSupabase
-        .from("pets")
-        .select("id, name")
-        .eq("pet_shop_id", getTenantId());
-      const petMap = new Map((pets || []).map((p) => [p.id, p.name]));
-
-      const todayStr = new Date().toISOString().slice(0, 10);
-      const rawLiveAlerts: any[] = [];
-
-      (appts || []).forEach((a) => {
-        const petName = petMap.get(a.pet_id) || "Pet";
-        const isToday = a.scheduled_at?.startsWith(todayStr);
-        const isReady = a.status === "pronto" || a.notes?.includes("Status: pronto");
-        const inService = a.status === "em_atendimento";
-        const isDone = a.status === "concluido";
-        const isDelivery = a.status === "em_rota" || a.notes?.includes("Status: em_rota");
-
-        if (isReady) {
-          rawLiveAlerts.push({
-            id: `staff-ready-${a.id}`,
-            type: "agendamento_confirmado",
-            role_target: ["admin", "recepcionista", "banhista_tosador", "entregador", "auxiliar"],
-            service_type: a.service_type,
-            title: "Pet Pronto para Busca",
-            body: `${petName} finalizou o atendimento de ${a.service_type} e aguarda na recepção.`,
-            appointment_id: a.id,
-            actor_id: a.updated_by || null,
-            is_read: false,
-            created_at: a.scheduled_at || new Date().toISOString(),
-            computed: true,
-          });
-        } else if (inService) {
-          rawLiveAlerts.push({
-            id: `staff-service-${a.id}`,
-            type: "agendamento_alterado",
-            role_target: ["admin", "banhista_tosador", "veterinario", "auxiliar"],
-            service_type: a.service_type,
-            title: "Atendimento em Andamento",
-            body: `${petName} deu entrada na esteira (${a.service_type}).`,
-            appointment_id: a.id,
-            actor_id: a.updated_by || null,
-            is_read: false,
-            created_at: a.scheduled_at || new Date().toISOString(),
-            computed: true,
-          });
-        } else if (isDone) {
-          rawLiveAlerts.push({
-            id: `staff-done-${a.id}`,
-            type: "agendamento_concluido",
-            role_target: ["admin", "dono"],
-            service_type: a.service_type,
-            title: "Atendimento Concluído",
-            body: `Serviço de ${a.service_type} para ${petName} finalizado com sucesso.`,
-            appointment_id: a.id,
-            actor_id: a.updated_by || null,
-            is_read: false,
-            created_at: a.scheduled_at || new Date().toISOString(),
-            computed: true,
-          });
-        } else if (isDelivery) {
-          rawLiveAlerts.push({
-            id: `staff-delivery-${a.id}`,
-            type: "agendamento_alterado",
-            role_target: ["admin", "entregador", "recepcionista"],
-            service_type: a.service_type,
-            title: "Pet em Rota de Entrega",
-            body: `${petName} está em rota de transporte para o tutor.`,
-            appointment_id: a.id,
-            actor_id: a.updated_by || null,
-            is_read: false,
-            created_at: a.scheduled_at || new Date().toISOString(),
-            computed: true,
-          });
-        } else if (isToday && (a.status === "agendado" || a.status === "confirmado")) {
-          rawLiveAlerts.push({
-            id: `staff-today-${a.id}`,
-            type: "agendamento_criado",
-            role_target: ["admin", "dono", "recepcionista", "banhista_tosador", "veterinario", "auxiliar"],
-            service_type: a.service_type,
-            title: "Agendamento para Hoje",
-            body: `${petName} — ${a.service_type} agendado para hoje.`,
-            appointment_id: a.id,
-            actor_id: a.updated_by || null,
-            is_read: false,
-            created_at: a.scheduled_at || new Date().toISOString(),
-            computed: true,
-          });
-        }
-      });
-
-      // Filtragem por cargo específico do usuário da equipe
-      const filteredLiveAlerts = rawLiveAlerts.filter((item) => {
-        // Nunca notificar o próprio autor da mudança de status que gerou o alerta
-        if (item.actor_id && item.actor_id === user.id) return false;
-
-        if (userRole === "admin") return item.role_target.includes("admin");
-        if (userRole === "dono") {
-          return item.type === "agendamento_criado" || item.type === "agendamento_concluido";
-        }
-        if (userRole === "veterinario") {
-          const s = (item.service_type || "").toLowerCase();
-          return s.includes("consulta") || s.includes("vacina") || s.includes("vet") || item.role_target.includes("veterinario");
-        }
-        if (userRole === "banhista_tosador") {
-          const s = (item.service_type || "").toLowerCase();
-          return s.includes("banho") || s.includes("tosa") || s.includes("higieni") || item.role_target.includes("banhista_tosador");
-        }
-        return item.role_target.includes(userRole) || userRole === "funcionario";
-      });
-
-      // Filtrar notificações armazenadas que não sejam estritamente mensagens privadas de tutor
-      const staffStored = (stored || []).filter((n) => {
-        const title = (n.title || "").toLowerCase();
-        const body = (n.body || "").toLowerCase();
-        // Incluir se for alerta geral ou agendamento novo/cancelado
-        if (title.includes("novo agendamento") || title.includes("cancelado") || title.includes("cliente")) return true;
-        // Ocultar notificações que são mensagens direcionadas apenas ao tutor individual (ex: "Seu pet está em banho")
-        if (body.startsWith("seu pet") || body.startsWith("seu agendamento")) return false;
-        return true;
-      });
-
-      // Unificar e aplicar estado de leitura persistido
-      const notifMap = new Map<string, any>();
-      [...filteredLiveAlerts, ...staffStored].forEach((n) => {
-        if (!notifMap.has(n.id)) {
-          const isRead = n.is_read || readNotifIds.has(n.id);
-          notifMap.set(n.id, { ...n, is_read: isRead });
-        }
-      });
-
-      const allNotifs = Array.from(notifMap.values()).sort(
-        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      );
-
-      const unreadCount = allNotifs.filter((n) => !n.is_read).length;
-
-      return NextResponse.json({ notifications: allNotifs, unreadCount });
+      return NextResponse.json({ notifications: [], unreadCount: 0 });
     }
 
     // -------------------------------------------------------------
-    // FLUXO DO CLIENTE (TUTOR)
+    // FLUXO EXCLUSIVO DO CLIENTE (TUTOR)
     // -------------------------------------------------------------
     const { data: stored, error } = await adminSupabase
       .from("notifications")
@@ -248,7 +91,7 @@ export const GET = withTenantRoute(async () => {
       }));
     }
 
-    // Unificar e aplicar estado de leitura
+    // Unificar notificações armazenadas no DB e lembretes computados do cliente
     const notifMap = new Map<string, any>();
     [...reminders, ...(stored || [])].forEach((n) => {
       if (!notifMap.has(n.id)) {

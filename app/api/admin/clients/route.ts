@@ -263,3 +263,63 @@ export const POST = withTenantRoute(async (request: Request) => {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 });
+
+// PUT: Editar informações do Usuário / Tutor / Funcionário
+export const PUT = withTenantRoute(async (request: Request) => {
+  try {
+    const adminSupabase = createAdminClient();
+    const body = await request.json();
+
+    const { id, full_name, phone, email, role } = body;
+
+    if (!id) {
+      return NextResponse.json({ error: "ID do usuário é obrigatório para edição." }, { status: 400 });
+    }
+
+    const updatePayload: Record<string, any> = {};
+    if (full_name !== undefined) updatePayload.full_name = full_name.trim();
+    if (phone !== undefined) updatePayload.phone = phone.trim();
+    if (role !== undefined) updatePayload.role = role;
+
+    // 1. Atualizar registro na tabela 'profiles'
+    const { data: updatedProfile, error: profileErr } = await adminSupabase
+      .from("profiles")
+      .update(updatePayload)
+      .eq("id", id)
+      .eq("pet_shop_id", getTenantId())
+      .select()
+      .maybeSingle();
+
+    if (profileErr) {
+      console.error("Erro ao atualizar profile:", profileErr);
+      return NextResponse.json({ error: profileErr.message }, { status: 400 });
+    }
+
+    // 2. Atualizar user_metadata e email no auth.users do Supabase
+    try {
+      const authUpdate: Record<string, any> = {};
+      if (email && email.trim()) authUpdate.email = email.trim().toLowerCase();
+
+      authUpdate.user_metadata = {
+        full_name: full_name?.trim() || "",
+        name: full_name?.trim() || "",
+        display_name: full_name?.trim() || "",
+        phone: phone?.trim() || "",
+        role: role || "client",
+      };
+
+      if (role) {
+        authUpdate.app_metadata = { role };
+      }
+
+      await adminSupabase.auth.admin.updateUserById(id, authUpdate);
+    } catch (authErr: any) {
+      console.warn("Aviso ao atualizar auth.users:", authErr.message);
+    }
+
+    return NextResponse.json({ success: true, profile: updatedProfile });
+  } catch (err: any) {
+    console.error("Erro em PUT /api/admin/clients:", err);
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+});

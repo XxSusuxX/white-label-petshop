@@ -61,6 +61,7 @@ export function AdminBottomNav() {
     { href: "/admin/prontuario", label: "Módulo Vet", icon: "stethoscope" },
     { href: "/admin/financeiro", label: "Financeiro", icon: "monitoring" },
     { href: "/admin/whatsapp", label: "Central WhatsApp", icon: "chat" },
+    { href: "/admin/register-admin", label: "Add Equipe", icon: "person_add" },
   ];
 
   return (
@@ -110,26 +111,26 @@ export function AdminBottomNav() {
         </button>
       </nav>
 
-      {/* Modal / Drawer do Menu MAIS */}
+      {/* Modal / Drawer do Menu MAIS com animação fluida */}
       {isMoreOpen && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex justify-end flex-col md:hidden animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex justify-end flex-col md:hidden animate-in fade-in duration-200">
           {/* Overlay de fechar */}
           <div className="flex-1" onClick={() => setIsMoreOpen(false)} />
 
           {/* Conteúdo do Sheet */}
           <div
             ref={modalRef}
-            className="bg-surface-container border-t border-hairline-border rounded-t-3xl p-5 space-y-5 max-h-[85vh] overflow-y-auto shadow-2xl animate-in slide-in-from-bottom duration-200"
+            className="bg-surface-container border-t border-hairline-border rounded-t-3xl p-5 space-y-4 max-h-[88vh] overflow-y-auto shadow-2xl animate-in slide-in-from-bottom duration-300"
           >
             <div className="flex items-center justify-between border-b border-hairline-border pb-3">
               <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary">apps</span>
-                <h3 className="font-bold text-base text-on-surface">Menu do Sistema</h3>
+                <span className="material-symbols-outlined text-primary">grid_view</span>
+                <h3 className="font-bold text-base text-on-surface">Menu do Sistema SaaS</h3>
               </div>
 
               <button
                 onClick={() => setIsMoreOpen(false)}
-                className="p-1.5 rounded-full bg-surface-container-high text-on-surface-variant hover:text-on-surface cursor-pointer"
+                className="p-1.5 rounded-full bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer"
               >
                 <span className="material-symbols-outlined text-lg">close</span>
               </button>
@@ -175,29 +176,34 @@ export function AdminBottomNav() {
               </div>
             )}
 
-            {/* Grid de Atalhos de Ferramentas */}
-            <div className="grid grid-cols-2 gap-3">
-              {moreLinks.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  onClick={() => setIsMoreOpen(false)}
-                  className={`p-3.5 rounded-2xl border flex items-center gap-3 transition-all ${
-                    link.highlight
-                      ? "bg-primary text-on-primary border-primary font-bold shadow-md"
-                      : "bg-elevated-card border-hairline-border text-on-surface hover:border-primary/50"
-                  }`}
-                >
-                  <span className="material-symbols-outlined text-xl">{link.icon}</span>
-                  <span className="text-xs font-label-bold">{link.label}</span>
-                </Link>
-              ))}
+            {/* Grid de Atalhos de Ferramentas com Rotas Direcionadas e Efeitos de Hover */}
+            <div className="grid grid-cols-2 gap-2.5">
+              {moreLinks.map((link) => {
+                const isActive = pathname === link.href;
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    onClick={() => setIsMoreOpen(false)}
+                    className={`p-3.5 rounded-2xl border flex items-center gap-3 transition-all cursor-pointer ${
+                      isActive
+                        ? "bg-primary/20 text-primary border-primary ring-1 ring-primary font-bold"
+                        : link.highlight
+                        ? "bg-primary text-on-primary border-primary font-bold shadow-md hover:brightness-110"
+                        : "bg-elevated-card border-hairline-border text-on-surface hover:border-primary/50 hover:bg-surface-container-high"
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-xl shrink-0">{link.icon}</span>
+                    <span className="text-xs font-label-bold truncate">{link.label}</span>
+                  </Link>
+                );
+              })}
             </div>
 
-            {/* Sair da Conta */}
+            {/* Sair da Conta (Logout) */}
             <button
               onClick={handleLogout}
-              className="w-full bg-rose-500/10 border border-rose-500/30 text-rose-400 font-bold py-3.5 rounded-2xl flex items-center justify-center gap-2 hover:bg-rose-500/20 transition-all cursor-pointer text-xs"
+              className="w-full bg-rose-500/10 border border-rose-500/30 text-rose-400 font-bold py-3.5 rounded-2xl flex items-center justify-center gap-2 hover:bg-rose-500/20 active:scale-98 transition-all cursor-pointer text-xs mt-2"
             >
               <span className="material-symbols-outlined text-base">logout</span>
               Sair da Conta (Logout)

@@ -147,3 +147,90 @@ export const POST = withTenantRoute(async (request: Request) => {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 });
+
+// PUT: Editar pet existente
+export const PUT = withTenantRoute(async (request: Request) => {
+  try {
+    const adminSupabase = createAdminClient();
+    const body = await request.json();
+
+    const {
+      id,
+      name,
+      species,
+      breed,
+      sex,
+      weight,
+      coat,
+      color,
+      is_neutered,
+      client_id,
+      observations,
+      photo_url,
+    } = body;
+
+    if (!id) {
+      return NextResponse.json({ error: "ID do pet é obrigatório para edição." }, { status: 400 });
+    }
+
+    const updatePayload: Record<string, any> = {};
+    if (name !== undefined) updatePayload.name = name.trim();
+    if (species !== undefined) updatePayload.species = species;
+    if (breed !== undefined) updatePayload.breed = breed.trim();
+    if (sex !== undefined) updatePayload.sex = sex;
+    if (weight !== undefined) updatePayload.weight = weight ? parseFloat(weight) : null;
+    if (coat !== undefined) updatePayload.coat = coat;
+    if (color !== undefined) updatePayload.color = color ? color.trim() : null;
+    if (is_neutered !== undefined) updatePayload.is_neutered = Boolean(is_neutered);
+    if (client_id !== undefined) updatePayload.client_id = client_id;
+    if (observations !== undefined) updatePayload.observations = observations ? observations.trim() : null;
+    if (photo_url !== undefined) updatePayload.photo_url = photo_url.trim();
+
+    const { data: updatedPet, error: updateErr } = await adminSupabase
+      .from("pets")
+      .update(updatePayload)
+      .eq("id", id)
+      .eq("pet_shop_id", getTenantId())
+      .select()
+      .single();
+
+    if (updateErr) {
+      console.error("Erro ao atualizar pet:", updateErr);
+      return NextResponse.json({ error: updateErr.message }, { status: 400 });
+    }
+
+    return NextResponse.json({ success: true, pet: updatedPet });
+  } catch (err: any) {
+    console.error("Erro em PUT /api/admin/pets:", err);
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+});
+
+// DELETE: Excluir pet
+export const DELETE = withTenantRoute(async (request: Request) => {
+  try {
+    const adminSupabase = createAdminClient();
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get("id");
+
+    if (!id) {
+      return NextResponse.json({ error: "ID do pet é obrigatório." }, { status: 400 });
+    }
+
+    const { error: deleteErr } = await adminSupabase
+      .from("pets")
+      .delete()
+      .eq("id", id)
+      .eq("pet_shop_id", getTenantId());
+
+    if (deleteErr) {
+      console.error("Erro ao deletar pet:", deleteErr);
+      return NextResponse.json({ error: deleteErr.message }, { status: 400 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (err: any) {
+    console.error("Erro em DELETE /api/admin/pets:", err);
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+});

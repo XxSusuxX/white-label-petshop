@@ -393,8 +393,8 @@ ${returnDate ? new Date(returnDate).toLocaleDateString("pt-BR") : "A critério d
             </div>
           </div>
 
-          {/* Abas de Navegação */}
-          <div className="flex border-b border-hairline-border gap-2 overflow-x-auto no-scrollbar print:hidden">
+          {/* Abas de Navegação com Scroll Horizontal Fluido no Mobile */}
+          <div className="flex border-b border-hairline-border gap-2 overflow-x-auto whitespace-nowrap pb-1 print:hidden touch-pan-x" style={{ WebkitOverflowScrolling: "touch" }}>
             {[
               { id: "consultas", label: "Consultas & Exames", icon: "assignment" },
               { id: "vacinas", label: "Carteira de Vacinas", icon: "vaccines" },
@@ -404,14 +404,14 @@ ${returnDate ? new Date(returnDate).toLocaleDateString("pt-BR") : "A critério d
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center gap-2 px-5 py-3 rounded-t-xl font-label-bold text-body-sm transition-all border-b-2 cursor-pointer ${
+                className={`flex items-center gap-2 px-5 py-3 rounded-t-xl font-label-bold text-xs md:text-body-sm transition-all border-b-2 cursor-pointer shrink-0 whitespace-nowrap ${
                   activeTab === tab.id
-                    ? "bg-surface-container text-primary border-primary"
+                    ? "bg-surface-container text-primary border-primary font-bold"
                     : "text-on-surface-variant hover:text-on-surface border-transparent"
                 }`}
               >
                 <span className="material-symbols-outlined text-lg">{tab.icon}</span>
-                {tab.label}
+                <span>{tab.label}</span>
               </button>
             ))}
           </div>

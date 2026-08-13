@@ -42,6 +42,10 @@ function PetsContent() {
   const [selectedSpeciesFilter, setSelectedSpeciesFilter] = useState("Todos");
   const [selectedPetDetail, setSelectedPetDetail] = useState<AdminPet | null>(null);
 
+  // Mobile layout state
+  const [mobileLimit, setMobileLimit] = useState(6);
+  const [showMobileFilterMenu, setShowMobileFilterMenu] = useState(false);
+
   // Create Pet Modal States
   const [showCreatePetModal, setShowCreatePetModal] = useState(false);
   const [selectedClientId, setSelectedClientId] = useState("");
@@ -58,6 +62,40 @@ function PetsContent() {
   const [petPhotoUrl, setPetPhotoUrl] = useState("");
   const [petObservations, setPetObservations] = useState("");
   const [isSavingPet, setIsSavingPet] = useState(false);
+
+  // Estado para edição de pet existente
+  const [editingPet, setEditingPet] = useState<AdminPet | null>(null);
+
+  const handleOpenEditModal = (pet: AdminPet) => {
+    setEditingPet(pet);
+    setSelectedClientId(pet.tutor_id || (clients[0]?.id || ""));
+    setPetName(pet.name);
+    setPetSpecies(pet.species || "Cachorro");
+    setPetBreed(pet.breed || "");
+    setPetSex(pet.sex || "Macho");
+    setPetWeight(pet.weight ? pet.weight.replace(/\s*kg/i, "") : "");
+    setPetCoat(pet.coat || "Curta");
+    setPetColor(pet.color || "");
+    setPetIsCastrated(Boolean(pet.is_neutered));
+    setPetPhotoUrl(pet.photo_url || "");
+    setPetObservations(pet.observations || "");
+    setShowCreatePetModal(true);
+  };
+
+  const handleDeletePet = async (petId: string, petName: string) => {
+    if (!confirm(`Tem certeza que deseja excluir o pet "${petName}"? Esta ação removerá a ficha permanentemente.`)) return;
+    try {
+      const res = await fetch(`/api/admin/pets?id=${petId}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Erro ao excluir pet.");
+      
+      setSelectedPetDetail(null);
+      await loadAdminPets();
+      alert("Pet excluído com sucesso!");
+    } catch (err: any) {
+      alert(err.message || "Não foi possível excluir o pet.");
+    }
+  };
 
   const loadAdminPets = async () => {
     setIsLoading(true);
@@ -103,8 +141,10 @@ function PetsContent() {
   }, [petIdQuery, searchParamQuery]);
 
   const handleOpenCreateModal = () => {
-    setSelectedClientId(clients.length > 0 ? clients[0].id : "");
+    setEditingPet(null);
+    setSelectedClientId(clients[0]?.id || "");
     setPetName("");
+    setPetSpecies("Cachorro");
     setPetBreed("");
     setPetSex("Macho");
     setPetAgeYears("0");
@@ -132,37 +172,47 @@ function PetsContent() {
 
     setIsSavingPet(true);
     try {
+      const method = editingPet ? "PUT" : "POST";
+      const payload: Record<string, any> = {
+        name: petName.trim(),
+        species: petSpecies,
+        breed: petBreed.trim() || "Vira-Lata",
+        sex: petSex,
+        weight: petWeight.trim() || null,
+        coat: petCoat,
+        color: petColor.trim() || null,
+        is_neutered: petIsCastrated,
+        photo_url: petPhotoUrl.trim() || null,
+        observations: petObservations.trim() || null,
+        client_id: selectedClientId,
+      };
+
+      if (editingPet) {
+        payload.id = editingPet.id;
+      } else {
+        payload.age_years = petAgeYears;
+        payload.age_months = petAgeMonths;
+      }
+
       const res = await fetch("/api/admin/pets", {
-        method: "POST",
+        method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: petName.trim(),
-          species: petSpecies,
-          breed: petBreed.trim() || "Vira-Lata",
-          sex: petSex,
-          weight: petWeight.trim() || null,
-          coat: petCoat,
-          color: petColor.trim() || null,
-          is_neutered: petIsCastrated,
-          age_years: petAgeYears,
-          age_months: petAgeMonths,
-          photo_url: petPhotoUrl.trim() || null,
-          observations: petObservations.trim() || null,
-          client_id: selectedClientId,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
-      if (res.ok && data.success) {
+      if (res.ok && (data.success || data.pet)) {
         setShowCreatePetModal(false);
+        setEditingPet(null);
+        setSelectedPetDetail(null);
         await loadAdminPets();
-        alert(`🎉 Pet ${petName} cadastrado com sucesso!`);
+        alert(`🎉 Pet ${petName} ${editingPet ? "atualizado" : "cadastrado"} com sucesso!`);
       } else {
-        alert(`Erro ao cadastrar pet: ${data.error || "Tente novamente."}`);
+        alert(`Erro ao salvar pet: ${data.error || "Tente novamente."}`);
       }
     } catch (err) {
-      console.error("Erro ao cadastrar pet:", err);
-      alert("Erro de conexão ao cadastrar pet.");
+      console.error("Erro ao salvar pet:", err);
+      alert("Erro de conexão ao salvar pet.");
     } finally {
       setIsSavingPet(false);
     }
@@ -351,61 +401,215 @@ function PetsContent() {
         </div>
       </main>
 
-      {/* Mobile Layout */}
-      <main className="block md:hidden px-5 pb-32 pt-4 space-y-6">
-        <div className="flex justify-between items-center">
+      {/* Mobile Layout (Fiel à imagem de referência) */}
+      <main className="block md:hidden px-4 pb-28 pt-3 space-y-5 bg-matte-canvas min-h-screen text-on-surface">
+        {/* Mobile Header Bar */}
+        <div className="flex items-center justify-between pt-1">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-primary text-2xl">pets</span>
+            <span className="font-headline-md text-lg font-bold text-primary tracking-tight">PetNexus</span>
+          </div>
+
+          <div className="flex items-center gap-2.5">
+            <button
+              onClick={() => setShowMobileFilterMenu((prev) => !prev)}
+              className="w-9 h-9 rounded-full bg-surface-container border border-hairline-border flex items-center justify-center text-on-surface-variant hover:text-on-surface cursor-pointer"
+              title="Buscar pets ou tutores"
+            >
+              <span className="material-symbols-outlined text-xl">search</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Search Input Dropdown / Toggle */}
+        {showMobileFilterMenu && (
+          <div className="relative animate-in fade-in slide-in-from-top-2 duration-200">
+            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg">
+              search
+            </span>
+            <input
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full bg-surface-container border border-hairline-border rounded-xl pl-10 pr-4 py-2.5 text-sm text-on-surface outline-none focus:border-primary placeholder:text-outline"
+              placeholder="Buscar por pet ou tutor..."
+              autoFocus
+            />
+          </div>
+        )}
+
+        {/* Cards de Métricas Horizontais (Bento Horizontal Carousel) */}
+        <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-none -mx-4 px-4">
+          {/* Card 1: Total de Pets */}
+          <div className="bg-surface-container border border-hairline-border rounded-2xl p-4 min-w-[135px] flex-1 space-y-2 shrink-0 extruded-shadow">
+            <div className="flex items-center justify-between">
+              <span className="material-symbols-outlined text-primary text-xl">pets</span>
+              <span className="text-[11px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">+12%</span>
+            </div>
+            <div>
+              <p className="text-[11px] text-on-surface-variant font-bold">Total de Pets</p>
+              <p className="text-2xl font-bold text-on-surface font-mono">{pets.length}</p>
+            </div>
+          </div>
+
+          {/* Card 2: Tarefas Urgentes / Prontuários */}
+          <div className="bg-surface-container border border-hairline-border rounded-2xl p-4 min-w-[135px] flex-1 space-y-2 shrink-0 extruded-shadow">
+            <div className="flex items-center justify-between">
+              <span className="material-symbols-outlined text-amber-400 text-xl">medical_services</span>
+              <span className="w-2 h-2 rounded-full bg-amber-400"></span>
+            </div>
+            <div>
+              <p className="text-[11px] text-on-surface-variant font-bold">Tarefas Urgentes</p>
+              <p className="text-2xl font-bold text-on-surface font-mono">8</p>
+            </div>
+          </div>
+
+          {/* Card 3: Entradas Hoje */}
+          <div className="bg-surface-container border border-hairline-border rounded-2xl p-4 min-w-[135px] flex-1 space-y-2 shrink-0 extruded-shadow">
+            <div className="flex items-center justify-between">
+              <span className="material-symbols-outlined text-emerald-400 text-xl">calendar_month</span>
+            </div>
+            <div>
+              <p className="text-[11px] text-on-surface-variant font-bold">Entradas Hoje</p>
+              <p className="text-2xl font-bold text-on-surface font-mono">24</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Título de Seção & Botão de Filtro */}
+        <div className="flex items-center justify-between pt-1">
           <div>
-            <h1 className="font-headline-lg-mobile text-headline-lg-mobile text-on-surface">Pets</h1>
-            <p className="text-xs text-on-surface-variant">{pets.length} pets cadastrados</p>
+            <h2 className="text-xl font-bold text-on-surface tracking-tight">Registro de Pets</h2>
+            <p className="text-xs text-on-surface-variant">Gerencie seus clientes ativos</p>
           </div>
           <button
-            onClick={handleOpenCreateModal}
-            className="bg-primary text-on-primary p-2.5 rounded-full extruded-shadow"
+            onClick={() => {
+              const nextFilter =
+                selectedSpeciesFilter === "Todos"
+                  ? "Cachorros"
+                  : selectedSpeciesFilter === "Cachorros"
+                  ? "Gatos"
+                  : selectedSpeciesFilter === "Gatos"
+                  ? "Outros"
+                  : "Todos";
+              setSelectedSpeciesFilter(nextFilter);
+            }}
+            className="w-10 h-10 rounded-xl bg-surface-container border border-hairline-border flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors cursor-pointer relative"
+            title="Filtrar por espécie"
           >
-            <span className="material-symbols-outlined text-xl">add</span>
+            <span className="material-symbols-outlined text-xl">tune</span>
+            {selectedSpeciesFilter !== "Todos" && (
+              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-primary rounded-full"></span>
+            )}
           </button>
         </div>
 
-        {/* Search Input */}
-        <div className="relative">
-          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg">search</span>
-          <input
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-surface-container border-hairline-border border rounded-full pl-10 pr-4 py-2 text-sm text-on-surface outline-none placeholder:text-outline"
-            placeholder="Buscar por pet ou tutor..."
-          />
+        {/* Pills de Espécie em Filtro Rápido */}
+        {selectedSpeciesFilter !== "Todos" && (
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-on-surface-variant font-bold">Filtro:</span>
+            <span className="bg-primary text-on-primary font-bold px-2.5 py-1 rounded-full text-[11px] flex items-center gap-1">
+              {selectedSpeciesFilter}
+              <button onClick={() => setSelectedSpeciesFilter("Todos")} className="hover:opacity-75 font-bold ml-1">
+                ×
+              </button>
+            </span>
+          </div>
+        )}
+
+        {/* Lista de Pets no Estilo da Imagem (Cards com Foto à Esquerda, Nome/Tutor no Meio e Botão Ver Perfil à Direita) */}
+        <div className="space-y-3 pt-1">
+          {isLoading ? (
+            <div className="p-8 text-center text-on-surface-variant animate-pulse space-y-3">
+              <span className="material-symbols-outlined text-3xl animate-spin text-primary">sync</span>
+              <p className="text-xs font-bold">Carregando pets...</p>
+            </div>
+          ) : filteredPets.length === 0 ? (
+            <div className="bg-surface-container border border-hairline-border rounded-2xl p-8 text-center space-y-3">
+              <span className="material-symbols-outlined text-4xl text-outline">pets</span>
+              <p className="font-bold text-sm text-on-surface">Nenhum pet encontrado</p>
+              <button
+                onClick={handleOpenCreateModal}
+                className="px-4 py-2 bg-primary text-on-primary text-xs font-bold rounded-xl"
+              >
+                Cadastrar Pet
+              </button>
+            </div>
+          ) : (
+            filteredPets.slice(0, mobileLimit).map((pet, idx) => (
+              <div
+                key={pet.id}
+                className="bg-surface-container border border-hairline-border rounded-2xl p-3.5 flex items-center justify-between gap-3 extruded-shadow hover:border-primary/40 transition-all"
+              >
+                {/* Foto do Pet (Quadrada com Cantos Arredondados) */}
+                <div className="w-16 h-16 rounded-xl overflow-hidden border border-hairline-border shrink-0 bg-surface-container-high">
+                  <img
+                    src={pet.photo_url || "https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=300"}
+                    alt={pet.name}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+
+                {/* Conteúdo Central: Nome, Status, Raça e Tutor */}
+                <div className="flex-1 min-w-0 space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="font-bold text-primary text-base truncate">{pet.name}</h3>
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                        idx % 3 === 1
+                          ? "bg-amber-500/15 text-amber-400 border-amber-500/30"
+                          : "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+                      }`}
+                    >
+                      {idx % 3 === 1 ? "Pendente" : "Ativo"}
+                    </span>
+                  </div>
+                  <p className="text-xs text-on-surface-variant font-medium truncate">{pet.breed || pet.species}</p>
+                  <div className="flex items-center gap-1 text-[11px] text-on-surface-variant/80 truncate">
+                    <span className="material-symbols-outlined text-[13px]">person</span>
+                    <span className="truncate">{pet.tutor_name}</span>
+                  </div>
+                </div>
+
+                {/* Botão Ver Perfil (Verde em Destaque) */}
+                <button
+                  onClick={() => setSelectedPetDetail(pet)}
+                  className="bg-primary text-on-primary font-bold text-xs px-3.5 py-2.5 rounded-xl hover:brightness-110 active:scale-95 transition-all shadow-sm shrink-0 cursor-pointer"
+                >
+                  Ver Perfil
+                </button>
+              </div>
+            ))
+          )}
         </div>
 
-        {/* Cards List */}
-        <div className="space-y-4">
-          {isLoading ? (
-            <div className="p-4 text-center text-on-surface-variant">Carregando...</div>
-          ) : filteredPets.map((pet) => (
-            <div
-              key={pet.id}
-              onClick={() => setSelectedPetDetail(pet)}
-              className="bg-elevated-card border border-hairline-border p-4 rounded-xl space-y-3 cursor-pointer"
+        {/* Botão "Carregar mais Pets" */}
+        {filteredPets.length > mobileLimit && (
+          <div className="pt-2 flex justify-center">
+            <button
+              onClick={() => setMobileLimit((prev) => prev + 6)}
+              className="px-6 py-2.5 bg-surface-container border border-hairline-border text-on-surface font-bold text-xs rounded-xl hover:bg-surface-container-high transition-colors flex items-center gap-1.5 cursor-pointer"
             >
-              <div className="flex items-center gap-3">
-                <img src={pet.photo_url} alt={pet.name} className="w-14 h-14 rounded-xl object-cover border border-hairline-border" />
-                <div className="flex-1">
-                  <h3 className="font-bold text-on-surface">{pet.name}</h3>
-                  <p className="text-xs text-on-surface-variant">{pet.breed} • {pet.weight}</p>
-                  <p className="text-xs text-primary font-bold mt-0.5">Tutor: {pet.tutor_name}</p>
-                </div>
-                <span className="material-symbols-outlined text-primary text-sm">arrow_forward</span>
-              </div>
-            </div>
-          ))}
-        </div>
+              <span>Carregar mais Pets</span>
+              <span className="material-symbols-outlined text-base">expand_more</span>
+            </button>
+          </div>
+        )}
+
+        {/* Floating Action Button (FAB +) Flutuante no Canto Inferior Direito */}
+        <button
+          onClick={handleOpenCreateModal}
+          className="fixed bottom-24 right-5 z-40 bg-primary text-on-primary w-14 h-14 rounded-full shadow-2xl flex items-center justify-center hover:scale-105 active:scale-95 transition-transform cursor-pointer extruded-shadow"
+          title="Cadastrar Novo Pet"
+        >
+          <span className="material-symbols-outlined text-2xl font-bold">add</span>
+        </button>
       </main>
 
       {/* Modal Cadastrar Novo Pet (Com todos os 11 campos da ficha de pet) */}
       {showCreatePetModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-start justify-center p-4 overflow-y-auto">
-          <div className="bg-elevated-card border border-hairline-border rounded-2xl max-w-lg w-full p-6 space-y-6 extruded-shadow animate-in fade-in my-8">
-            <div className="flex justify-between items-center border-b border-hairline-border pb-4">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-elevated-card border border-hairline-border rounded-2xl max-w-lg w-full max-h-[90vh] flex flex-col extruded-shadow animate-in fade-in">
+            <div className="flex justify-between items-center border-b border-hairline-border p-6 pb-4 shrink-0">
               <div>
                 <h3 className="font-headline-md text-xl font-bold text-on-surface flex items-center gap-2">
                   <span className="material-symbols-outlined text-primary">pets</span>
@@ -423,7 +627,7 @@ function PetsContent() {
               </button>
             </div>
 
-            <form onSubmit={handleCreatePetSubmit} className="space-y-4">
+            <form onSubmit={handleCreatePetSubmit} className="p-6 pt-4 space-y-4 overflow-y-auto">
               {/* Selecionar Tutor (Cliente) */}
               <div>
                 <label className="block text-xs font-bold text-on-surface-variant mb-1 uppercase">
@@ -729,13 +933,32 @@ function PetsContent() {
               </p>
             </div>
 
-            <div className="pt-2 flex justify-end">
+            <div className="pt-3 border-t border-hairline-border flex flex-wrap items-center justify-between gap-2">
               <button
-                onClick={() => setSelectedPetDetail(null)}
-                className="px-5 py-2.5 bg-surface-container text-on-surface font-bold text-xs rounded-xl hover:bg-surface-container-high transition-colors cursor-pointer"
+                onClick={() => handleDeletePet(selectedPetDetail.id, selectedPetDetail.name)}
+                className="px-3.5 py-2.5 bg-rose-500/10 border border-rose-500/30 text-rose-400 font-bold text-xs rounded-xl hover:bg-rose-500/20 transition-all cursor-pointer flex items-center gap-1.5"
               >
-                Fechar
+                <span className="material-symbols-outlined text-base">delete</span>
+                Excluir Pet
               </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    handleOpenEditModal(selectedPetDetail);
+                  }}
+                  className="px-4 py-2.5 bg-primary/20 border border-primary/40 text-primary font-bold text-xs rounded-xl hover:bg-primary/30 transition-all cursor-pointer flex items-center gap-1.5"
+                >
+                  <span className="material-symbols-outlined text-base">edit</span>
+                  Editar Pet
+                </button>
+                <button
+                  onClick={() => setSelectedPetDetail(null)}
+                  className="px-4 py-2.5 bg-surface-container text-on-surface font-bold text-xs rounded-xl hover:bg-surface-container-high transition-colors cursor-pointer"
+                >
+                  Fechar
+                </button>
+              </div>
             </div>
           </div>
         </div>

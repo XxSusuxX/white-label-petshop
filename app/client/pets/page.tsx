@@ -580,64 +580,65 @@ export default function MeusPetsPage() {
           </div>
         </div>
 
-      {/* Modal: Adicionar Novo Pet */}
+      {/* Modal: Adicionar Novo Pet (Refatorado & Otimizado para Mobile) */}
       {showAddPetModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-elevated-card border border-hairline-border rounded-2xl max-w-xl w-full p-6 md:p-8 extruded-shadow flex flex-col gap-6 relative my-auto">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-hairline-border/50 pb-4">
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-hidden animate-in fade-in duration-200">
+          <div className="bg-elevated-card border border-hairline-border rounded-3xl max-w-lg w-full max-h-[85vh] sm:max-h-[90vh] flex flex-col overflow-hidden shadow-2xl extruded-shadow mb-16 sm:mb-0 animate-in zoom-in-95 duration-200">
+            {/* Header Fixo */}
+            <div className="p-4 sm:p-5 bg-surface-container border-b border-hairline-border flex items-center justify-between shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
                   <span className="material-symbols-outlined text-2xl">pets</span>
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold text-on-surface">Adicionar Novo Pet</h3>
+                  <h3 className="text-lg font-bold text-on-surface">Adicionar Novo Pet</h3>
                   <p className="text-xs text-on-surface-variant">Preencha os dados do seu companheiro</p>
                 </div>
               </div>
 
               <button
+                type="button"
                 onClick={() => setShowAddPetModal(false)}
-                className="text-on-surface-variant hover:text-on-surface p-1 rounded-lg hover:bg-surface-container transition-colors"
+                className="text-on-surface-variant hover:text-on-surface p-1.5 rounded-xl bg-surface-container-high hover:bg-surface-container-highest transition-colors cursor-pointer"
               >
                 <span className="material-symbols-outlined text-xl">close</span>
               </button>
             </div>
 
-            {/* Modal Form */}
-            <form onSubmit={handleCreatePet} className="space-y-4">
-              {/* Photo Upload */}
-              <div className="flex flex-col items-center gap-2">
-                <input
-                  type="file"
-                  id="modal-pet-photo"
-                  accept="image/*"
-                  onChange={handlePhotoUpload}
-                  className="hidden"
-                />
-                <label
-                  htmlFor="modal-pet-photo"
-                  className="relative w-20 h-20 rounded-full bg-surface-container border-2 border-dashed border-outline-variant flex items-center justify-center cursor-pointer group hover:border-primary transition-all"
-                >
-                  <div className="w-full h-full rounded-full overflow-hidden flex items-center justify-center">
-                    {newPhotoPreview ? (
-                      <img src={newPhotoPreview} alt="Preview" className="w-full h-full object-cover" />
-                    ) : (
-                      <span className="material-symbols-outlined text-outline-variant text-3xl group-hover:text-primary transition-colors">
-                        photo_camera
-                      </span>
-                    )}
-                  </div>
-                  <div className="absolute -bottom-0.5 -right-0.5 z-20 w-6 h-6 bg-primary rounded-full flex items-center justify-center border-2 border-elevated-card text-on-primary text-xs font-bold shadow-md">
-                    +
-                  </div>
-                </label>
-                <span className="text-xs font-bold text-on-surface-variant">Foto do Pet</span>
-              </div>
+            {/* Formulário Rolável Interno */}
+            <form onSubmit={handleCreatePet} className="flex flex-col flex-1 overflow-hidden">
+              <div className="p-4 sm:p-6 overflow-y-auto space-y-4 flex-1 text-xs">
+                {/* Photo Upload Preview */}
+                <div className="flex flex-col items-center gap-2 pt-1">
+                  <input
+                    type="file"
+                    id="modal-pet-photo"
+                    accept="image/*"
+                    onChange={handlePhotoUpload}
+                    className="hidden"
+                  />
+                  <label
+                    htmlFor="modal-pet-photo"
+                    className="relative w-20 h-20 rounded-full bg-surface-container border-2 border-dashed border-hairline-border flex items-center justify-center cursor-pointer group hover:border-primary transition-all"
+                  >
+                    <div className="w-full h-full rounded-full overflow-hidden flex items-center justify-center">
+                      {newPhotoPreview ? (
+                        <img src={newPhotoPreview} alt="Preview" className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="material-symbols-outlined text-outline-variant text-3xl group-hover:text-primary transition-colors">
+                          photo_camera
+                        </span>
+                      )}
+                    </div>
+                    <div className="absolute -bottom-0.5 -right-0.5 z-20 w-6 h-6 bg-primary rounded-full flex items-center justify-center border-2 border-elevated-card text-on-primary text-xs font-bold shadow-md">
+                      +
+                    </div>
+                  </label>
+                  <span className="text-[11px] font-bold text-on-surface-variant">Foto do Pet</span>
+                </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Pet Name */}
-                <div className="md:col-span-2 space-y-1">
+                <div className="space-y-1">
                   <label htmlFor="modal_pet_name" className="text-xs font-bold text-on-surface">Nome do Pet *</label>
                   <input
                     id="modal_pet_name"
@@ -646,76 +647,80 @@ export default function MeusPetsPage() {
                     value={newPetName}
                     onChange={(e) => setNewPetName(e.target.value)}
                     placeholder="Ex: Bob, Nina, Tobey..."
-                    className="w-full bg-surface-container border border-hairline-border rounded-xl px-3 py-2.5 text-on-surface text-sm placeholder:text-outline outline-none"
+                    className="w-full bg-surface-container border border-hairline-border rounded-xl px-3 py-3 text-on-surface text-sm placeholder:text-outline outline-none focus:border-primary font-medium"
                   />
                 </div>
 
-                {/* Species */}
-                <div className="space-y-1">
-                  <label htmlFor="modal_species" className="text-xs font-bold text-on-surface">Espécie</label>
-                  <select
-                    id="modal_species"
-                    value={newSpecies}
-                    onChange={(e) => setNewSpecies(e.target.value)}
-                    className="w-full bg-surface-container border border-hairline-border rounded-xl px-3 py-2.5 text-on-surface text-sm outline-none cursor-pointer"
-                  >
-                    <option value="Cachorro">Cachorro</option>
-                    <option value="Gato">Gato</option>
-                    <option value="Ave">Ave</option>
-                    <option value="Outro">Outro</option>
-                  </select>
-                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Species */}
+                  <div className="space-y-1">
+                    <label htmlFor="modal_species" className="text-xs font-bold text-on-surface">Espécie *</label>
+                    <select
+                      id="modal_species"
+                      value={newSpecies}
+                      onChange={(e) => setNewSpecies(e.target.value)}
+                      className="w-full bg-surface-container border border-hairline-border rounded-xl px-3 py-3 text-on-surface text-sm outline-none cursor-pointer font-medium"
+                    >
+                      <option value="Cachorro">Cachorro 🐶</option>
+                      <option value="Gato">Gato 🐱</option>
+                      <option value="Ave">Ave 🦜</option>
+                      <option value="Outro">Outro 🐾</option>
+                    </select>
+                  </div>
 
-                {/* Breed */}
-                <div className="space-y-1">
-                  <label htmlFor="modal_breed" className="text-xs font-bold text-on-surface">Raça</label>
-                  <input
-                    id="modal_breed"
-                    type="text"
-                    value={newBreed}
-                    onChange={(e) => setNewBreed(e.target.value)}
-                    placeholder="Ex: Poodle, Shih Tzu, SRD"
-                    className="w-full bg-surface-container border border-hairline-border rounded-xl px-3 py-2.5 text-on-surface text-sm placeholder:text-outline outline-none"
-                  />
+                  {/* Breed */}
+                  <div className="space-y-1">
+                    <label htmlFor="modal_breed" className="text-xs font-bold text-on-surface">Raça</label>
+                    <input
+                      id="modal_breed"
+                      type="text"
+                      value={newBreed}
+                      onChange={(e) => setNewBreed(e.target.value)}
+                      placeholder="Ex: Poodle, SRD"
+                      className="w-full bg-surface-container border border-hairline-border rounded-xl px-3 py-3 text-on-surface text-sm placeholder:text-outline outline-none focus:border-primary font-medium"
+                    />
+                  </div>
                 </div>
 
                 {/* Sex Toggle */}
-                <div className="md:col-span-2 space-y-1">
+                <div className="space-y-1">
                   <label className="text-xs font-bold text-on-surface">Sexo</label>
                   <div className="flex bg-surface-container p-1 rounded-xl border border-hairline-border">
                     <button
                       type="button"
                       onClick={() => setNewSex("Macho")}
-                      className={`flex-1 text-center py-2 rounded-lg font-bold text-xs transition-all cursor-pointer ${newSex === "Macho"
+                      className={`flex-1 text-center py-2.5 rounded-lg font-bold text-xs transition-all cursor-pointer ${
+                        newSex === "Macho"
                           ? "bg-primary text-on-primary"
                           : "text-on-surface-variant hover:text-on-surface"
-                        }`}
+                      }`}
                     >
-                      Macho
+                      Macho ♂️
                     </button>
                     <button
                       type="button"
                       onClick={() => setNewSex("Fêmea")}
-                      className={`flex-1 text-center py-2 rounded-lg font-bold text-xs transition-all cursor-pointer ${newSex === "Fêmea"
+                      className={`flex-1 text-center py-2.5 rounded-lg font-bold text-xs transition-all cursor-pointer ${
+                        newSex === "Fêmea"
                           ? "bg-primary text-on-primary"
                           : "text-on-surface-variant hover:text-on-surface"
-                        }`}
+                      }`}
                     >
-                      Fêmea
+                      Fêmea ♀️
                     </button>
                   </div>
                 </div>
 
                 {/* Age: Anos e Meses */}
-                <div className="md:col-span-2 space-y-1">
+                <div className="space-y-1">
                   <label className="text-xs font-bold text-on-surface">Idade Aproximada</label>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="text-[10px] text-on-surface-variant font-bold uppercase block mb-0.5">Anos</label>
                       <select
                         value={newAgeYears}
                         onChange={(e) => setNewAgeYears(e.target.value)}
-                        className="w-full bg-surface-container border border-hairline-border rounded-xl px-3 py-2 text-on-surface text-sm outline-none cursor-pointer"
+                        className="w-full bg-surface-container border border-hairline-border rounded-xl px-3 py-2.5 text-on-surface text-sm outline-none cursor-pointer font-medium"
                       >
                         {Array.from({ length: 31 }, (_, i) => (
                           <option key={i} value={i}>{i} {i === 1 ? "ano" : "anos"}</option>
@@ -727,7 +732,7 @@ export default function MeusPetsPage() {
                       <select
                         value={newAgeMonths}
                         onChange={(e) => setNewAgeMonths(e.target.value)}
-                        className="w-full bg-surface-container border border-hairline-border rounded-xl px-3 py-2 text-on-surface text-sm outline-none cursor-pointer"
+                        className="w-full bg-surface-container border border-hairline-border rounded-xl px-3 py-2.5 text-on-surface text-sm outline-none cursor-pointer font-medium"
                       >
                         {Array.from({ length: 12 }, (_, i) => (
                           <option key={i} value={i}>{i} {i === 1 ? "mês" : "meses"}</option>
@@ -737,11 +742,10 @@ export default function MeusPetsPage() {
                   </div>
                 </div>
 
-                {/* Weight */}
-                <div className="space-y-1">
-                  <label htmlFor="modal_weight" className="text-xs font-bold text-on-surface">Peso</label>
-                  <div>
-                    <label htmlFor="modal_weight" className="text-[10px] text-on-surface-variant font-bold uppercase block mb-0.5">Quilogramas (kg)</label>
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Weight */}
+                  <div className="space-y-1">
+                    <label htmlFor="modal_weight" className="text-xs font-bold text-on-surface">Peso (kg)</label>
                     <input
                       id="modal_weight"
                       type="number"
@@ -749,24 +753,24 @@ export default function MeusPetsPage() {
                       value={newWeight}
                       onChange={(e) => setNewWeight(e.target.value)}
                       placeholder="Ex: 8.5"
-                      className="w-full bg-surface-container border border-hairline-border rounded-xl px-3 py-2 text-on-surface text-sm placeholder:text-outline outline-none"
+                      className="w-full bg-surface-container border border-hairline-border rounded-xl px-3 py-3 text-on-surface text-sm placeholder:text-outline outline-none font-medium"
                     />
                   </div>
-                </div>
 
-                {/* Pelagem */}
-                <div className="space-y-1">
-                  <label htmlFor="modal_pelagem" className="text-xs font-bold text-on-surface">Pelagem</label>
-                  <select
-                    id="modal_pelagem"
-                    value={newPelagem}
-                    onChange={(e) => setNewPelagem(e.target.value)}
-                    className="w-full bg-surface-container border border-hairline-border rounded-xl px-3 py-2.5 text-on-surface text-sm outline-none cursor-pointer"
-                  >
-                    <option value="Curta">Curta</option>
-                    <option value="Média">Média</option>
-                    <option value="Longa">Longa</option>
-                  </select>
+                  {/* Pelagem */}
+                  <div className="space-y-1">
+                    <label htmlFor="modal_pelagem" className="text-xs font-bold text-on-surface">Pelagem</label>
+                    <select
+                      id="modal_pelagem"
+                      value={newPelagem}
+                      onChange={(e) => setNewPelagem(e.target.value)}
+                      className="w-full bg-surface-container border border-hairline-border rounded-xl px-3 py-3 text-on-surface text-sm outline-none cursor-pointer font-medium"
+                    >
+                      <option value="Curta">Curta</option>
+                      <option value="Média">Média</option>
+                      <option value="Longa">Longa</option>
+                    </select>
+                  </div>
                 </div>
 
                 {/* Color */}
@@ -778,26 +782,26 @@ export default function MeusPetsPage() {
                     value={newColor}
                     onChange={(e) => setNewColor(e.target.value)}
                     placeholder="Ex: Preto e Branco"
-                    className="w-full bg-surface-container border border-hairline-border rounded-xl px-3 py-2.5 text-on-surface text-sm placeholder:text-outline outline-none"
+                    className="w-full bg-surface-container border border-hairline-border rounded-xl px-3 py-3 text-on-surface text-sm placeholder:text-outline outline-none font-medium"
                   />
                 </div>
 
                 {/* Castrated Checkbox */}
-                <div className="md:col-span-2 flex items-center gap-2 pt-1">
+                <div className="flex items-center gap-2 pt-1">
                   <input
                     id="modal_castrated"
                     type="checkbox"
                     checked={newIsCastrated}
                     onChange={(e) => setNewIsCastrated(e.target.checked)}
-                    className="rounded bg-surface-container border-hairline-border text-primary cursor-pointer"
+                    className="rounded bg-surface-container border-hairline-border text-primary cursor-pointer w-4 h-4"
                   />
-                  <label htmlFor="modal_castrated" className="text-xs text-on-surface cursor-pointer">
+                  <label htmlFor="modal_castrated" className="text-xs text-on-surface font-bold cursor-pointer">
                     Meu pet é castrado
                   </label>
                 </div>
 
                 {/* Special Notes */}
-                <div className="md:col-span-2 space-y-1">
+                <div className="space-y-1">
                   <label htmlFor="modal_notes" className="text-xs font-bold text-on-surface">Observações de Saúde</label>
                   <textarea
                     id="modal_notes"
@@ -805,25 +809,25 @@ export default function MeusPetsPage() {
                     value={newNotes}
                     onChange={(e) => setNewNotes(e.target.value)}
                     placeholder="Alergias ou comportamentos..."
-                    className="w-full bg-surface-container border border-hairline-border rounded-xl px-3 py-2 text-on-surface text-sm placeholder:text-outline resize-none outline-none"
+                    className="w-full bg-surface-container border border-hairline-border rounded-xl px-3 py-2.5 text-on-surface text-sm placeholder:text-outline resize-none outline-none font-medium"
                   />
                 </div>
               </div>
 
-              {/* Actions */}
-              <div className="pt-4 flex items-center gap-3">
+              {/* Rodapé Fixo com Botões Visíveis Acima da Bottom Navigation Bar */}
+              <div className="p-4 bg-surface-container border-t border-hairline-border flex items-center gap-3 shrink-0 z-10">
                 <button
                   type="button"
                   onClick={() => setShowAddPetModal(false)}
-                  className="flex-1 bg-surface-container border border-hairline-border text-on-surface font-bold text-sm py-3 rounded-xl hover:bg-surface-variant transition-all cursor-pointer"
+                  className="flex-1 bg-surface-container-high border border-hairline-border text-on-surface font-bold text-xs py-3 rounded-xl hover:bg-surface-container-highest transition-all cursor-pointer text-center"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 bg-primary text-on-primary font-bold text-sm py-3 rounded-xl extruded-shadow emerald-glow-active hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  className="flex-1 bg-primary text-on-primary font-bold text-xs py-3 rounded-xl hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-2 shadow-lg cursor-pointer"
                 >
-                  <span className="material-symbols-outlined text-lg">check_circle</span>
+                  <span className="material-symbols-outlined text-base">check_circle</span>
                   <span>Salvar Pet</span>
                 </button>
               </div>
@@ -832,24 +836,32 @@ export default function MeusPetsPage() {
         </div>
       )}
 
-      {/* EDIT PET MODAL */}
+      {/* EDIT PET MODAL (Refatorado & Otimizado para Mobile) */}
       {showEditPetModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="bg-surface-container-high border border-hairline-border rounded-2xl w-full max-w-lg p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-center pb-4 mb-4 border-b border-hairline-border">
-              <div className="flex items-center gap-2 text-primary">
-                <span className="material-symbols-outlined">edit</span>
-                <h3 className="font-headline-md text-xl font-bold text-on-surface">Editar Pet</h3>
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-hidden animate-in fade-in duration-200">
+          <div className="bg-elevated-card border border-hairline-border rounded-3xl max-w-lg w-full max-h-[85vh] sm:max-h-[90vh] flex flex-col overflow-hidden shadow-2xl extruded-shadow mb-16 sm:mb-0 animate-in zoom-in-95 duration-200">
+            {/* Header Fixo */}
+            <div className="p-4 sm:p-5 bg-surface-container border-b border-hairline-border flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3 text-primary">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
+                  <span className="material-symbols-outlined text-2xl">edit</span>
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-on-surface">Editar Pet</h3>
+                  <p className="text-xs text-on-surface-variant">Atualize as informações do seu pet</p>
+                </div>
               </div>
               <button
+                type="button"
                 onClick={() => setShowEditPetModal(false)}
-                className="text-on-surface-variant hover:text-on-surface p-1 rounded-lg hover:bg-surface-container transition-all cursor-pointer"
+                className="text-on-surface-variant hover:text-on-surface p-1.5 rounded-xl bg-surface-container-high hover:bg-surface-container-highest transition-colors cursor-pointer"
               >
-                <span className="material-symbols-outlined">close</span>
+                <span className="material-symbols-outlined text-xl">close</span>
               </button>
             </div>
 
-            <form onSubmit={handleUpdatePet} className="space-y-4">
+            <form onSubmit={handleUpdatePet} className="flex flex-col flex-1 overflow-hidden">
+              <div className="p-4 sm:p-6 overflow-y-auto space-y-4 flex-1 text-xs">
               {/* Photo Upload Preview */}
               <div className="flex items-center gap-4 bg-surface-container p-3 rounded-xl border border-hairline-border">
                 <img
@@ -1009,21 +1021,23 @@ export default function MeusPetsPage() {
                 </div>
               </div>
 
-              {/* Actions */}
-              <div className="pt-4 flex items-center gap-3">
+              </div>
+
+              {/* Rodapé Fixo com Botões Visíveis Acima da Bottom Navigation Bar */}
+              <div className="p-4 bg-surface-container border-t border-hairline-border flex items-center gap-3 shrink-0 z-10">
                 <button
                   type="button"
                   onClick={() => setShowEditPetModal(false)}
-                  className="flex-1 bg-surface-container border border-hairline-border text-on-surface font-bold text-sm py-3 rounded-xl hover:bg-surface-variant transition-all cursor-pointer"
+                  className="flex-1 bg-surface-container-high border border-hairline-border text-on-surface font-bold text-xs py-3 rounded-xl hover:bg-surface-container-highest transition-all cursor-pointer text-center"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="flex-1 bg-primary text-on-primary font-bold text-sm py-3 rounded-xl extruded-shadow emerald-glow-active hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  className="flex-1 bg-primary text-on-primary font-bold text-xs py-3 rounded-xl hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-2 shadow-lg cursor-pointer disabled:opacity-50"
                 >
-                  <span className="material-symbols-outlined text-lg">save</span>
+                  <span className="material-symbols-outlined text-base">save</span>
                   <span>{isLoading ? "Salvando..." : "Atualizar Pet"}</span>
                 </button>
               </div>
