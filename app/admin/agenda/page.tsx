@@ -1329,25 +1329,28 @@ export default function HashikoAdminAgendaPage() {
 
       {/* Modal: Detalhes completos de um agendamento (visualizar / editar / cancelar) */}
       {selectedAppointmentDetail && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4">
-          <div className="bg-elevated-card border border-hairline-border rounded-2xl max-w-lg w-full max-h-[90dvh] flex flex-col p-4 sm:p-6 space-y-4 extruded-shadow overflow-hidden">
-            <div className="flex justify-between items-center border-b border-hairline-border pb-3 shrink-0">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[70] flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-elevated-card border border-hairline-border rounded-2xl max-w-lg w-full max-h-[85vh] sm:max-h-[90dvh] flex flex-col extruded-shadow overflow-hidden shadow-2xl my-auto">
+            {/* Header Fixo no Topo */}
+            <div className="flex justify-between items-center border-b border-hairline-border px-4 sm:px-6 py-3.5 bg-elevated-card sticky top-0 z-20 shrink-0">
               <h3 className="font-bold text-base sm:text-lg text-on-surface flex items-center gap-2">
                 <span className="material-symbols-outlined text-primary">event_note</span>
                 Detalhes do Agendamento
               </h3>
               <button
+                type="button"
                 onClick={() => {
                   setSelectedAppointmentDetail(null);
                   setIsEditingDetail(false);
                 }}
-                className="text-on-surface-variant hover:text-on-surface cursor-pointer p-1 rounded-lg hover:bg-surface-container"
+                className="text-on-surface-variant hover:text-on-surface cursor-pointer p-1.5 rounded-xl hover:bg-surface-container transition-colors"
               >
-                <span className="material-symbols-outlined">close</span>
+                <span className="material-symbols-outlined text-xl">close</span>
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto pr-1 space-y-4 text-sm">
+            {/* Conteúdo com Scroll Próprio */}
+            <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-4 text-xs sm:text-sm">
               {!isEditingDetail ? (
                 <>
                   <div className="flex items-center justify-between">
@@ -1452,20 +1455,22 @@ export default function HashikoAdminAgendaPage() {
               )}
             </div>
 
-            {/* Ações do Modal */}
-            <div className="pt-3 border-t border-hairline-border shrink-0">
+            {/* Ações do Modal Fixas no Rodapé */}
+            <div className="px-4 sm:px-6 py-3.5 border-t border-hairline-border bg-elevated-card sticky bottom-0 z-20 shrink-0 shadow-lg">
               {isEditingDetail ? (
                 <div className="flex gap-2">
                   <button
+                    type="button"
                     onClick={() => setIsEditingDetail(false)}
-                    className="flex-1 py-2.5 bg-surface-container text-on-surface font-bold text-xs rounded-xl hover:bg-surface-container-high cursor-pointer"
+                    className="flex-1 py-2.5 bg-surface-container text-on-surface font-bold text-xs rounded-xl hover:bg-surface-container-high cursor-pointer transition-colors"
                   >
                     Cancelar Edição
                   </button>
                   <button
+                    type="button"
                     onClick={handleSaveDetailEdit}
                     disabled={isSavingDetail}
-                    className="flex-1 py-2.5 bg-primary text-on-primary font-bold text-xs rounded-xl hover:brightness-110 cursor-pointer disabled:opacity-60"
+                    className="flex-1 py-2.5 bg-primary text-on-primary font-bold text-xs rounded-xl hover:brightness-110 cursor-pointer disabled:opacity-60 transition-all"
                   >
                     {isSavingDetail ? "Salvando..." : "Salvar Alterações"}
                   </button>
@@ -1473,6 +1478,7 @@ export default function HashikoAdminAgendaPage() {
               ) : (
                 <div className="flex flex-wrap sm:flex-nowrap gap-2 items-center">
                   <button
+                    type="button"
                     onClick={() => handleSendToLiveOperation(selectedAppointmentDetail)}
                     className="flex-1 min-w-[130px] py-2.5 px-3 bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 font-bold text-xs rounded-xl hover:bg-emerald-500/30 transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-sm"
                     title="Iniciar atendimento na Operação Ao Vivo"
@@ -1481,21 +1487,24 @@ export default function HashikoAdminAgendaPage() {
                     <span>Iniciar Operação</span>
                   </button>
                   <button
+                    type="button"
                     onClick={() => setIsEditingDetail(true)}
-                    className="flex-1 min-w-[110px] py-2.5 px-3 bg-primary text-on-primary font-bold text-xs rounded-xl hover:brightness-110 cursor-pointer flex items-center justify-center gap-1.5"
+                    className="flex-1 min-w-[100px] py-2.5 px-3 bg-primary text-on-primary font-bold text-xs rounded-xl hover:brightness-110 cursor-pointer flex items-center justify-center gap-1.5 transition-all"
                   >
                     <span className="material-symbols-outlined text-base">edit</span>
                     <span>Editar</span>
                   </button>
                   {selectedAppointmentDetail.status !== "cancelado" && (
                     <button
+                      type="button"
                       onClick={handleCancelFromDetail}
-                      className="py-2.5 px-3 bg-rose-500/10 border border-rose-500/30 text-rose-400 font-bold text-xs rounded-xl hover:bg-rose-500/20 cursor-pointer"
+                      className="py-2.5 px-3 bg-rose-500/10 border border-rose-500/30 text-rose-400 font-bold text-xs rounded-xl hover:bg-rose-500/20 cursor-pointer transition-colors"
                     >
                       Cancelar
                     </button>
                   )}
                   <button
+                    type="button"
                     onClick={() => handleDeleteAppointment(selectedAppointmentDetail.id)}
                     className="py-2.5 px-3 bg-surface-container border border-hairline-border text-on-surface-variant hover:text-rose-400 hover:border-rose-500/30 font-bold text-xs rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1"
                     title="Excluir agendamento permanentemente"
@@ -1511,186 +1520,192 @@ export default function HashikoAdminAgendaPage() {
 
       {/* 4. Modal para Novo Agendamento (Conectado ao Supabase) */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4">
-          <div className="bg-elevated-card border border-hairline-border rounded-2xl max-w-md w-full max-h-[90dvh] flex flex-col p-4 sm:p-6 space-y-4 extruded-shadow overflow-hidden">
-            <div className="flex justify-between items-center border-b border-hairline-border pb-3 shrink-0">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[70] flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-elevated-card border border-hairline-border rounded-2xl max-w-md w-full max-h-[85vh] sm:max-h-[90dvh] flex flex-col extruded-shadow overflow-hidden shadow-2xl my-auto">
+            {/* Header Fixo no Topo */}
+            <div className="flex justify-between items-center border-b border-hairline-border px-4 sm:px-6 py-3.5 bg-elevated-card sticky top-0 z-20 shrink-0">
               <h3 className="font-bold text-base sm:text-lg text-on-surface flex items-center gap-2">
                 <span className="material-symbols-outlined text-primary">add_circle</span>
                 Novo Agendamento (Admin)
               </h3>
               <button
+                type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="text-on-surface-variant hover:text-on-surface cursor-pointer p-1 rounded-lg hover:bg-surface-container"
+                className="text-on-surface-variant hover:text-on-surface cursor-pointer p-1.5 rounded-xl hover:bg-surface-container transition-colors"
               >
-                <span className="material-symbols-outlined">close</span>
+                <span className="material-symbols-outlined text-xl">close</span>
               </button>
             </div>
 
-            <form onSubmit={handleSaveAppointment} className="flex-1 overflow-y-auto pr-1 space-y-4 text-xs">
-              {/* Seleção do Cliente/Tutor */}
-              <div>
-                <label className="block font-bold text-on-surface mb-1">Cliente / Tutor</label>
-                <input
-                  type="text"
-                  required
-                  value={tutorSearch}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setTutorSearch(val);
-                    const match = tutorsList.find((t) => (t.full_name || "") === val);
-                    setFormClientId(match ? match.id : "");
-                  }}
-                  list="tutors-list"
-                  placeholder="Buscar cliente..."
-                  className="w-full bg-matte-canvas border border-hairline-border rounded-xl p-3 text-on-surface focus:border-primary outline-none"
-                />
-                <datalist id="tutors-list">
-                  {tutorsList.map((t) => (
-                    <option key={t.id} value={t.full_name || "Sem nome"} />
-                  ))}
-                </datalist>
-              </div>
+            {/* Formulário com Container Interno de Scroll e Footer Fixo */}
+            <form onSubmit={handleSaveAppointment} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+              {/* Corpo dos campos com rolagem suave */}
+              <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-4 text-xs">
+                {/* Seleção do Cliente/Tutor */}
+                <div>
+                  <label className="block font-bold text-on-surface mb-1">Cliente / Tutor</label>
+                  <input
+                    type="text"
+                    required
+                    value={tutorSearch}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setTutorSearch(val);
+                      const match = tutorsList.find((t) => (t.full_name || "") === val);
+                      setFormClientId(match ? match.id : "");
+                    }}
+                    list="tutors-list"
+                    placeholder="Buscar cliente..."
+                    className="w-full bg-matte-canvas border border-hairline-border rounded-xl p-3 text-on-surface focus:border-primary outline-none"
+                  />
+                  <datalist id="tutors-list">
+                    {tutorsList.map((t) => (
+                      <option key={t.id} value={t.full_name || "Sem nome"} />
+                    ))}
+                  </datalist>
+                </div>
 
-              {/* Seleção do Pet do Banco (filtrado pelo cliente) */}
-              <div>
-                <label className="block font-bold text-on-surface mb-1">Selecione o Pet</label>
-                <select
-                  required
-                  value={formPetId}
-                  onChange={(e) => setFormPetId(e.target.value)}
-                  disabled={!formClientId}
-                  className="w-full bg-matte-canvas border border-hairline-border rounded-xl p-3 text-on-surface focus:border-primary outline-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <option value="">-- Selecione o Pet --</option>
-                  {filteredPets.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} ({p.breed || "Vira-lata"})
-                    </option>
-                  ))}
-                </select>
-              </div>
+                {/* Seleção do Pet do Banco (filtrado pelo cliente) */}
+                <div>
+                  <label className="block font-bold text-on-surface mb-1">Selecione o Pet</label>
+                  <select
+                    required
+                    value={formPetId}
+                    onChange={(e) => setFormPetId(e.target.value)}
+                    disabled={!formClientId}
+                    className="w-full bg-matte-canvas border border-hairline-border rounded-xl p-3 text-on-surface focus:border-primary outline-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <option value="">-- Selecione o Pet --</option>
+                    {filteredPets.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} ({p.breed || "Vira-lata"})
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-              {/* Tipo de Serviço (catálogo real cadastrado em Serviços) */}
-              <div>
-                <label className="block font-bold text-on-surface mb-1">Tipo de Serviço</label>
-                <select
-                  required
-                  value={formServiceId}
-                  onChange={(e) => setFormServiceId(e.target.value)}
-                  className="w-full bg-matte-canvas border border-hairline-border rounded-xl p-3 text-on-surface focus:border-primary outline-none cursor-pointer"
-                >
-                  <option value="">-- Selecione o Serviço --</option>
-                  {catalogList.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name} (R$ {s.price.toFixed(2)})
-                    </option>
-                  ))}
-                </select>
-              </div>
+                {/* Tipo de Serviço (catálogo real cadastrado em Serviços) */}
+                <div>
+                  <label className="block font-bold text-on-surface mb-1">Tipo de Serviço</label>
+                  <select
+                    required
+                    value={formServiceId}
+                    onChange={(e) => setFormServiceId(e.target.value)}
+                    className="w-full bg-matte-canvas border border-hairline-border rounded-xl p-3 text-on-surface focus:border-primary outline-none cursor-pointer"
+                  >
+                    <option value="">-- Selecione o Serviço --</option>
+                    {catalogList.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} (R$ {s.price.toFixed(2)})
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-              {formMatchingPackage && (
-                <button
-                  type="button"
-                  onClick={() => setFormUsePackage((v) => !v)}
-                  className={`w-full flex items-center justify-between gap-2 p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                    formUsePackage ? "bg-primary/10 border-primary/40" : "bg-matte-canvas border-hairline-border"
-                  }`}
-                >
-                  <span className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-primary text-base">loyalty</span>
-                    <span>
-                      <span className="block font-bold text-on-surface">Usar pacote "{formMatchingPackage.package_name}"</span>
-                      <span className="block text-[10px] text-on-surface-variant">{formMatchingPackage.remaining} crédito(s) restante(s)</span>
+                {formMatchingPackage && (
+                  <button
+                    type="button"
+                    onClick={() => setFormUsePackage((v) => !v)}
+                    className={`w-full flex items-center justify-between gap-2 p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                      formUsePackage ? "bg-primary/10 border-primary/40" : "bg-matte-canvas border-hairline-border"
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <span className="material-symbols-outlined text-primary text-base">loyalty</span>
+                      <span>
+                        <span className="block font-bold text-on-surface">Usar pacote "{formMatchingPackage.package_name}"</span>
+                        <span className="block text-[10px] text-on-surface-variant">{formMatchingPackage.remaining} crédito(s) restante(s)</span>
+                      </span>
                     </span>
-                  </span>
-                  <span className={`material-symbols-outlined text-base ${formUsePackage ? "text-primary" : "text-on-surface-variant"}`}>
-                    {formUsePackage ? "toggle_on" : "toggle_off"}
-                  </span>
-                </button>
-              )}
-
-              {/* Profissional */}
-              <div>
-                <label className="block font-bold text-on-surface mb-1">Profissional Responsável</label>
-                <select
-                  value={formProfessional}
-                  onChange={(e) => setFormProfessional(e.target.value)}
-                  className="w-full bg-matte-canvas border border-hairline-border rounded-xl p-3 text-on-surface focus:border-primary outline-none cursor-pointer"
-                >
-                  {professionalsList.map((p) => (
-                    <option key={p} value={p}>{p}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Data e Horário */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-on-surface mb-1">Data</label>
-                  <input
-                    type="date"
-                    required
-                    value={formDate}
-                    onChange={(e) => setFormDate(e.target.value)}
-                    className="w-full bg-matte-canvas border border-hairline-border rounded-xl p-2.5 text-on-surface focus:border-primary outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block font-bold text-on-surface mb-1">Horário</label>
-                  <input
-                    type="time"
-                    required
-                    value={formTime}
-                    onChange={(e) => setFormTime(e.target.value)}
-                    className="w-full bg-matte-canvas border border-hairline-border rounded-xl p-2.5 text-on-surface focus:border-primary outline-none"
-                  />
-                </div>
-              </div>
-
-              {/* Recorrência */}
-              <div>
-                <label className="block font-bold text-on-surface mb-1">Repetir Agendamento</label>
-                <select
-                  value={formRecurringDays}
-                  onChange={(e) => setFormRecurringDays(e.target.value)}
-                  className="w-full bg-matte-canvas border border-hairline-border rounded-xl p-3 text-on-surface focus:border-primary outline-none cursor-pointer"
-                >
-                  <option value="0">Não repetir</option>
-                  <option value="7">A cada semana</option>
-                  <option value="14">A cada 2 semanas</option>
-                  <option value="30">A cada mês</option>
-                </select>
-                {Number(formRecurringDays) > 0 && (
-                  <p className="text-[10px] text-on-surface-variant mt-1">
-                    Ao concluir cada atendimento, o próximo será criado automaticamente nessa recorrência.
-                  </p>
+                    <span className={`material-symbols-outlined text-base ${formUsePackage ? "text-primary" : "text-on-surface-variant"}`}>
+                      {formUsePackage ? "toggle_on" : "toggle_off"}
+                    </span>
+                  </button>
                 )}
+
+                {/* Profissional */}
+                <div>
+                  <label className="block font-bold text-on-surface mb-1">Profissional Responsável</label>
+                  <select
+                    value={formProfessional}
+                    onChange={(e) => setFormProfessional(e.target.value)}
+                    className="w-full bg-matte-canvas border border-hairline-border rounded-xl p-3 text-on-surface focus:border-primary outline-none cursor-pointer"
+                  >
+                    {professionalsList.map((p) => (
+                      <option key={p} value={p}>{p}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Data e Horário */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-on-surface mb-1">Data</label>
+                    <input
+                      type="date"
+                      required
+                      value={formDate}
+                      onChange={(e) => setFormDate(e.target.value)}
+                      className="w-full bg-matte-canvas border border-hairline-border rounded-xl p-2.5 text-on-surface focus:border-primary outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-on-surface mb-1">Horário</label>
+                    <input
+                      type="time"
+                      required
+                      value={formTime}
+                      onChange={(e) => setFormTime(e.target.value)}
+                      className="w-full bg-matte-canvas border border-hairline-border rounded-xl p-2.5 text-on-surface focus:border-primary outline-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Recorrência */}
+                <div>
+                  <label className="block font-bold text-on-surface mb-1">Repetir Agendamento</label>
+                  <select
+                    value={formRecurringDays}
+                    onChange={(e) => setFormRecurringDays(e.target.value)}
+                    className="w-full bg-matte-canvas border border-hairline-border rounded-xl p-3 text-on-surface focus:border-primary outline-none cursor-pointer"
+                  >
+                    <option value="0">Não repetir</option>
+                    <option value="7">A cada semana</option>
+                    <option value="14">A cada 2 semanas</option>
+                    <option value="30">A cada mês</option>
+                  </select>
+                  {Number(formRecurringDays) > 0 && (
+                    <p className="text-[10px] text-on-surface-variant mt-1">
+                      Ao concluir cada atendimento, o próximo será criado automaticamente nessa recorrência.
+                    </p>
+                  )}
+                </div>
+
+                {/* Observações */}
+                <div>
+                  <label className="block font-bold text-on-surface mb-1">Observações</label>
+                  <textarea
+                    rows={2}
+                    value={formNotes}
+                    onChange={(e) => setFormNotes(e.target.value)}
+                    placeholder="Ex: Pet nervoso com secador..."
+                    className="w-full bg-matte-canvas border border-hairline-border rounded-xl p-2.5 text-on-surface focus:border-primary outline-none"
+                  />
+                </div>
               </div>
 
-              {/* Observações */}
-              <div>
-                <label className="block font-bold text-on-surface mb-1">Observações</label>
-                <textarea
-                  rows={2}
-                  value={formNotes}
-                  onChange={(e) => setFormNotes(e.target.value)}
-                  placeholder="Ex: Pet nervoso com secador..."
-                  className="w-full bg-matte-canvas border border-hairline-border rounded-xl p-2.5 text-on-surface focus:border-primary outline-none"
-                />
-              </div>
-
-              {/* Botões */}
-              <div className="flex gap-3 pt-3 border-t border-hairline-border sticky bottom-0 bg-elevated-card pb-1">
+              {/* Barra de Ações Fixa no Rodapé do Modal */}
+              <div className="flex gap-3 px-4 sm:px-6 py-3.5 border-t border-hairline-border bg-elevated-card sticky bottom-0 z-20 shrink-0 shadow-lg">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="flex-1 py-3 bg-surface-container text-on-surface font-bold rounded-xl hover:bg-surface-container-high cursor-pointer"
+                  className="flex-1 py-3 bg-surface-container text-on-surface font-bold rounded-xl hover:bg-surface-container-high transition-colors cursor-pointer text-xs"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-3 bg-primary text-on-primary font-bold rounded-xl hover:brightness-110 extruded-shadow cursor-pointer"
+                  className="flex-1 py-3 bg-primary text-on-primary font-bold rounded-xl hover:brightness-110 extruded-shadow transition-all cursor-pointer text-xs"
                 >
                   Salvar Agendamento
                 </button>
@@ -1702,7 +1717,7 @@ export default function HashikoAdminAgendaPage() {
 
       {/* 5. Modal de Atalhos de Teclado */}
       {isShortcutsOpen && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
           <div className="bg-elevated-card border border-hairline-border rounded-2xl max-w-sm w-full p-6 space-y-4">
             <div className="flex justify-between items-center border-b border-hairline-border pb-2">
               <h3 className="font-bold text-sm text-primary flex items-center gap-2">
@@ -1726,27 +1741,28 @@ export default function HashikoAdminAgendaPage() {
 
       {/* 6. Modal de Agendamentos do Dia (Ver todos os serviços do dia) */}
       {selectedDayDrawer && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-elevated-card border border-hairline-border rounded-2xl w-full max-w-lg overflow-hidden extruded-shadow space-y-4 p-6 animate-in fade-in zoom-in duration-200">
-            <div className="flex items-center justify-between border-b border-hairline-border pb-4">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[70] flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-elevated-card border border-hairline-border rounded-2xl w-full max-w-lg max-h-[85vh] sm:max-h-[90dvh] flex flex-col overflow-hidden extruded-shadow shadow-2xl my-auto">
+            <div className="flex items-center justify-between border-b border-hairline-border px-4 sm:px-6 py-3.5 bg-elevated-card sticky top-0 z-20 shrink-0">
               <div>
                 <span className="text-primary font-bold text-xs uppercase tracking-wider block">
                   Controle Completo da Agenda
                 </span>
-                <h3 className="text-lg font-bold text-on-surface">
+                <h3 className="text-base sm:text-lg font-bold text-on-surface">
                   Agendamentos do dia {selectedDayDrawer.dateLabel} ({selectedDayDrawer.appts.length})
                 </h3>
               </div>
               <button
+                type="button"
                 onClick={() => setSelectedDayDrawer(null)}
-                className="text-on-surface-variant hover:text-on-surface p-1 rounded-lg transition-colors cursor-pointer"
+                className="text-on-surface-variant hover:text-on-surface p-1.5 rounded-xl hover:bg-surface-container transition-colors cursor-pointer"
               >
-                <span className="material-symbols-outlined">close</span>
+                <span className="material-symbols-outlined text-xl">close</span>
               </button>
             </div>
 
             {/* Lista Completa dos Agendamentos do Dia */}
-            <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+            <div className="flex-1 space-y-3 overflow-y-auto px-4 sm:px-6 py-4">
               {selectedDayDrawer.appts.map((app) => (
                 <div
                   key={app.id}
