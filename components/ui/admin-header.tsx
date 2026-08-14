@@ -440,23 +440,32 @@ export function AdminHeader() {
           </button>
 
           {isNotifOpen && (
-            <div className="absolute right-0 mt-2 w-[calc(100vw-2rem)] max-w-sm bg-elevated-card border border-hairline-border rounded-2xl shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in duration-150">
+            <div className="fixed top-16 left-4 right-4 max-w-sm mx-auto bg-elevated-card border border-hairline-border rounded-2xl shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in duration-150">
               <div className="flex items-center justify-between px-4 py-3 border-b border-hairline-border bg-surface-container/50">
                 <h3 className="font-bold text-sm text-on-surface flex items-center gap-2">
                   <span className="material-symbols-outlined text-primary text-base">notifications</span>
                   Notificações do Gestor
                 </h3>
-                {unreadCount > 0 && (
+                <div className="flex items-center gap-2">
+                  {unreadCount > 0 && (
+                    <button
+                      onClick={handleMarkAllRead}
+                      className="text-[11px] font-bold text-primary hover:underline cursor-pointer"
+                    >
+                      Marcar lidas
+                    </button>
+                  )}
                   <button
-                    onClick={handleMarkAllRead}
-                    className="text-[11px] font-bold text-primary hover:underline cursor-pointer"
+                    onClick={() => setIsNotifOpen(false)}
+                    className="text-on-surface-variant hover:text-on-surface p-1 rounded-lg hover:bg-surface-container transition-colors"
+                    title="Fechar"
                   >
-                    Marcar lidas
+                    <span className="material-symbols-outlined text-base">close</span>
                   </button>
-                )}
+                </div>
               </div>
 
-              <div className="max-h-96 overflow-y-auto divide-y divide-hairline-border/50">
+              <div className="max-h-80 overflow-y-auto divide-y divide-hairline-border/50">
                 {isLoadingNotif ? (
                   <div className="text-center py-8 text-xs text-on-surface-variant flex items-center justify-center gap-2">
                     <span className="material-symbols-outlined text-lg animate-spin text-primary">sync</span>

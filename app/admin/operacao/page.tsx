@@ -59,8 +59,8 @@ export default function OperacaoPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [historyFilter, setHistoryFilter] = useState<"todos" | "concluidos" | "cancelados">("todos");
 
-  const loadTodayOperacao = async () => {
-    setIsLoading(true);
+  const loadTodayOperacao = async (showLoading = false) => {
+    if (showLoading) setIsLoading(true);
     setLoadError(null);
     try {
       const res = await fetch("/api/admin/agenda");
@@ -130,29 +130,51 @@ export default function OperacaoPage() {
       setTasks(mapped);
     } catch (err: any) {
       console.error("Erro ao carregar operação:", err);
-      setLoadError(err.message || "Erro ao carregar a operação.");
+      if (showLoading) setLoadError(err.message || "Erro ao carregar a operação.");
     } finally {
-      setIsLoading(false);
+      if (showLoading) setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    loadTodayOperacao();
+    // Carregamento inicial com feedback visual
+    loadTodayOperacao(true);
 
+    // Supabase Realtime Subscription para atualizações instantâneas no appointments e service_history
     const supabase = createClient();
     const channel = supabase
-      .channel("realtime-operacao-board")
+      .channel("realtime-operacao-board-all")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "appointments" },
         () => {
-          loadTodayOperacao();
+          loadTodayOperacao(false);
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "service_history" },
+        () => {
+          loadTodayOperacao(false);
         }
       )
       .subscribe();
 
+    // Polling redundante de 3s para sincronização infalível entre computadores e celulares
+    const interval = setInterval(() => {
+      loadTodayOperacao(false);
+    }, 3000);
+
+    // Sincronização ao focar na janela ou alternar de aba
+    const handleFocus = () => loadTodayOperacao(false);
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleFocus);
+
     return () => {
       supabase.removeChannel(channel);
+      clearInterval(interval);
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleFocus);
     };
   }, []);
 
@@ -175,12 +197,15 @@ export default function OperacaoPage() {
         const data = await res.json().catch(() => ({}));
         console.error("Erro no PATCH do Supabase:", data);
         alert(`Erro ao atualizar status: ${data?.error || "Falha ao salvar no banco."}`);
-        await loadTodayOperacao();
+        await loadTodayOperacao(false);
+      } else {
+        // Recarrega silenciosamente após o patch com sucesso
+        await loadTodayOperacao(false);
       }
     } catch (err: any) {
       console.error("Erro ao atualizar no Supabase:", err);
       alert(`Erro ao atualizar status: ${err?.message || "Conexão interrompida."}`);
-      await loadTodayOperacao();
+      await loadTodayOperacao(false);
     }
   };
 
@@ -267,11 +292,13 @@ export default function OperacaoPage() {
       const res = await fetch(`/api/admin/agenda?id=${id}`, { method: "DELETE" });
       if (!res.ok) {
         alert("Erro ao excluir do banco.");
-        await loadTodayOperacao();
+        await loadTodayOperacao(false);
+      } else {
+        await loadTodayOperacao(false);
       }
     } catch {
       alert("Erro ao conectar com o banco de dados.");
-      await loadTodayOperacao();
+      await loadTodayOperacao(false);
     }
   };
 
@@ -312,7 +339,7 @@ export default function OperacaoPage() {
 
         <div className="flex items-center gap-3">
           <button
-            onClick={loadTodayOperacao}
+            onClick={() => loadTodayOperacao(true)}
             className="p-2.5 bg-matte-canvas border border-hairline-border text-on-surface-variant hover:text-on-surface rounded-xl transition-colors cursor-pointer"
             title="Atualizar painel"
           >
@@ -338,7 +365,7 @@ export default function OperacaoPage() {
           <span className="material-symbols-outlined text-4xl text-rose-400">error</span>
           <p className="font-bold text-rose-400 text-sm">{loadError}</p>
           <button
-            onClick={loadTodayOperacao}
+            onClick={() => loadTodayOperacao(true)}
             className="bg-primary text-on-primary font-bold text-xs px-4 py-2 rounded-xl hover:brightness-110 cursor-pointer"
           >
             Tentar novamente
