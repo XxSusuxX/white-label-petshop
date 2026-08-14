@@ -7,25 +7,34 @@ import GlobalHeader from "@/components/GlobalHeader";
 import GoogleButton from "@/components/ui/GoogleButton";
 import { createClient } from "@/lib/supabase/client";
 
+function SearchParamsHandler({
+  onExistingAccount,
+  onAuthError,
+}: {
+  onExistingAccount: (val: boolean) => void;
+  onAuthError: (err: string | null) => void;
+}) {
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    if (searchParams.get("existing") === "true") {
+      onExistingAccount(true);
+    }
+    const err = searchParams.get("error");
+    if (err) {
+      onAuthError(err === "auth_failed" ? "Falha na autenticação. Por favor, tente novamente." : decodeURIComponent(err));
+    }
+  }, [searchParams, onExistingAccount, onAuthError]);
+  return null;
+}
+
 function LoginForm() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isExistingAccount, setIsExistingAccount] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (searchParams.get("existing") === "true") {
-      setIsExistingAccount(true);
-    }
-    const err = searchParams.get("error");
-    if (err) {
-      setAuthError(err === "auth_failed" ? "Falha na autenticação. Por favor, tente novamente." : decodeURIComponent(err));
-    }
-  }, [searchParams]);
 
   const handleLoginSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -87,6 +96,9 @@ function LoginForm() {
 
   return (
     <div className="font-body-base text-body-base selection:bg-primary-container selection:text-on-primary-container min-h-screen bg-background">
+      <Suspense fallback={null}>
+        <SearchParamsHandler onExistingAccount={setIsExistingAccount} onAuthError={setAuthError} />
+      </Suspense>
       <GlobalHeader />
       <main className="flex min-h-[calc(100vh-50px)]">
         {/* Left Column: Hero Illustration (Hidden on Mobile) */}
