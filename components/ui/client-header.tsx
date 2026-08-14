@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 interface NotificationItem {
@@ -57,6 +57,7 @@ const shownClientNotifIds = new Set<string>();
 
 export function ClientHeader() {
   const pathname = usePathname();
+  const router = useRouter();
   const [userName, setUserName] = useState("Tutor");
   const [userAvatar, setUserAvatar] = useState<string | null>(null);
   const [hasAdminAccess, setHasAdminAccess] = useState(false);
@@ -172,6 +173,15 @@ export function ClientHeader() {
     }).catch(() => {});
   };
 
+  const handleNavigateToNotifications = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    setIsNotifOpen(false);
+    router.push("/client/notificacoes");
+  };
+
   const getPageDetails = () => {
     switch (pathname) {
       case "/client/pets":
@@ -261,13 +271,25 @@ export function ClientHeader() {
 
             {isNotifOpen && (
               <div className="fixed top-16 left-4 right-4 max-w-sm ml-auto bg-elevated-card border border-hairline-border rounded-2xl shadow-2xl z-50 overflow-hidden">
-                <div className="flex items-center justify-between px-4 py-3 border-b border-hairline-border">
-                  <h3 className="font-bold text-sm text-on-surface">Notificações</h3>
-                  {unreadCount > 0 && (
-                    <button onClick={handleMarkAllRead} className="text-[11px] font-bold text-primary hover:underline cursor-pointer">
-                      Marcar todas como lidas
+                <div className="flex items-center justify-between px-4 py-3 border-b border-hairline-border bg-surface-container/40">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-primary text-base">notifications</span>
+                    <h3 className="font-bold text-sm text-on-surface">Notificações</h3>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {unreadCount > 0 && (
+                      <button onClick={handleMarkAllRead} className="text-[11px] font-bold text-primary hover:underline cursor-pointer">
+                        Marcar todas
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setIsNotifOpen(false)}
+                      className="text-on-surface-variant hover:text-on-surface p-1 rounded-lg hover:bg-surface-container transition-colors"
+                      title="Fechar"
+                    >
+                      <span className="material-symbols-outlined text-base">close</span>
                     </button>
-                  )}
+                  </div>
                 </div>
                 <div className="max-h-80 overflow-y-auto">
                   {isLoadingNotif ? (
@@ -302,14 +324,14 @@ export function ClientHeader() {
                   )}
                 </div>
                 <div className="p-3 border-t border-hairline-border bg-surface-container/60 text-center">
-                  <Link
-                    href="/client/notificacoes"
-                    onClick={() => setIsNotifOpen(false)}
-                    className="inline-flex items-center justify-center gap-1.5 text-xs font-bold text-primary hover:underline cursor-pointer"
+                  <button
+                    type="button"
+                    onClick={handleNavigateToNotifications}
+                    className="w-full inline-flex items-center justify-center gap-1.5 py-1 text-xs font-bold text-primary hover:underline cursor-pointer"
                   >
                     <span>Ver todas as notificações</span>
                     <span className="material-symbols-outlined text-sm">arrow_forward</span>
-                  </Link>
+                  </button>
                 </div>
               </div>
             )}
@@ -414,14 +436,14 @@ export function ClientHeader() {
                 )}
               </div>
               <div className="p-3 border-t border-hairline-border bg-surface-container/60 text-center">
-                <Link
-                  href="/client/notificacoes"
-                  onClick={() => setIsNotifOpen(false)}
-                  className="inline-flex items-center justify-center gap-1.5 text-xs font-bold text-primary hover:underline cursor-pointer"
+                <button
+                  type="button"
+                  onClick={handleNavigateToNotifications}
+                  className="w-full inline-flex items-center justify-center gap-1.5 py-1 text-xs font-bold text-primary hover:underline cursor-pointer"
                 >
                   <span>Ver todas as notificações</span>
                   <span className="material-symbols-outlined text-sm">arrow_forward</span>
-                </Link>
+                </button>
               </div>
             </div>
           )}
