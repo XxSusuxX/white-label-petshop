@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { getTenantId, withTenantRoute } from "@/lib/server/tenant";
 
 export const dynamic = "force-dynamic";
@@ -320,6 +321,89 @@ export const PUT = withTenantRoute(async (request: Request) => {
     return NextResponse.json({ success: true, profile: updatedProfile });
   } catch (err: any) {
     console.error("Erro em PUT /api/admin/clients:", err);
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+});
+
+// DELETE: Excluir usuário do sistema (Apenas administradores e donos)
+export const DELETE = withTenantRoute(async (request: Request) => {
+  try {
+    const supabase = createClient();
+    const {
+      data: { user: callerUser },
+    } = await supabase.auth.getUser();
+
+    if (!callerUser) {
+      return NextResponse.json({ error: "Sessão não autorizada ou expirada." }, { status: 401 });
+    }
+
+    const adminSupabase = createAdminClient();
+
+    // 1. Validar se o solicitante possui cargo de Dono ou Administrador
+    const { data: callerProfile } = await adminSupabase
+      .from("profiles")
+      .select("role")
+      .eq("id", callerUser.id)
+      .maybeSingle();
+
+    const callerRole = (callerProfile?.role || callerUser.user_metadata?.role || "").toLowerCase();
+    const isOwnerOrAdmin = callerRole === "admin" || callerRole === "dono" || callerRole === "administrador";
+
+    if (!isOwnerOrAdmin) {
+      return NextResponse.json(
+        { error: "Apenas usuários com cargo de Dono(a) ou Administrador podem excluir contas." },
+        { status: 403 }
+      );
+    }
+
+    // 2. Obter ID do usuário a ser excluído
+    const { searchParams } = new URL(request.url);
+    let targetUserId = searchParams.get("id");
+
+    if (!targetUserId) {
+      try {
+        const body = await request.json();
+        targetUserId = body?.id;
+      } catch {
+        // Ignora se não houver body JSON
+      }
+    }
+
+    if (!targetUserId) {
+      return NextResponse.json({ error: "ID do usuário a ser excluído é obrigatório." }, { status: 400 });
+    }
+
+    // 3. Bloquear auto-exclusão por segurança
+    if (targetUserId === callerUser.id) {
+      return NextResponse.json(
+        { error: "Por segurança, você não pode excluir a sua própria conta de administrador conectada." },
+        { status: 400 }
+      );
+    }
+
+    // 4. Remover pets do usuário para manter integridade
+    await adminSupabase
+      .from("pets")
+      .delete()
+      .eq("client_id", targetUserId)
+      .eq("pet_shop_id", getTenantId());
+
+    // 5. Remover registro do perfil
+    await adminSupabase
+      .from("profiles")
+      .delete()
+      .eq("id", targetUserId)
+      .eq("pet_shop_id", getTenantId());
+
+    // 6. Remover usuário do Auth nativo do Supabase
+    const { error: deleteAuthErr } = await adminSupabase.auth.admin.deleteUser(targetUserId);
+    if (deleteAuthErr) {
+      console.warn("Aviso ao deletar de auth.users:", deleteAuthErr.message);
+    }
+
+    return NextResponse.json({ success: true, message: "Usuário excluído com sucesso." });
+  } catch (err: any) {
+    console.error("Erro em DELETE /api/admin/clients:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 });

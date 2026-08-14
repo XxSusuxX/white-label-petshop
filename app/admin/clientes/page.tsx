@@ -96,6 +96,7 @@ export default function ClientesPage() {
   const [editUserEmail, setEditUserEmail] = useState("");
   const [editUserRole, setEditUserRole] = useState("client");
   const [isUpdatingUser, setIsUpdatingUser] = useState(false);
+  const [isDeletingUser, setIsDeletingUser] = useState(false);
 
   const handleOpenEditUserModal = (user: { id: string; full_name: string; phone: string; email: string; role?: string }) => {
     setEditingUserId(user.id);
@@ -159,6 +160,32 @@ export default function ClientesPage() {
       alert(err.message || "Falha ao atualizar dados do usuário.");
     } finally {
       setIsUpdatingUser(false);
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    if (!editingUserId) return;
+    const confirmDelete = window.confirm(
+      `⚠️ Tem certeza que deseja excluir permanentemente o usuário "${editUserName || "este usuário"}"?\n\nEsta ação removerá a conta do usuário e seus pets associados.`
+    );
+    if (!confirmDelete) return;
+
+    setIsDeletingUser(true);
+    try {
+      const res = await fetch(`/api/admin/clients?id=${editingUserId}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erro ao excluir usuário.");
+
+      setShowEditUserModal(false);
+      setSelectedClient(null);
+      await loadAdminClients();
+      alert("🗑️ Usuário excluído permanentemente com sucesso!");
+    } catch (err: any) {
+      alert(err.message || "Falha ao excluir usuário.");
+    } finally {
+      setIsDeletingUser(false);
     }
   };
 
@@ -1473,22 +1500,38 @@ export default function ClientesPage() {
                 </select>
               </div>
 
-              <div className="pt-3 border-t border-hairline-border flex items-center justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setShowEditUserModal(false)}
-                  className="px-5 py-2.5 rounded-xl bg-surface-container border border-hairline-border hover:bg-surface-container-highest font-bold text-xs text-on-surface transition-all cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={isUpdatingUser}
-                  className="px-5 py-2.5 rounded-xl bg-primary text-on-primary font-bold text-xs hover:brightness-110 active:scale-95 transition-all cursor-pointer shadow-md flex items-center justify-center gap-2 disabled:opacity-60"
-                >
-                  <span className="material-symbols-outlined text-base">save</span>
-                  {isUpdatingUser ? "Salvando..." : "Salvar Alterações"}
-                </button>
+              <div className="pt-3 border-t border-hairline-border flex items-center justify-between gap-3">
+                {isOwnerOrAdmin ? (
+                  <button
+                    type="button"
+                    onClick={handleDeleteUser}
+                    disabled={isDeletingUser || isUpdatingUser}
+                    className="px-4 py-2.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 font-bold text-xs transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                  >
+                    <span className="material-symbols-outlined text-base">delete</span>
+                    {isDeletingUser ? "Excluindo..." : "Excluir Usuário"}
+                  </button>
+                ) : (
+                  <div />
+                )}
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowEditUserModal(false)}
+                    className="px-5 py-2.5 rounded-xl bg-surface-container border border-hairline-border hover:bg-surface-container-highest font-bold text-xs text-on-surface transition-all cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isUpdatingUser || isDeletingUser}
+                    className="px-5 py-2.5 rounded-xl bg-primary text-on-primary font-bold text-xs hover:brightness-110 active:scale-95 transition-all cursor-pointer shadow-md flex items-center justify-center gap-2 disabled:opacity-60"
+                  >
+                    <span className="material-symbols-outlined text-base">save</span>
+                    {isUpdatingUser ? "Salvando..." : "Salvar Alterações"}
+                  </button>
+                </div>
               </div>
             </form>
           </div>
