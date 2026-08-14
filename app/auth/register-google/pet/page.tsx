@@ -10,28 +10,55 @@ import { formatFloatInput } from "@/lib/utils/formatters";
 export default function RegisterGooglePetStepPage() {
   const router = useRouter();
   const [petPhoto, setPetPhoto] = useState<string | null>(null);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [petName, setPetName] = useState("");
   const [species, setSpecies] = useState("cachorro");
   const [breed, setBreed] = useState("");
   const [sex, setSex] = useState<"Macho" | "Fêmea">("Macho");
+  const [isCastrated, setIsCastrated] = useState(false);
   const [ageYears, setAgeYears] = useState("0");
   const [ageMonths, setAgeMonths] = useState("0");
   const [weight, setWeight] = useState("");
-  const [pelagem, setPelagem] = useState("curta");
+  const [pelagem, setPelagem] = useState("Curta");
   const [color, setColor] = useState("");
   const [notes, setNotes] = useState("");
 
   const [isLoading, setIsLoading] = useState(false);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [errors, setErrors] = useState<{ name?: string; weight?: string }>({});
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setPhotoFile(file);
       const reader = new FileReader();
       reader.onload = (event) => {
         setPetPhoto(event.target?.result as string);
       };
-      reader.readAsDataURL(e.target.files[0]);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const uploadPhotoToStorage = async (file: File | null, userId: string): Promise<string | null> => {
+    if (!file) return null;
+    try {
+      const supabase = createClient();
+      const fileExt = file.name.split(".").pop() || "jpg";
+      const filePath = `${userId}/${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("pet-photos")
+        .upload(filePath, file, { cacheControl: "3600", upsert: true });
+
+      if (uploadError) {
+        console.warn("Aviso ao enviar foto para storage:", uploadError);
+        return null;
+      }
+
+      const { data: publicUrlData } = supabase.storage.from("pet-photos").getPublicUrl(filePath);
+      return publicUrlData?.publicUrl || null;
+    } catch (err) {
+      console.warn("Erro ao fazer upload da foto:", err);
+      return null;
     }
   };
 
@@ -61,24 +88,40 @@ export default function RegisterGooglePetStepPage() {
 
     setIsLoading(true);
 
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    try {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
 
-    if (user) {
+      if (!user) {
+        alert("Sessão expirada. Faça login novamente.");
+        window.location.href = "/auth/login";
+        return;
+      }
+
       const mappedSpecies = species === "gato" ? "Gato" : species === "outro" ? "Outro" : "Cachorro";
+
+      const defaultPhoto = mappedSpecies === "Gato"
+        ? "https://images.unsplash.com/photo-1573865526739-10659fec78a5?auto=format&fit=crop&w=300&q=80"
+        : "https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&w=300&q=80";
+
+      let finalPhotoUrl = await uploadPhotoToStorage(photoFile, user.id);
+      if (!finalPhotoUrl) {
+        finalPhotoUrl = petPhoto && !petPhoto.startsWith("data:") ? petPhoto : defaultPhoto;
+      }
 
       const res = await fetch("/api/pets", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: petName,
+          name: petName.trim(),
           species: mappedSpecies,
-          breed: breed || "Vira-lata",
+          breed: breed.trim() || "Vira-lata",
           sex: sex,
+          is_neutered: isCastrated,
           weight: weight ? parseFloat(weight) : null,
           coat: pelagem,
-          color: color,
-          photo_url: petPhoto,
+          color: color.trim() || "Caramelo",
+          photo_url: finalPhotoUrl,
           age_years: ageYears,
           age_months: ageMonths,
           observations: notes.trim() || null,
@@ -88,22 +131,29 @@ export default function RegisterGooglePetStepPage() {
       const resData = await res.json();
       if (!res.ok || resData.error) {
         console.error("Erro ao salvar pet:", resData.error);
-        alert("Atenção: Não foi possível salvar o pet (" + (resData.error || "Erro desconhecido") + "). Você poderá tentar novamente no painel.");
+        alert("Atenção: Não foi possível salvar o pet (" + (resData.error || "Erro desconhecido") + ").");
+        setIsLoading(false);
+        return;
       }
-    }
 
-    setIsLoading(false);
-    window.location.href = "/client";
+      window.location.href = "/client";
+    } catch (err: any) {
+      console.error("Erro geral no cadastro:", err);
+      alert("Erro ao cadastrar pet: " + err.message);
+      setIsLoading(false);
+    }
   };
 
   const handleResetForm = () => {
     setPetPhoto(null);
+    setPhotoFile(null);
     setPetName("");
     setBreed("");
     setAgeYears("0");
     setAgeMonths("0");
     setWeight("");
     setColor("");
+    setIsCastrated(false);
     setNotes("");
     alert("Formulário limpo para cadastrar outro pet!");
   };
@@ -153,7 +203,7 @@ export default function RegisterGooglePetStepPage() {
           {/* Nome do Pet */}
           <div className="md:col-span-2 flex flex-col gap-1.5">
             <label className="font-label-bold text-label-bold text-on-surface" htmlFor="pet_name">
-              Nome do Pet
+              Nome do Pet *
             </label>
             <input
               className="bg-surface-container-lowest border border-hairline-border rounded-xl px-4 py-3 text-on-surface placeholder:text-outline transition-all outline-none"
@@ -175,10 +225,10 @@ export default function RegisterGooglePetStepPage() {
           {/* Espécie */}
           <div className="flex flex-col gap-1.5">
             <label className="font-label-bold text-label-bold text-on-surface" htmlFor="pet_type">
-              Espécie
+              Espécie *
             </label>
             <select
-              className="bg-surface-container-lowest border border-hairline-border rounded-xl px-4 py-3 text-on-surface appearance-none transition-all cursor-pointer outline-none"
+              className="bg-surface-container-lowest border border-hairline-border rounded-xl px-4 py-3 text-on-surface appearance-none transition-all cursor-pointer outline-none font-medium"
               id="pet_type"
               value={species}
               onChange={(e) => setSpecies(e.target.value)}
@@ -197,7 +247,7 @@ export default function RegisterGooglePetStepPage() {
             <input
               className="bg-surface-container-lowest border border-hairline-border rounded-xl px-4 py-3 text-on-surface placeholder:text-outline transition-all outline-none"
               id="breed"
-              placeholder="Ex: Golden Retriever"
+              placeholder="Ex: Golden Retriever, SRD..."
               type="text"
               value={breed}
               onChange={(e) => setBreed(e.target.value)}
@@ -205,14 +255,14 @@ export default function RegisterGooglePetStepPage() {
           </div>
 
           {/* Sexo */}
-          <div className="md:col-span-2 flex flex-col gap-1.5">
+          <div className="flex flex-col gap-1.5">
             <label className="font-label-bold text-label-bold text-on-surface">Sexo</label>
             <div className="flex bg-surface-container-lowest p-1 rounded-xl border border-hairline-border radio-toggle">
               <button
                 type="button"
                 onClick={() => setSex("Macho")}
-                className={`flex-1 text-center py-2 rounded-lg font-label-bold text-label-bold transition-all ${
-                  sex === "Macho" ? "bg-primary text-on-primary" : "text-on-surface-variant"
+                className={`flex-1 text-center py-2 rounded-lg font-label-bold text-label-bold transition-all cursor-pointer ${
+                  sex === "Macho" ? "bg-primary text-on-primary font-bold shadow-sm" : "text-on-surface-variant"
                 }`}
               >
                 Macho
@@ -220,11 +270,36 @@ export default function RegisterGooglePetStepPage() {
               <button
                 type="button"
                 onClick={() => setSex("Fêmea")}
-                className={`flex-1 text-center py-2 rounded-lg font-label-bold text-label-bold transition-all ${
-                  sex === "Fêmea" ? "bg-primary text-on-primary" : "text-on-surface-variant"
+                className={`flex-1 text-center py-2 rounded-lg font-label-bold text-label-bold transition-all cursor-pointer ${
+                  sex === "Fêmea" ? "bg-primary text-on-primary font-bold shadow-sm" : "text-on-surface-variant"
                 }`}
               >
                 Fêmea
+              </button>
+            </div>
+          </div>
+
+          {/* Castrado */}
+          <div className="flex flex-col gap-1.5">
+            <label className="font-label-bold text-label-bold text-on-surface">Castrado?</label>
+            <div className="flex bg-surface-container-lowest p-1 rounded-xl border border-hairline-border radio-toggle">
+              <button
+                type="button"
+                onClick={() => setIsCastrated(true)}
+                className={`flex-1 text-center py-2 rounded-lg font-label-bold text-label-bold transition-all cursor-pointer ${
+                  isCastrated ? "bg-primary text-on-primary font-bold shadow-sm" : "text-on-surface-variant"
+                }`}
+              >
+                Sim
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsCastrated(false)}
+                className={`flex-1 text-center py-2 rounded-lg font-label-bold text-label-bold transition-all cursor-pointer ${
+                  !isCastrated ? "bg-primary text-on-primary font-bold shadow-sm" : "text-on-surface-variant"
+                }`}
+              >
+                Não
               </button>
             </div>
           </div>
@@ -269,11 +344,11 @@ export default function RegisterGooglePetStepPage() {
           {/* Peso */}
           <div className="flex flex-col gap-1.5">
             <label className="font-label-bold text-label-bold text-on-surface" htmlFor="weight">
-              Peso
+              Peso (kg)
             </label>
             <div>
               <label htmlFor="weight" className="text-[10px] text-on-surface-variant font-bold uppercase block mb-0.5">
-                Quilogramas (kg)
+                Quilogramas
               </label>
               <input
                 className="w-full bg-surface-container-lowest border border-hairline-border rounded-xl px-4 py-3 text-on-surface placeholder:text-outline transition-all outline-none focus:border-primary"
@@ -281,7 +356,7 @@ export default function RegisterGooglePetStepPage() {
                 placeholder="Ex: 2.5"
                 type="text"
                 inputMode="decimal"
-                maxLength={4}
+                maxLength={5}
                 value={weight}
                 onChange={(e) => setWeight(formatFloatInput(e.target.value))}
               />
@@ -300,14 +375,14 @@ export default function RegisterGooglePetStepPage() {
               Pelagem
             </label>
             <select
-              className="bg-surface-container-lowest border border-hairline-border rounded-xl px-4 py-3 text-on-surface appearance-none transition-all cursor-pointer outline-none"
+              className="bg-surface-container-lowest border border-hairline-border rounded-xl px-4 py-3 text-on-surface appearance-none transition-all cursor-pointer outline-none font-medium"
               id="pelagem"
               value={pelagem}
               onChange={(e) => setPelagem(e.target.value)}
             >
-              <option value="curta">Curta</option>
-              <option value="media">Média</option>
-              <option value="longa">Longa</option>
+              <option value="Curta">Curta</option>
+              <option value="Média">Média</option>
+              <option value="Longa">Longa</option>
             </select>
           </div>
 
@@ -351,7 +426,7 @@ export default function RegisterGooglePetStepPage() {
               {isLoading ? (
                 <>
                   <span className="material-symbols-outlined animate-spin">progress_activity</span>
-                  Processando...
+                  Salvando Pet...
                 </>
               ) : (
                 <>
