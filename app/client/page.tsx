@@ -294,22 +294,41 @@ export default function ClientHomePage() {
   }, [activeAppointment, currentStepIndex]);
 
   // Cálculo da barra de progresso do serviço
-  const { completedCount, totalStepsCount, progressPercentage } = useMemo(() => {
+  const { completedCount, totalStepsCount, progressPercentage, progressLabel } = useMemo(() => {
     if (!timelineSteps.length)
-      return { completedCount: 0, totalStepsCount: 0, progressPercentage: 0 };
+      return { completedCount: 0, totalStepsCount: 0, progressPercentage: 0, progressLabel: "0 / 0 Etapas" };
+
     const total = timelineSteps.length;
     const completed = timelineSteps.filter((s) => s.status === "completed").length;
-    const hasCurrent = timelineSteps.some((s) => s.status === "current");
-    const currentFraction = hasCurrent ? 0.5 : 0;
-    const effectiveCompleted = completed + currentFraction;
-    const percentage = Math.min(100, Math.round((effectiveCompleted / total) * 100));
+    const currentIndex = timelineSteps.findIndex((s) => s.status === "current");
+    const isFullyCompleted = activeAppointment?.status === "concluido" || completed === total;
+
+    let percentage = 0;
+    let label = "";
+
+    if (isFullyCompleted) {
+      percentage = 100;
+      label = `${total} / ${total} Etapas Concluídas (100%)`;
+    } else if (currentIndex !== -1) {
+      const currentStepNum = currentIndex + 1;
+      // Progride suavemente baseado na etapa atual (ex: etapa 5 de 5 fica em 92% enquanto em rota)
+      percentage = Math.min(95, Math.max(15, Math.round(((currentIndex + 0.65) / total) * 100)));
+      label = `Etapa ${currentStepNum} de ${total} (${percentage}%)`;
+    } else if (completed > 0) {
+      percentage = Math.round((completed / total) * 100);
+      label = `${completed} / ${total} Etapas (${percentage}%)`;
+    } else {
+      percentage = 10;
+      label = `1 / ${total} Etapa (Aguardando)`;
+    }
 
     return {
-      completedCount: completed + (hasCurrent ? 1 : 0),
+      completedCount: isFullyCompleted ? total : currentIndex !== -1 ? currentIndex + 1 : completed,
       totalStepsCount: total,
       progressPercentage: percentage,
+      progressLabel: label,
     };
-  }, [timelineSteps]);
+  }, [timelineSteps, activeAppointment]);
 
   // Formatação do tempo estimado de término
   const estimatedEndTimeStr = useMemo(() => {
@@ -432,8 +451,8 @@ export default function ClientHomePage() {
                   <span className="text-on-surface-variant uppercase tracking-wider text-[11px]">
                     Progresso do Serviço
                   </span>
-                  <span className="text-primary font-mono">
-                    {completedCount} / {totalStepsCount} Etapas
+                  <span className="text-primary font-mono font-bold">
+                    {progressLabel}
                   </span>
                 </div>
                 <div className="w-full bg-matte-canvas h-2.5 rounded-full overflow-hidden border border-hairline-border p-0.5">
