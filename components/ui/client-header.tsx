@@ -179,7 +179,7 @@ export function ClientHeader() {
       e.stopPropagation();
     }
     setIsNotifOpen(false);
-    router.push("/client/notificacoes");
+    window.location.href = "/client/notificacoes";
   };
 
   const getPageDetails = () => {
@@ -326,7 +326,12 @@ export function ClientHeader() {
                 <div className="p-3 border-t border-hairline-border bg-surface-container/60 text-center">
                   <button
                     type="button"
-                    onClick={handleNavigateToNotifications}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setIsNotifOpen(false);
+                      window.location.href = "/client/notificacoes";
+                    }}
                     className="w-full inline-flex items-center justify-center gap-1.5 py-1 text-xs font-bold text-primary hover:underline cursor-pointer"
                   >
                     <span>Ver todas as notificações</span>
@@ -438,7 +443,12 @@ export function ClientHeader() {
               <div className="p-3 border-t border-hairline-border bg-surface-container/60 text-center">
                 <button
                   type="button"
-                  onClick={handleNavigateToNotifications}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setIsNotifOpen(false);
+                    window.location.href = "/client/notificacoes";
+                  }}
                   className="w-full inline-flex items-center justify-center gap-1.5 py-1 text-xs font-bold text-primary hover:underline cursor-pointer"
                 >
                   <span>Ver todas as notificações</span>

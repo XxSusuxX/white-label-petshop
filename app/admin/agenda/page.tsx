@@ -1329,10 +1329,10 @@ export default function HashikoAdminAgendaPage() {
 
       {/* Modal: Detalhes completos de um agendamento (visualizar / editar / cancelar) */}
       {selectedAppointmentDetail && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-elevated-card border border-hairline-border rounded-2xl max-w-lg w-full max-h-[85vh] flex flex-col p-6 space-y-5 extruded-shadow">
-            <div className="flex justify-between items-center border-b border-hairline-border pb-3">
-              <h3 className="font-bold text-lg text-on-surface flex items-center gap-2">
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-elevated-card border border-hairline-border rounded-2xl max-w-lg w-full max-h-[90dvh] flex flex-col p-4 sm:p-6 space-y-4 extruded-shadow overflow-hidden">
+            <div className="flex justify-between items-center border-b border-hairline-border pb-3 shrink-0">
+              <h3 className="font-bold text-base sm:text-lg text-on-surface flex items-center gap-2">
                 <span className="material-symbols-outlined text-primary">event_note</span>
                 Detalhes do Agendamento
               </h3>
@@ -1341,13 +1341,13 @@ export default function HashikoAdminAgendaPage() {
                   setSelectedAppointmentDetail(null);
                   setIsEditingDetail(false);
                 }}
-                className="text-on-surface-variant hover:text-on-surface cursor-pointer"
+                className="text-on-surface-variant hover:text-on-surface cursor-pointer p-1 rounded-lg hover:bg-surface-container"
               >
                 <span className="material-symbols-outlined">close</span>
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto space-y-4 text-sm">
+            <div className="flex-1 overflow-y-auto pr-1 space-y-4 text-sm">
               {!isEditingDetail ? (
                 <>
                   <div className="flex items-center justify-between">
@@ -1382,22 +1382,6 @@ export default function HashikoAdminAgendaPage() {
                       {selectedAppointmentDetail.notes}
                     </div>
                   )}
-
-                  {/* Status Atual & Envio para Operação Ao Vivo */}
-                  <div className="bg-surface-container rounded-xl border border-hairline-border p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-on-surface-variant font-bold uppercase tracking-wider text-[10px]">Status do Atendimento</span>
-                      {renderStatusBadge(selectedAppointmentDetail.status)}
-                    </div>
-
-                    <button
-                      onClick={() => handleSendToLiveOperation(selectedAppointmentDetail)}
-                      className="w-full py-3 bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 font-bold text-xs rounded-xl hover:bg-emerald-500/30 transition-all cursor-pointer flex items-center justify-center gap-2 shadow-lg"
-                    >
-                      <span className="material-symbols-outlined text-base">bolt</span>
-                      ⚡ Levar para Operação Ao Vivo (Hoje)
-                    </button>
-                  </div>
                 </>
               ) : (
                 <div className="space-y-4">
@@ -1469,9 +1453,9 @@ export default function HashikoAdminAgendaPage() {
             </div>
 
             {/* Ações do Modal */}
-            <div className="flex gap-2 pt-3 border-t border-hairline-border">
+            <div className="pt-3 border-t border-hairline-border shrink-0">
               {isEditingDetail ? (
-                <>
+                <div className="flex gap-2">
                   <button
                     onClick={() => setIsEditingDetail(false)}
                     className="flex-1 py-2.5 bg-surface-container text-on-surface font-bold text-xs rounded-xl hover:bg-surface-container-high cursor-pointer"
@@ -1485,13 +1469,28 @@ export default function HashikoAdminAgendaPage() {
                   >
                     {isSavingDetail ? "Salvando..." : "Salvar Alterações"}
                   </button>
-                </>
+                </div>
               ) : (
-                <>
+                <div className="flex flex-wrap sm:flex-nowrap gap-2 items-center">
+                  <button
+                    onClick={() => handleSendToLiveOperation(selectedAppointmentDetail)}
+                    className="flex-1 min-w-[130px] py-2.5 px-3 bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 font-bold text-xs rounded-xl hover:bg-emerald-500/30 transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-sm"
+                    title="Iniciar atendimento na Operação Ao Vivo"
+                  >
+                    <span className="material-symbols-outlined text-base">bolt</span>
+                    <span>Iniciar Operação</span>
+                  </button>
+                  <button
+                    onClick={() => setIsEditingDetail(true)}
+                    className="flex-1 min-w-[110px] py-2.5 px-3 bg-primary text-on-primary font-bold text-xs rounded-xl hover:brightness-110 cursor-pointer flex items-center justify-center gap-1.5"
+                  >
+                    <span className="material-symbols-outlined text-base">edit</span>
+                    <span>Editar</span>
+                  </button>
                   {selectedAppointmentDetail.status !== "cancelado" && (
                     <button
                       onClick={handleCancelFromDetail}
-                      className="flex-1 py-2.5 bg-rose-500/10 border border-rose-500/30 text-rose-400 font-bold text-xs rounded-xl hover:bg-rose-500/20 cursor-pointer"
+                      className="py-2.5 px-3 bg-rose-500/10 border border-rose-500/30 text-rose-400 font-bold text-xs rounded-xl hover:bg-rose-500/20 cursor-pointer"
                     >
                       Cancelar
                     </button>
@@ -1503,13 +1502,7 @@ export default function HashikoAdminAgendaPage() {
                   >
                     <span className="material-symbols-outlined text-base">delete</span>
                   </button>
-                  <button
-                    onClick={() => setIsEditingDetail(true)}
-                    className="flex-1 py-2.5 bg-primary text-on-primary font-bold text-xs rounded-xl hover:brightness-110 cursor-pointer"
-                  >
-                    Editar / Reagendar
-                  </button>
-                </>
+                </div>
               )}
             </div>
           </div>
@@ -1518,19 +1511,22 @@ export default function HashikoAdminAgendaPage() {
 
       {/* 4. Modal para Novo Agendamento (Conectado ao Supabase) */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-elevated-card border border-hairline-border rounded-2xl max-w-md w-full p-6 space-y-5 extruded-shadow">
-            <div className="flex justify-between items-center border-b border-hairline-border pb-3">
-              <h3 className="font-bold text-lg text-on-surface flex items-center gap-2">
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-elevated-card border border-hairline-border rounded-2xl max-w-md w-full max-h-[90dvh] flex flex-col p-4 sm:p-6 space-y-4 extruded-shadow overflow-hidden">
+            <div className="flex justify-between items-center border-b border-hairline-border pb-3 shrink-0">
+              <h3 className="font-bold text-base sm:text-lg text-on-surface flex items-center gap-2">
                 <span className="material-symbols-outlined text-primary">add_circle</span>
                 Novo Agendamento (Admin)
               </h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-on-surface-variant hover:text-on-surface">
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="text-on-surface-variant hover:text-on-surface cursor-pointer p-1 rounded-lg hover:bg-surface-container"
+              >
                 <span className="material-symbols-outlined">close</span>
               </button>
             </div>
 
-            <form onSubmit={handleSaveAppointment} className="space-y-4 text-xs">
+            <form onSubmit={handleSaveAppointment} className="flex-1 overflow-y-auto pr-1 space-y-4 text-xs">
               {/* Seleção do Cliente/Tutor */}
               <div>
                 <label className="block font-bold text-on-surface mb-1">Cliente / Tutor</label>
@@ -1684,7 +1680,7 @@ export default function HashikoAdminAgendaPage() {
               </div>
 
               {/* Botões */}
-              <div className="flex gap-3 pt-2">
+              <div className="flex gap-3 pt-3 border-t border-hairline-border sticky bottom-0 bg-elevated-card pb-1">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
@@ -1696,7 +1692,7 @@ export default function HashikoAdminAgendaPage() {
                   type="submit"
                   className="flex-1 py-3 bg-primary text-on-primary font-bold rounded-xl hover:brightness-110 extruded-shadow cursor-pointer"
                 >
-                  Salvar no Supabase
+                  Salvar Agendamento
                 </button>
               </div>
             </form>
