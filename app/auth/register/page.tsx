@@ -22,7 +22,16 @@ export default function RegisterPage() {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        router.replace("/client");
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role, full_name, phone")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        if (profile && profile.full_name?.trim() && profile.phone?.trim()) {
+          const isStaff = ["admin", "dono", "veterinario", "recepcionista", "entregador"].includes(profile.role);
+          window.location.href = isStaff ? "/admin/dashboard" : "/client";
+        }
       }
     }
     checkExistingSession();
@@ -87,7 +96,7 @@ export default function RegisterPage() {
       }
 
       setIsLoading(false);
-      router.push("/client");
+      window.location.href = "/client";
     } catch (err) {
       setIsLoading(false);
       alert("Erro ao criar conta. Tente novamente.");

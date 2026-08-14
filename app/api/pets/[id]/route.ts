@@ -23,21 +23,35 @@ export const PUT = withTenantRoute(
       const body = await request.json();
       const adminSupabase = createAdminClient();
 
+      const updatePayload: Record<string, any> = {
+        updated_at: new Date().toISOString(),
+      };
+
+      if (body.name !== undefined) updatePayload.name = body.name;
+      if (body.species !== undefined) updatePayload.species = body.species;
+      if (body.breed !== undefined) updatePayload.breed = body.breed;
+      if (body.sex !== undefined) updatePayload.sex = body.sex;
+      if (body.weight !== undefined) updatePayload.weight = body.weight ? parseFloat(body.weight) : null;
+      if (body.coat !== undefined) updatePayload.coat = body.coat;
+      if (body.color !== undefined) updatePayload.color = body.color;
+      if (body.photo_url !== undefined) updatePayload.photo_url = body.photo_url;
+      if (body.observations !== undefined) updatePayload.observations = body.observations ? String(body.observations).trim() : null;
+
+      if (body.age_years !== undefined || body.age_months !== undefined) {
+        const yearsNum = parseInt(body.age_years || "0", 10);
+        const monthsNum = parseInt(body.age_months || "0", 10);
+        if (yearsNum > 0 || monthsNum > 0) {
+          const now = new Date();
+          now.setFullYear(now.getFullYear() - yearsNum);
+          now.setMonth(now.getMonth() - monthsNum);
+          updatePayload.birth_date = now.toISOString().split("T")[0];
+        }
+      }
+
       // Atualizar pet garantindo que pertence ao usuário logado
       const { data: pet, error } = await adminSupabase
         .from("pets")
-        .update({
-          name: body.name,
-          species: body.species,
-          breed: body.breed,
-          sex: body.sex,
-          weight: body.weight ? parseFloat(body.weight) : null,
-          coat: body.coat,
-          color: body.color,
-          photo_url: body.photo_url,
-          observations: body.observations,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updatePayload)
         .eq("pet_shop_id", getTenantId())
         .eq("id", petId)
         .eq("client_id", user.id)

@@ -21,6 +21,8 @@ export const POST = withTenantRoute(async (request: Request) => {
       date,
       time,
       professional,
+      address,
+      user_id,
     } = body;
 
     if (!tutor_name || !tutor_phone || !pet_name || !service_name || !date || !time) {
@@ -32,69 +34,96 @@ export const POST = withTenantRoute(async (request: Request) => {
 
     const cleanPhone = tutor_phone.replace(/\D/g, "");
 
-    // 1. Verificar se o tutor já possui cadastro pelo telefone NORMALIZADO (só
-    //    dígitos). Fallback legado: busca pelos últimos 8 dígitos (perfis antigos
-    //    gravados com formatação).
     let clientId: string | null = null;
     let isNewClient = false;
 
-    let matchedProfile: { id: string; phone: string | null } | null = null;
+    // 1. Resolver profile: prioriza o user_id autenticado se enviado
+    if (user_id) {
+      clientId = user_id;
+      // Garante que o profile existe com dados atualizados e role='client'
+      await adminSupabase.from("profiles").upsert({
+        id: user_id,
+        pet_shop_id: getTenantId(),
+        full_name: tutor_name,
+        phone: cleanPhone,
+        role: "client",
+      });
 
-    if (cleanPhone.length >= 8) {
-      const { data: byPhone } = await adminSupabase
-        .from("profiles")
-        .select("id, phone")
-        .eq("pet_shop_id", getTenantId())
-        .eq("phone", cleanPhone)
-        .limit(1);
+      // Atualiza app_metadata role
+      await adminSupabase.auth.admin.updateUserById(user_id, { app_metadata: { role: "client" } }).catch(() => {});
 
-      matchedProfile = byPhone?.[0] || null;
+      // Se havia um perfil de convidado antigo com este mesmo telefone, mescla seus registros
+      if (cleanPhone.length >= 8) {
+        const { data: guests } = await adminSupabase
+          .from("profiles")
+          .select("id")
+          .eq("pet_shop_id", getTenantId())
+          .eq("phone", cleanPhone)
+          .neq("id", user_id);
 
-      if (!matchedProfile) {
-        const { data: legacyMatch } = await adminSupabase
+        for (const guest of guests || []) {
+          await adminSupabase.from("pets").update({ client_id: user_id }).eq("client_id", guest.id);
+          await adminSupabase.from("appointments").update({ client_id: user_id }).eq("client_id", guest.id);
+          await adminSupabase.from("client_packages").update({ client_id: user_id }).eq("client_id", guest.id);
+          await adminSupabase.from("notifications").update({ client_id: user_id }).eq("client_id", guest.id);
+          await adminSupabase.from("profiles").delete().eq("id", guest.id);
+        }
+      }
+    } else {
+      let matchedProfile: { id: string; phone: string | null } | null = null;
+
+      if (cleanPhone.length >= 8) {
+        const { data: byPhone } = await adminSupabase
           .from("profiles")
           .select("id, phone")
           .eq("pet_shop_id", getTenantId())
-          .ilike("phone", `%${cleanPhone.slice(-8)}%`)
+          .eq("phone", cleanPhone)
           .limit(1);
-        matchedProfile = legacyMatch?.[0] || null;
-      }
-    }
 
-    if (matchedProfile) {
-      clientId = matchedProfile.id;
-      // Normaliza o telefone salvo para o formato com dígitos (facilita buscas futuras)
-      if (matchedProfile.phone !== cleanPhone) {
-        await adminSupabase
+        matchedProfile = byPhone?.[0] || null;
+
+        if (!matchedProfile) {
+          const { data: legacyMatch } = await adminSupabase
+            .from("profiles")
+            .select("id, phone")
+            .eq("pet_shop_id", getTenantId())
+            .ilike("phone", `%${cleanPhone.slice(-8)}%`)
+            .limit(1);
+          matchedProfile = legacyMatch?.[0] || null;
+        }
+      }
+
+      if (matchedProfile) {
+        clientId = matchedProfile.id;
+        if (matchedProfile.phone !== cleanPhone) {
+          await adminSupabase
+            .from("profiles")
+            .update({ phone: cleanPhone })
+            .eq("id", matchedProfile.id)
+            .then(() => {}, () => {});
+        }
+      } else {
+        isNewClient = true;
+        const { data: newProfile, error: profileErr } = await adminSupabase
           .from("profiles")
-          .update({ phone: cleanPhone })
-          .eq("id", matchedProfile.id)
-          .then(() => {}, () => {});
-      }
-    } else {
-      // Criar cadastro básico automático para o novo cliente. Usa role 'client'
-      // (valor aceito pelo CHECK de profiles.role). Sem conta de email por ora:
-      // se o tutor criar conta depois, register-google vincula os dados por telefone.
-      isNewClient = true;
-      const { data: newProfile, error: profileErr } = await adminSupabase
-        .from("profiles")
-        .insert({
-          pet_shop_id: getTenantId(),
-          full_name: tutor_name,
-          phone: cleanPhone,
-          role: "client",
-        })
-        .select()
-        .single();
+          .insert({
+            pet_shop_id: getTenantId(),
+            full_name: tutor_name,
+            phone: cleanPhone,
+            role: "client",
+          })
+          .select()
+          .single();
 
-      if (profileErr || !newProfile) {
-        console.error("Erro ao auto-cadastrar cliente em /api/agendar:", profileErr);
-        return NextResponse.json(
-          { error: "Não foi possível identificar ou cadastrar o tutor para este agendamento." },
-          { status: 400 }
-        );
+        if (profileErr || !newProfile) {
+          console.error("Erro ao auto-cadastrar cliente em /api/agendar:", profileErr);
+          return NextResponse.json(
+            { error: "Não foi possível identificar ou cadastrar o tutor para este agendamento." },
+            { status: 400 }
+          );
+        }
+        clientId = newProfile.id;
       }
-      clientId = newProfile.id;
     }
 
     // 2. Verificar ou criar cadastro do pet (sempre vinculado ao tutor)
@@ -158,7 +187,7 @@ export const POST = withTenantRoute(async (request: Request) => {
       p_professional: professional || "Não atribuído",
       p_price: resolvedPrice,
       p_notes: `Status: agendado | [STEP:0] | Agendamento via Link Público por ${tutor_name} (${tutor_phone})`,
-      p_address: "",
+      p_address: address || "",
       p_package_id: null,
       p_recurring_booking_id: null,
       p_exclude_appointment_id: null,

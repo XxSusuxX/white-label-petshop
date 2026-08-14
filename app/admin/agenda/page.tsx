@@ -106,7 +106,11 @@ export default function HashikoAdminAgendaPage() {
   const [formServiceId, setFormServiceId] = useState("");
   const [tutorSearch, setTutorSearch] = useState("");
   const [formProfessional, setFormProfessional] = useState("Ana Costa (Banhista)");
-  const [formDate, setFormDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [formDate, setFormDate] = useState(() => {
+    const now = new Date();
+    const localDate = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+    return localDate.toISOString().slice(0, 10);
+  });
   const [formTime, setFormTime] = useState("09:00");
   const [formNotes, setFormNotes] = useState("");
   const [tutorPackages, setTutorPackages] = useState<{ id: string; service_id: string | null; package_name: string; remaining: number }[]>([]);
@@ -656,7 +660,9 @@ export default function HashikoAdminAgendaPage() {
           {/* Botão + Novo Agendamento (Destacado em Laranja/Verde) */}
           <button
             onClick={() => {
-              setFormDate(new Date().toISOString().slice(0, 10));
+              const now = new Date();
+              const localDate = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+              setFormDate(localDate.toISOString().slice(0, 10));
               setIsModalOpen(true);
             }}
             className="w-full sm:w-auto justify-center bg-primary text-on-primary font-bold text-xs px-5 py-2.5 rounded-xl flex items-center gap-2 extruded-shadow hover:brightness-110 active:scale-95 transition-all cursor-pointer shrink-0"

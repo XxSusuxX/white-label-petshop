@@ -26,11 +26,11 @@ export default function RegisterGooglePage() {
       if (user) {
         const { data: existingProfile } = await supabase
           .from("profiles")
-          .select("role")
+          .select("role, full_name, phone")
           .eq("id", user.id)
           .maybeSingle();
 
-        if (existingProfile) {
+        if (existingProfile && existingProfile.full_name?.trim() && existingProfile.phone?.trim()) {
           router.replace(existingProfile.role === "admin" ? "/admin/pets" : "/client");
           return;
         }

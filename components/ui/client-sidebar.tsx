@@ -46,6 +46,7 @@ export function ClientSidebar() {
     { href: "/client/pets", label: "Meus Pets", icon: "pets" },
     { href: "/client/agenda", label: "Agendar Serviço", icon: "calendar_today" },
     { href: "/client/historico", label: "Histórico", icon: "history" },
+    { href: "/client/notificacoes", label: "Notificações", icon: "notifications" },
   ];
 
   return (

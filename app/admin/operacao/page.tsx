@@ -19,6 +19,7 @@ interface OpTask {
   month: number;
   year: number;
   notes: string;
+  address?: string;
   currentStepIndex: number;
 }
 
@@ -121,6 +122,7 @@ export default function OperacaoPage() {
             month: a.month,
             year: a.year,
             notes: rawNotes,
+            address: a.address || "",
             currentStepIndex: stepIdx,
           };
         });
@@ -253,7 +255,7 @@ export default function OperacaoPage() {
     setTasks((prev) =>
       prev.map((t) => (t.id === id ? { ...t, status: "agendado" } : t))
     );
-    await updateAppointmentStatusInSupabase(id, "agendado", `Status: agendado`);
+    await updateAppointmentStatusInSupabase(id, "agendado");
   };
 
   const handleDeleteTask = async (id: string) => {
@@ -408,7 +410,7 @@ export default function OperacaoPage() {
             <div className="bg-surface-container border border-hairline-border rounded-2xl p-4 flex flex-col gap-3">
               <div className="flex items-center justify-between border-b border-hairline-border pb-3">
                 <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-blue-400 animate-pulse"></span>
+                  <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse"></span>
                   <h3 className="font-bold text-xs uppercase tracking-wider text-on-surface">
                     Em Atendimento ({bathingTasks.length})
                   </h3>
@@ -538,6 +540,30 @@ export default function OperacaoPage() {
 
                   <p className="text-xs text-on-surface-variant truncate font-bold">{t.service}</p>
 
+                  {/* Endereço de Coleta/Entrega e Botão Google Maps para o Entregador */}
+                  {t.address && (
+                    <div className="p-2.5 bg-surface-container-low rounded-xl border border-hairline-border space-y-2">
+                      <p className="text-[11px] text-on-surface-variant flex items-start gap-1">
+                        <span className="material-symbols-outlined text-xs text-primary shrink-0 mt-0.5">location_on</span>
+                        <span className="break-words font-medium">{t.address}</span>
+                      </p>
+
+                      <a
+                        href={
+                          t.address.includes("GPS: http")
+                            ? t.address.split("GPS: ")[1]
+                            : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(t.address)}`
+                        }
+                        target="_blank"
+                        rel="noreferrer"
+                        className="w-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25 py-2 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-sm"
+                      >
+                        <span className="material-symbols-outlined text-sm">map</span>
+                        Abrir no Google Maps 🗺️
+                      </a>
+                    </div>
+                  )}
+
                   {/* BOTÃO ÚNICO EM PRONTO PARA BUSCA */}
                   <button
                     onClick={() => handleMoveToRouteOrFinish(t, "em_rota")}
@@ -593,6 +619,30 @@ export default function OperacaoPage() {
                   </div>
 
                   <p className="text-xs text-on-surface-variant truncate font-bold">{t.service}</p>
+
+                  {/* Endereço de Coleta/Entrega e Botão Google Maps para o Entregador */}
+                  {t.address && (
+                    <div className="p-2.5 bg-surface-container-low rounded-xl border border-hairline-border space-y-2">
+                      <p className="text-[11px] text-on-surface-variant flex items-start gap-1">
+                        <span className="material-symbols-outlined text-xs text-primary shrink-0 mt-0.5">location_on</span>
+                        <span className="break-words font-medium">{t.address}</span>
+                      </p>
+
+                      <a
+                        href={
+                          t.address.includes("GPS: http")
+                            ? t.address.split("GPS: ")[1]
+                            : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(t.address)}`
+                        }
+                        target="_blank"
+                        rel="noreferrer"
+                        className="w-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25 py-2 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-sm"
+                      >
+                        <span className="material-symbols-outlined text-sm">map</span>
+                        Abrir no Google Maps 🗺️
+                      </a>
+                    </div>
+                  )}
 
                   <button
                     onClick={() => handleMoveToRouteOrFinish(t, "concluido")}

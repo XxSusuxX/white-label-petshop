@@ -67,7 +67,34 @@ export const POST = withTenantRoute(async (request: Request) => {
       name: "PetNexus",
     });
 
-    // 3. Inserir o pet com segurança no backend
+    // 3. Checagem de deduplicação para evitar cadastros duplicados por cliques múltiplos
+    const recentCutoff = new Date(Date.now() - 15 * 1000).toISOString();
+    const { data: existingRecent } = await adminSupabase
+      .from("pets")
+      .select("*")
+      .eq("pet_shop_id", getTenantId())
+      .eq("client_id", user.id)
+      .ilike("name", body.name.trim())
+      .gte("created_at", recentCutoff)
+      .limit(1);
+
+    if (existingRecent && existingRecent.length > 0) {
+      return NextResponse.json({ success: true, pet: existingRecent[0], deduplicated: true });
+    }
+
+    // Calcular birth_date aproximada baseada na idade (anos e meses)
+    let birthDateISO: string | null = null;
+    const yearsNum = parseInt(body.age_years || "0", 10);
+    const monthsNum = parseInt(body.age_months || "0", 10);
+
+    if (yearsNum > 0 || monthsNum > 0) {
+      const now = new Date();
+      now.setFullYear(now.getFullYear() - yearsNum);
+      now.setMonth(now.getMonth() - monthsNum);
+      birthDateISO = now.toISOString().split("T")[0];
+    }
+
+    // 4. Inserir o pet com segurança no backend
     const { data: pet, error } = await adminSupabase
       .from("pets")
       .insert({
@@ -80,8 +107,9 @@ export const POST = withTenantRoute(async (request: Request) => {
         weight: body.weight ? parseFloat(body.weight) : null,
         coat: body.coat || "curta",
         color: body.color || "Caramelo",
+        birth_date: birthDateISO,
         photo_url: body.photo_url || null,
-        observations: body.observations || null,
+        observations: body.observations ? String(body.observations).trim() : null,
       })
       .select()
       .single();

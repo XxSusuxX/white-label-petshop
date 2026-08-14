@@ -36,6 +36,7 @@ function relativeTime(iso: string) {
 }
 
 import { requestNotificationPermission, sendBrowserNotification, registerServiceWorker } from "@/lib/client/push-notifications";
+import { canAccessRoute } from "@/lib/auth-permissions";
 
 // Rastrear IDs de notificações já disparadas no sistema nativo
 const shownNotifIds = new Set<string>();
@@ -44,6 +45,7 @@ export function AdminHeader() {
   const pathname = usePathname();
   const [userName, setUserName] = useState("Gestor Admin");
   const [userRole, setUserRole] = useState("Administrador");
+  const [userRawRole, setUserRawRole] = useState<string>("admin");
   const [userAvatar, setUserAvatar] = useState<string | null>(null);
   const [isAdminUser, setIsAdminUser] = useState(true);
 
@@ -88,6 +90,7 @@ export function AdminHeader() {
           setUserName(name);
 
           const rawRole = profile?.role || user.user_metadata?.role || "admin";
+          setUserRawRole(rawRole);
           const isRoleAdminOrOwner = rawRole === "admin" || rawRole === "dono" || rawRole === "Administrador";
           setIsAdminUser(isRoleAdminOrOwner);
 
@@ -350,6 +353,16 @@ export function AdminHeader() {
           )}
         </div>
 
+        {/* Botão de Atalho para Painel do Cliente */}
+        <Link
+          href="/client"
+          className="h-10 px-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-bold text-xs flex items-center gap-2 hover:bg-emerald-500/20 hover:border-emerald-500/50 transition-all cursor-pointer shadow-sm"
+          title="Ver Área do Cliente (/client)"
+        >
+          <span className="material-symbols-outlined text-base">person</span>
+          <span className="hidden sm:inline">Área do Cliente</span>
+        </Link>
+
         {/* Botão para Registrar Admin (Disponível quando cargo for Administrador) */}
         {isAdminUser && (
           <Link
@@ -363,13 +376,15 @@ export function AdminHeader() {
         )}
 
         {/* CTA Rápido: Abrir PDV */}
-        <Link
-          href="/admin/pdv"
-          className="h-10 px-4 rounded-xl bg-primary text-on-primary font-bold text-xs flex items-center gap-2 hover:brightness-110 active:scale-95 transition-all cursor-pointer shadow-sm shadow-primary/20"
-        >
-          <span className="material-symbols-outlined text-base">point_of_sale</span>
-          <span className="hidden sm:inline">Abrir PDV</span>
-        </Link>
+        {canAccessRoute(userRawRole, "/admin/pdv") && (
+          <Link
+            href="/admin/pdv"
+            className="h-10 px-4 rounded-xl bg-primary text-on-primary font-bold text-xs flex items-center gap-2 hover:brightness-110 active:scale-95 transition-all cursor-pointer shadow-sm shadow-primary/20"
+          >
+            <span className="material-symbols-outlined text-base">point_of_sale</span>
+            <span className="hidden sm:inline">Abrir PDV</span>
+          </Link>
+        )}
 
         {/* User Badge Admin com Logout */}
         <div className="flex items-center gap-2 pl-3 border-l border-hairline-border">
@@ -403,6 +418,13 @@ export function AdminHeader() {
 
       {/* Mobile-only actions */}
       <div className="flex md:hidden items-center justify-between gap-2">
+        <Link
+          href="/client"
+          title="Área do Cliente (/client)"
+          className="p-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25 transition-colors flex items-center justify-center cursor-pointer"
+        >
+          <span className="material-symbols-outlined text-lg">person</span>
+        </Link>
         <div className="relative" ref={notifRef}>
           <button
             onClick={handleOpenNotifications}

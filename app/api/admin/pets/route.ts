@@ -164,6 +164,8 @@ export const PUT = withTenantRoute(async (request: Request) => {
       coat,
       color,
       is_neutered,
+      age_years,
+      age_months,
       client_id,
       observations,
       photo_url,
@@ -185,6 +187,17 @@ export const PUT = withTenantRoute(async (request: Request) => {
     if (client_id !== undefined) updatePayload.client_id = client_id;
     if (observations !== undefined) updatePayload.observations = observations ? observations.trim() : null;
     if (photo_url !== undefined) updatePayload.photo_url = photo_url.trim();
+
+    if (age_years !== undefined || age_months !== undefined) {
+      const yearsNum = parseInt(age_years || "0", 10);
+      const monthsNum = parseInt(age_months || "0", 10);
+      if (yearsNum > 0 || monthsNum > 0) {
+        const now = new Date();
+        now.setFullYear(now.getFullYear() - yearsNum);
+        now.setMonth(now.getMonth() - monthsNum);
+        updatePayload.birth_date = now.toISOString().split("T")[0];
+      }
+    }
 
     const { data: updatedPet, error: updateErr } = await adminSupabase
       .from("pets")

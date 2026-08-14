@@ -182,7 +182,7 @@ export default function AdminDashboardPage() {
                     {data.activeAutomations} <span className="text-xs font-bold text-primary font-normal">ativas</span>
                   </div>
                   <p className="text-xs text-on-surface-variant mt-1">
-                    de {data.totalAutomations} automações ativadas
+                    de {data.totalAutomations} configuradas
                   </p>
                 </div>
               </div>

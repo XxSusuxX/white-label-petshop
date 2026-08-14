@@ -31,19 +31,55 @@ function LoginForm() {
     e.preventDefault();
     e.stopPropagation();
     setIsLoading(true);
+    setAuthError(null);
     try {
       const supabase = createClient();
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
-      setIsLoading(false);
-      if (!error) {
-        router.push("/client");
-      } else {
+
+      if (error) {
+        setIsLoading(false);
         setAuthError("Erro ao fazer login: " + error.message);
+        return;
       }
-    } catch (err) {
+
+      if (data.user) {
+        // Obter perfil do usuário para direcionar para o painel correto (Admin vs Cliente)
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", data.user.id)
+          .maybeSingle();
+
+        const role = profile?.role || data.user.user_metadata?.role;
+        const STAFF_ROLES = [
+          "admin",
+          "dono",
+          "veterinario",
+          "veterinarian",
+          "banhista_tosador",
+          "bather",
+          "groomer",
+          "recepcionista",
+          "receptionist",
+          "entregador",
+          "auxiliar",
+          "employee",
+          "funcionario",
+        ];
+
+        const isStaff = role ? STAFF_ROLES.includes(role) : false;
+        const targetUrl = isStaff ? "/admin/dashboard" : "/client";
+
+        // Usar window.location.href garante a renovação dos cookies de sessão no navegador/celular
+        window.location.href = targetUrl;
+      } else {
+        setIsLoading(false);
+        setAuthError("Não foi possível autenticar o usuário.");
+      }
+    } catch (err: any) {
       setIsLoading(false);
       setAuthError("Erro ao fazer login. Tente novamente.");
     }

@@ -64,9 +64,63 @@ export default function AgendarServicoPage() {
   const [isLoadingPets, setIsLoadingPets] = useState(true);
   const [selectedPetId, setSelectedPetId] = useState("");
 
-  // Endereço
+  // Endereço e GPS
   const [address, setAddress] = useState("");
+  const [addressStreet, setAddressStreet] = useState("");
+  const [addressNumber, setAddressNumber] = useState("");
+  const [addressNeighborhood, setAddressNeighborhood] = useState("");
+  const [addressComplement, setAddressComplement] = useState("");
+  const [gpsLink, setGpsLink] = useState("");
+  const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [isLoadingAddress, setIsLoadingAddress] = useState(true);
+
+  const handleGetGpsLocation = () => {
+    if (!navigator.geolocation) {
+      alert("Seu navegador não suporta GPS. Por favor, digite o endereço manualmente abaixo.");
+      return;
+    }
+    setIsGettingLocation(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        const mapsUrl = `https://www.google.com/maps?q=${lat},${lng}`;
+        setGpsLink(mapsUrl);
+
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+          const data = await res.json();
+          if (data && data.address) {
+            if (data.address.road) setAddressStreet(data.address.road);
+            if (data.address.suburb || data.address.neighbourhood) setAddressNeighborhood(data.address.suburb || data.address.neighbourhood);
+          }
+        } catch {
+          // ignora erro de nominatim
+        } finally {
+          setIsGettingLocation(false);
+          alert("📍 Localização GPS capturada com sucesso!");
+        }
+      },
+      () => {
+        setIsGettingLocation(false);
+        alert("Não foi possível acessar a localização GPS. Por favor, preencha o endereço manualmente.");
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
+  // Auto-composição do endereço quando os campos estruturados ou GPS mudam
+  useEffect(() => {
+    if (addressStreet || addressNumber || addressNeighborhood || addressComplement || gpsLink) {
+      const parts = [];
+      if (addressStreet) parts.push(`Rua ${addressStreet}`);
+      if (addressNumber) parts.push(`Nº ${addressNumber}`);
+      if (addressNeighborhood) parts.push(`Bairro ${addressNeighborhood}`);
+      if (addressComplement) parts.push(`Comp: ${addressComplement}`);
+      if (gpsLink) parts.push(`GPS: ${gpsLink}`);
+      setAddress(parts.join(", "));
+    }
+  }, [addressStreet, addressNumber, addressNeighborhood, addressComplement, gpsLink]);
 
   // Serviço
   const [servicesList, setServicesList] = useState<ServiceItem[]>([]);
@@ -381,22 +435,94 @@ export default function AgendarServicoPage() {
         <section className="space-y-4">
           <h2 className="text-base font-bold text-on-surface flex items-center gap-2">
             <span className="material-symbols-outlined text-primary">location_on</span>
-            Endereço de Coleta
+            Endereço de Coleta (Leva e Traz)
           </h2>
           {isLoadingAddress ? (
             <div className="h-24 bg-surface-container border border-hairline-border rounded-2xl animate-pulse"></div>
           ) : (
-            <div className="bg-surface-container border border-hairline-border rounded-2xl p-4 space-y-2">
-              <label className="text-xs font-bold text-on-surface-variant block">Endereço completo</label>
-              <textarea
-                rows={3}
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                placeholder="Rua, número, bairro, cidade..."
-                autoFocus
-                className="w-full bg-matte-canvas border border-hairline-border rounded-xl px-3 py-3 text-sm text-on-surface outline-none focus:border-primary placeholder:text-outline resize-none"
-              />
-              <p className="text-[11px] text-on-surface-variant">Esse endereço fica salvo no seu perfil para os próximos agendamentos.</p>
+            <div className="bg-surface-container border border-hairline-border rounded-2xl p-5 space-y-4">
+              {/* Botão de Captura GPS / Google Maps */}
+              <button
+                type="button"
+                onClick={handleGetGpsLocation}
+                disabled={isGettingLocation}
+                className="w-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-bold py-3 px-4 rounded-xl text-xs flex items-center justify-center gap-2 hover:bg-emerald-500/20 active:scale-98 transition-all cursor-pointer shadow-sm"
+              >
+                <span className="material-symbols-outlined text-base">my_location</span>
+                {isGettingLocation ? "Capturando GPS..." : "📍 Usar Minha Localização Atual (Google Maps / GPS)"}
+              </button>
+
+              {gpsLink && (
+                <div className="p-3 bg-emerald-500/15 border border-emerald-500/40 rounded-xl text-xs text-emerald-300 font-bold flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-base">check_circle</span>
+                    Localização GPS capturada para o entregador!
+                  </span>
+                  <a href={gpsLink} target="_blank" rel="noreferrer" className="underline text-primary hover:text-emerald-200">
+                    Ver Mapa 🗺️
+                  </a>
+                </div>
+              )}
+
+              {/* Campos Estruturados Separados (Rua, Número, Bairro, Complemento) */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-2">
+                  <label className="block text-[11px] font-bold text-on-surface-variant mb-1 uppercase tracking-wider">Rua / Logradouro</label>
+                  <input
+                    type="text"
+                    value={addressStreet}
+                    onChange={(e) => setAddressStreet(e.target.value)}
+                    placeholder="Ex: Rua das Flores"
+                    className="w-full bg-matte-canvas border border-hairline-border rounded-xl px-3.5 py-2.5 text-on-surface text-xs outline-none focus:border-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-on-surface-variant mb-1 uppercase tracking-wider">Número</label>
+                  <input
+                    type="text"
+                    value={addressNumber}
+                    onChange={(e) => setAddressNumber(e.target.value)}
+                    placeholder="Ex: 123"
+                    className="w-full bg-matte-canvas border border-hairline-border rounded-xl px-3.5 py-2.5 text-on-surface text-xs outline-none focus:border-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-on-surface-variant mb-1 uppercase tracking-wider">Bairro</label>
+                  <input
+                    type="text"
+                    value={addressNeighborhood}
+                    onChange={(e) => setAddressNeighborhood(e.target.value)}
+                    placeholder="Ex: Jardim América"
+                    className="w-full bg-matte-canvas border border-hairline-border rounded-xl px-3.5 py-2.5 text-on-surface text-xs outline-none focus:border-primary"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-[11px] font-bold text-on-surface-variant mb-1 uppercase tracking-wider">Complemento / Ref.</label>
+                  <input
+                    type="text"
+                    value={addressComplement}
+                    onChange={(e) => setAddressComplement(e.target.value)}
+                    placeholder="Ex: Apto 42, em frente à praça"
+                    className="w-full bg-matte-canvas border border-hairline-border rounded-xl px-3.5 py-2.5 text-on-surface text-xs outline-none focus:border-primary"
+                  />
+                </div>
+              </div>
+
+              {/* Textarea Livre para Ajustes / Endereço Completo */}
+              <div className="pt-2 border-t border-hairline-border/60">
+                <label className="text-[11px] font-bold text-on-surface-variant block mb-1 uppercase tracking-wider">Endereço Completo Formatado</label>
+                <textarea
+                  rows={2}
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  placeholder="Rua, número, bairro, cidade..."
+                  className="w-full bg-matte-canvas border border-hairline-border rounded-xl px-3 py-2.5 text-xs text-on-surface outline-none focus:border-primary placeholder:text-outline resize-none"
+                />
+                <p className="text-[11px] text-on-surface-variant mt-1">Esse endereço fica salvo no seu perfil para os próximos agendamentos.</p>
+              </div>
             </div>
           )}
         </section>

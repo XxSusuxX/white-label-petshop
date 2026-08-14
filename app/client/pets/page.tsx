@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { calculateAgeFromBirthDate, getYearsMonthsFromBirthDate } from "@/lib/utils/formatters";
 
 interface Pet {
   id: string;
@@ -19,6 +20,8 @@ interface Pet {
   pelagem: string;
   color: string;
   age: string;
+  birth_date?: string;
+  observations?: string;
 }
 
 export default function MeusPetsPage() {
@@ -88,11 +91,13 @@ export default function MeusPetsPage() {
             statusType: "home",
             photo: p.photo_url || "/assets/img-cadastro-google-cli.png",
             sex: p.sex || "Macho",
-            castrated: "Não",
+            castrated: p.is_neutered ? "Sim" : "Não",
             weight: p.weight !== null && p.weight !== undefined ? String(p.weight) : "Não inf.",
             pelagem: p.coat || "Curta",
             color: p.color || "Caramelo",
-            age: p.observations || "Não informada",
+            birth_date: p.birth_date,
+            age: calculateAgeFromBirthDate(p.birth_date),
+            observations: p.observations || "",
           }));
           setPets(mappedPets);
         } else {
@@ -163,17 +168,19 @@ export default function MeusPetsPage() {
 
   const handleCreatePet = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLoading || isUploadingPhoto) return;
     if (!newPetName.trim()) {
       alert("Por favor, informe o nome do pet.");
       return;
     }
+
+    setIsLoading(true);
 
     const defaultPhoto = newSpecies === "Gato"
       ? "https://images.unsplash.com/photo-1573865526739-10659fec78a5?auto=format&fit=crop&w=300&q=80"
       : "https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&w=300&q=80";
 
     const formattedAge = getFormattedAge(newAgeYears, newAgeMonths);
-    setIsLoading(true);
 
     const petPhoto = await uploadPetPhotoIfNeeded(newPhotoFile, null) || defaultPhoto;
 
@@ -190,7 +197,9 @@ export default function MeusPetsPage() {
           coat: newPelagem,
           color: newColor,
           photo_url: petPhoto,
-          observations: formattedAge,
+          age_years: newAgeYears,
+          age_months: newAgeMonths,
+          observations: newNotes.trim() || null,
         }),
       });
 
@@ -218,6 +227,7 @@ export default function MeusPetsPage() {
         pelagem: newPelagem,
         color: newColor || "Padrão",
         age: formattedAge,
+        observations: newNotes.trim(),
       };
 
       setPets([createdPet, ...pets]);
@@ -262,19 +272,15 @@ export default function MeusPetsPage() {
     setEditBreed(pet.breed === "Vira-lata" ? "" : pet.breed);
     setEditSex(pet.sex);
     
-    // Tenta extrair anos e meses do texto se existir
-    const ageText = pet.age || "";
-    const yearsMatch = ageText.match(/(\d+)\s*ano/);
-    const monthsMatch = ageText.match(/(\d+)\s*mê|mes/);
-
-    setEditAgeYears(yearsMatch ? yearsMatch[1] : "0");
-    setEditAgeMonths(monthsMatch ? monthsMatch[1] : "0");
+    const { years, months } = getYearsMonthsFromBirthDate(pet.birth_date);
+    setEditAgeYears(years);
+    setEditAgeMonths(months);
 
     setEditWeight(pet.weight === "Não inf." ? "" : pet.weight);
     setEditPelagem(pet.pelagem);
     setEditColor(pet.color === "Caramelo" ? "" : pet.color);
     setEditIsCastrated(pet.castrated === "Sim");
-    setEditNotes(pet.age);
+    setEditNotes(pet.observations || "");
     setEditPhotoPreview(pet.photo);
     setEditPhotoFile(null);
     setShowEditPetModal(true);
@@ -305,7 +311,9 @@ export default function MeusPetsPage() {
           coat: editPelagem,
           color: editColor || "Caramelo",
           photo_url: petPhoto,
-          observations: formattedAge,
+          age_years: editAgeYears,
+          age_months: editAgeMonths,
+          observations: editNotes.trim() || null,
         }),
       });
 
@@ -331,6 +339,7 @@ export default function MeusPetsPage() {
                 photo: petPhoto || p.photo,
                 castrated: editIsCastrated ? "Sim" : "Não",
                 age: formattedAge,
+                observations: editNotes.trim(),
               }
             : p
         )
@@ -825,10 +834,20 @@ export default function MeusPetsPage() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 bg-primary text-on-primary font-bold text-xs py-3 rounded-xl hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-2 shadow-lg cursor-pointer"
+                  disabled={isLoading || isUploadingPhoto}
+                  className="flex-1 bg-primary text-on-primary font-bold text-xs py-3 rounded-xl hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-2 shadow-lg cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <span className="material-symbols-outlined text-base">check_circle</span>
-                  <span>Salvar Pet</span>
+                  {isLoading || isUploadingPhoto ? (
+                    <>
+                      <span className="material-symbols-outlined text-base animate-spin">sync</span>
+                      <span>Cadastrando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="material-symbols-outlined text-base">check_circle</span>
+                      <span>Salvar Pet</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>

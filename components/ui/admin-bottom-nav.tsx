@@ -5,6 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
+import { canAccessRoute } from "@/lib/auth-permissions";
+
 interface NotificationItem {
   id: string;
   type: string;
@@ -20,7 +22,31 @@ export function AdminBottomNav() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [rawRole, setRawRole] = useState<string>("admin");
   const modalRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    async function loadUserRole() {
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (user) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("role")
+            .eq("id", user.id)
+            .maybeSingle();
+
+          const rRole = profile?.role || user.user_metadata?.role || "admin";
+          setRawRole(rRole);
+        }
+      } catch (err) {
+        console.warn("Erro ao carregar cargo no AdminBottomNav:", err);
+      }
+    }
+    loadUserRole();
+  }, []);
 
   // Carregar contagem de notificações não lidas
   useEffect(() => {
@@ -45,14 +71,14 @@ export function AdminBottomNav() {
     window.location.href = "/auth/login";
   };
 
-  const navLinks = [
+  const rawNavLinks = [
     { href: "/admin/dashboard", label: "Início", icon: "dashboard" },
     { href: "/admin/operacao", label: "Operação", icon: "bubble_chart" },
     { href: "/admin/agenda", label: "Agenda", icon: "calendar_today" },
     { href: "/admin/clientes", label: "Clientes", icon: "group" },
   ];
 
-  const moreLinks = [
+  const rawMoreLinks = [
     { href: "/admin/pdv", label: "PDV & Caixa", icon: "point_of_sale", highlight: true },
     { href: "/admin/pets", label: "Pets & Prontuários", icon: "pets" },
     { href: "/admin/servicos", label: "Serviços & Preços", icon: "price_change" },
@@ -63,6 +89,9 @@ export function AdminBottomNav() {
     { href: "/admin/whatsapp", label: "Central WhatsApp", icon: "chat" },
     { href: "/admin/register-admin", label: "Add Equipe", icon: "person_add" },
   ];
+
+  const navLinks = rawNavLinks.filter((link) => canAccessRoute(rawRole, link.href));
+  const moreLinks = rawMoreLinks.filter((link) => canAccessRoute(rawRole, link.href));
 
   return (
     <>
@@ -175,6 +204,35 @@ export function AdminBottomNav() {
                 )}
               </div>
             )}
+
+            {/* Opção em Destaque: Mudar para Área do Cliente */}
+            <Link
+              href="/client"
+              onClick={() => setIsMoreOpen(false)}
+              className="bg-emerald-500/10 border border-emerald-500/30 hover:border-emerald-500/60 p-3.5 rounded-2xl flex items-center justify-between transition-all group"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                  <span className="material-symbols-outlined text-lg">person</span>
+                </div>
+                <div className="min-w-0">
+                  <h4 className="font-bold text-xs text-on-surface group-hover:text-emerald-300 transition-colors flex items-center gap-1.5">
+                    <span>Mudar para Área do Cliente</span>
+                    <span className="px-1.5 py-0.5 text-[9px] rounded-md bg-emerald-500/20 text-emerald-300 font-extrabold uppercase">
+                      Cliente
+                    </span>
+                  </h4>
+                  <p className="text-[10px] text-emerald-400/80 font-medium truncate">
+                    Ver o app como tutor de pet (/client)
+                  </p>
+                </div>
+              </div>
+
+              <span className="text-xs font-bold text-emerald-400 flex items-center gap-1 shrink-0">
+                <span>Acessar</span>
+                <span className="material-symbols-outlined text-sm">arrow_forward</span>
+              </span>
+            </Link>
 
             {/* Grid de Atalhos de Ferramentas com Rotas Direcionadas e Efeitos de Hover */}
             <div className="grid grid-cols-2 gap-2.5">

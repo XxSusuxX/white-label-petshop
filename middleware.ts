@@ -72,23 +72,29 @@ export async function middleware(request: NextRequest) {
   async function resolveRole(): Promise<string | null> {
     if (!user) return null;
 
-    const cachedRole = user.app_metadata?.role as string | undefined;
-    if (cachedRole) return cachedRole;
-
     const { createAdminClient } = await import("@/lib/supabase/admin");
     const adminSupabase = createAdminClient();
 
     const { data: profile } = await adminSupabase
       .from("profiles")
-      .select("role")
+      .select("role, full_name, phone")
       .eq("id", user.id)
       .maybeSingle();
 
     if (!profile) return null;
 
-    adminSupabase.auth.admin
-      .updateUserById(user.id, { app_metadata: { ...user.app_metadata, role: profile.role } })
-      .catch(() => {});
+    // Perfis de clientes incompletos (sem nome ou sem telefone) devem passar pela tela de cadastro
+    const isStaff = STAFF_ROLES.includes(profile.role);
+    if (!isStaff && (!profile.full_name?.trim() || !profile.phone?.trim())) {
+      return null;
+    }
+
+    const cachedRole = user.app_metadata?.role as string | undefined;
+    if (!cachedRole) {
+      adminSupabase.auth.admin
+        .updateUserById(user.id, { app_metadata: { ...user.app_metadata, role: profile.role } })
+        .catch(() => {});
+    }
 
     return profile.role;
   }

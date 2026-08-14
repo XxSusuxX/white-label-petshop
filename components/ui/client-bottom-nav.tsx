@@ -14,15 +14,32 @@ interface NotificationItem {
   created_at: string;
 }
 
+const STAFF_ROLES = [
+  "admin",
+  "dono",
+  "veterinario",
+  "veterinarian",
+  "banhista_tosador",
+  "bather",
+  "groomer",
+  "recepcionista",
+  "receptionist",
+  "entregador",
+  "auxiliar",
+  "employee",
+  "funcionario",
+];
+
 export function ClientBottomNav() {
   const pathname = usePathname();
   const [isMoreOpen, setIsMoreOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [hasAdminAccess, setHasAdminAccess] = useState(false);
 
   useEffect(() => {
-    async function loadNotifications() {
+    async function loadNotificationsAndRole() {
       try {
         const res = await fetch("/api/notifications");
         if (res.ok) {
@@ -33,8 +50,28 @@ export function ClientBottomNav() {
       } catch (err) {
         console.warn("Erro ao carregar notificações no ClientBottomNav:", err);
       }
+
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (user) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("role")
+            .eq("id", user.id)
+            .maybeSingle();
+
+          const userRole = (profile?.role || user.user_metadata?.role || "").toLowerCase();
+          if (STAFF_ROLES.includes(userRole)) {
+            setHasAdminAccess(true);
+          }
+        }
+      } catch (err) {
+        console.warn("Erro ao verificar role de admin no ClientBottomNav:", err);
+      }
     }
-    loadNotifications();
+    loadNotificationsAndRole();
   }, []);
 
   const handleLogout = async () => {
@@ -117,8 +154,43 @@ export function ClientBottomNav() {
               </button>
             </div>
 
+            {/* Opção Exclusiva: Painel Admin (Visível apenas para Administradores / Equipe) */}
+            {hasAdminAccess && (
+              <Link
+                href="/admin/dashboard"
+                onClick={() => setIsMoreOpen(false)}
+                className="bg-amber-500/10 border border-amber-500/30 hover:border-amber-500/60 p-3.5 rounded-2xl flex items-center justify-between transition-all group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
+                    <span className="material-symbols-outlined text-lg">admin_panel_settings</span>
+                  </div>
+                  <div className="min-w-0">
+                    <h4 className="font-bold text-xs text-on-surface group-hover:text-amber-300 transition-colors flex items-center gap-1.5">
+                      <span>Painel Administrativo</span>
+                      <span className="px-1.5 py-0.5 text-[9px] rounded-md bg-amber-500/20 text-amber-300 font-extrabold uppercase">
+                        Admin
+                      </span>
+                    </h4>
+                    <p className="text-[10px] text-amber-400/80 font-medium truncate">
+                      Acessar gestão do Petshop (/admin)
+                    </p>
+                  </div>
+                </div>
+
+                <span className="text-xs font-bold text-amber-400 flex items-center gap-1 shrink-0">
+                  <span>Acessar</span>
+                  <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                </span>
+              </Link>
+            )}
+
             {/* Notificações no Drawer */}
-            <div className="bg-elevated-card border border-hairline-border p-3.5 rounded-2xl flex items-center justify-between">
+            <Link
+              href="/client/notificacoes"
+              onClick={() => setIsMoreOpen(false)}
+              className="bg-elevated-card border border-hairline-border hover:border-primary/40 p-3.5 rounded-2xl flex items-center justify-between transition-all"
+            >
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center relative">
                   <span className="material-symbols-outlined text-lg">notifications</span>
@@ -127,35 +199,18 @@ export function ClientBottomNav() {
                   )}
                 </div>
                 <div>
-                  <h4 className="font-bold text-xs text-on-surface">Suas Notificações</h4>
+                  <h4 className="font-bold text-xs text-on-surface">Central de Notificações</h4>
                   <p className="text-[10px] text-on-surface-variant">
-                    {unreadCount > 0 ? `${unreadCount} alerta(s) novo(s)` : "Tudo em dia!"}
+                    {unreadCount > 0 ? `${unreadCount} alerta(s) novo(s)` : "Ver todos os alertas e histórico"}
                   </p>
                 </div>
               </div>
 
-              <button
-                onClick={() => setShowNotifications((v) => !v)}
-                className="text-xs font-bold text-primary hover:underline cursor-pointer"
-              >
-                {showNotifications ? "Ocultar" : "Ver alertas"}
-              </button>
-            </div>
-
-            {showNotifications && (
-              <div className="bg-matte-canvas border border-hairline-border rounded-2xl p-3 max-h-48 overflow-y-auto space-y-2">
-                {notifications.length === 0 ? (
-                  <p className="text-xs text-on-surface-variant text-center py-3">Você não tem notificações recentes.</p>
-                ) : (
-                  notifications.map((n) => (
-                    <div key={n.id} className="text-xs p-2.5 rounded-xl bg-surface-container border border-hairline-border/40 space-y-0.5">
-                      <p className="font-bold text-on-surface">{n.title}</p>
-                      <p className="text-on-surface-variant text-[11px]">{n.body}</p>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
+              <span className="text-xs font-bold text-primary flex items-center gap-1">
+                <span>Abrir</span>
+                <span className="material-symbols-outlined text-sm">arrow_forward</span>
+              </span>
+            </Link>
 
             {/* Links Adicionais */}
             <div className="space-y-2">

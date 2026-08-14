@@ -37,6 +37,50 @@ export default function AgendarPublicPage() {
   const [petAge, setPetAge] = useState("1 ano");
   const [petBreed, setPetBreed] = useState("");
 
+  // Endereço e Leva e Traz (Coleta / Entrega) para o Entregador
+  const [needsDelivery, setNeedsDelivery] = useState(false);
+  const [addressStreet, setAddressStreet] = useState("");
+  const [addressNumber, setAddressNumber] = useState("");
+  const [addressNeighborhood, setAddressNeighborhood] = useState("");
+  const [addressComplement, setAddressComplement] = useState("");
+  const [gpsLink, setGpsLink] = useState("");
+  const [isGettingLocation, setIsGettingLocation] = useState(false);
+
+  const handleGetGpsLocation = () => {
+    if (!navigator.geolocation) {
+      alert("Seu navegador não suporta GPS. Por favor, digite o endereço manualmente abaixo.");
+      return;
+    }
+    setIsGettingLocation(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        const mapsUrl = `https://www.google.com/maps?q=${lat},${lng}`;
+        setGpsLink(mapsUrl);
+
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+          const data = await res.json();
+          if (data && data.address) {
+            if (data.address.road) setAddressStreet(data.address.road);
+            if (data.address.suburb || data.address.neighbourhood) setAddressNeighborhood(data.address.suburb || data.address.neighbourhood);
+          }
+        } catch {
+          // ignore error
+        } finally {
+          setIsGettingLocation(false);
+          alert("📍 Localização GPS capturada com sucesso!");
+        }
+      },
+      (err) => {
+        setIsGettingLocation(false);
+        alert("Não foi possível obter a localização GPS. Por favor, preencha os campos de endereço por escrito.");
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
   const timeSlots = ["08:00", "09:00", "10:30", "13:00", "14:30", "16:00", "17:15"];
 
   // 1. Verificar Autenticação Obrigatória no Início
@@ -111,6 +155,10 @@ export default function AgendarPublicPage() {
       return;
     }
 
+    const fullAddressString = needsDelivery
+      ? `Rua ${addressStreet}, Nº ${addressNumber}, Bairro ${addressNeighborhood}${addressComplement ? `, Comp: ${addressComplement}` : ""}${gpsLink ? ` | GPS: ${gpsLink}` : ""}`
+      : "";
+
     setIsSubmitting(true);
     setSubmitError(null);
 
@@ -129,6 +177,8 @@ export default function AgendarPublicPage() {
           date: selectedDate,
           time: selectedTime,
           professional: selectedProfessional,
+          address: fullAddressString,
+          user_id: currentUser?.id || null,
         }),
       });
 
@@ -448,6 +498,119 @@ export default function AgendarPublicPage() {
                 <span className="text-[11px] text-on-surface-variant mt-1.5 block">
                   💡 Demais informações (peso, pelagem, cor) não são obrigatórias agora e podem ser preenchidas depois no perfil do pet!
                 </span>
+              </div>
+
+              {/* Seção de Transporte (Leva e Traz / Coleta & Entrega) */}
+              <div className="sm:col-span-2 bg-surface-container-high/40 border border-hairline-border p-5 rounded-2xl space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-10 h-10 rounded-xl bg-primary/15 text-primary flex items-center justify-center border border-primary/30 shrink-0">
+                      <span className="material-symbols-outlined text-xl">local_shipping</span>
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-body-sm text-on-surface">Serviço de Coleta e Entrega (Leva e Traz)?</h4>
+                      <p className="text-[11px] text-on-surface-variant">Buscamos e levamos seu pet com conforto na sua residência</p>
+                    </div>
+                  </div>
+
+                  <div className="flex bg-surface-container p-1 rounded-xl border border-hairline-border shrink-0 self-start sm:self-auto">
+                    <button
+                      type="button"
+                      onClick={() => setNeedsDelivery(false)}
+                      className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        !needsDelivery ? "bg-surface-container-highest text-on-surface shadow-sm" : "text-on-surface-variant hover:text-on-surface"
+                      }`}
+                    >
+                      Não
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNeedsDelivery(true)}
+                      className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        needsDelivery ? "bg-primary text-on-primary shadow-sm" : "text-on-surface-variant hover:text-on-surface"
+                      }`}
+                    >
+                      Sim (Coleta)
+                    </button>
+                  </div>
+                </div>
+
+                {needsDelivery && (
+                  <div className="space-y-4 pt-3 border-t border-hairline-border/60">
+                    {/* Botão de Localização Automática via GPS / Google Maps */}
+                    <button
+                      type="button"
+                      onClick={handleGetGpsLocation}
+                      disabled={isGettingLocation}
+                      className="w-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-bold py-3 px-4 rounded-xl text-xs flex items-center justify-center gap-2 hover:bg-emerald-500/20 active:scale-98 transition-all cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-base">my_location</span>
+                      {isGettingLocation ? "Capturando GPS..." : "📍 Usar Minha Localização Atual (Google Maps / GPS)"}
+                    </button>
+
+                    {gpsLink && (
+                      <div className="p-3 bg-emerald-500/15 border border-emerald-500/40 rounded-xl text-xs text-emerald-300 font-bold flex items-center justify-between">
+                        <span className="flex items-center gap-1.5">
+                          <span className="material-symbols-outlined text-base">check_circle</span>
+                          Localização GPS capturada para o entregador!
+                        </span>
+                        <a href={gpsLink} target="_blank" rel="noreferrer" className="underline text-primary hover:text-emerald-200">
+                          Ver no Mapa 🗺️
+                        </a>
+                      </div>
+                    )}
+
+                    {/* Campos Estruturados Separados (Rua, Número, Bairro, Ponto de Referência) */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="sm:col-span-2">
+                        <label className="block text-[11px] font-bold text-on-surface-variant mb-1 uppercase tracking-wider">Rua / Logradouro *</label>
+                        <input
+                          type="text"
+                          required={needsDelivery}
+                          value={addressStreet}
+                          onChange={(e) => setAddressStreet(e.target.value)}
+                          placeholder="Ex: Rua das Flores"
+                          className="w-full bg-elevated-card border border-hairline-border rounded-xl px-3.5 py-2.5 text-on-surface text-xs outline-none focus:border-primary"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-on-surface-variant mb-1 uppercase tracking-wider">Número *</label>
+                        <input
+                          type="text"
+                          required={needsDelivery}
+                          value={addressNumber}
+                          onChange={(e) => setAddressNumber(e.target.value)}
+                          placeholder="Ex: 123"
+                          className="w-full bg-elevated-card border border-hairline-border rounded-xl px-3.5 py-2.5 text-on-surface text-xs outline-none focus:border-primary"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-on-surface-variant mb-1 uppercase tracking-wider">Bairro *</label>
+                        <input
+                          type="text"
+                          required={needsDelivery}
+                          value={addressNeighborhood}
+                          onChange={(e) => setAddressNeighborhood(e.target.value)}
+                          placeholder="Ex: Jardim América"
+                          className="w-full bg-elevated-card border border-hairline-border rounded-xl px-3.5 py-2.5 text-on-surface text-xs outline-none focus:border-primary"
+                        />
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <label className="block text-[11px] font-bold text-on-surface-variant mb-1 uppercase tracking-wider">Complemento / Ponto de Referência</label>
+                        <input
+                          type="text"
+                          value={addressComplement}
+                          onChange={(e) => setAddressComplement(e.target.value)}
+                          placeholder="Ex: Apto 42, em frente à praça"
+                          className="w-full bg-elevated-card border border-hairline-border rounded-xl px-3.5 py-2.5 text-on-surface text-xs outline-none focus:border-primary"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 

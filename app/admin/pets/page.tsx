@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { calculateAgeFromBirthDate, getYearsMonthsFromBirthDate } from "@/lib/utils/formatters";
 
 interface AdminPet {
   id: string;
@@ -13,6 +14,7 @@ interface AdminPet {
   weight: string;
   coat: string;
   color: string;
+  birth_date?: string;
   is_neutered?: boolean;
   observations: string;
   photo_url: string;
@@ -67,12 +69,16 @@ function PetsContent() {
   const [editingPet, setEditingPet] = useState<AdminPet | null>(null);
 
   const handleOpenEditModal = (pet: AdminPet) => {
+    setSelectedPetDetail(null); // Fecha o modal de detalhes antes de abrir a edição
     setEditingPet(pet);
     setSelectedClientId(pet.tutor_id || (clients[0]?.id || ""));
     setPetName(pet.name);
     setPetSpecies(pet.species || "Cachorro");
     setPetBreed(pet.breed || "");
     setPetSex(pet.sex || "Macho");
+    const { years, months } = getYearsMonthsFromBirthDate(pet.birth_date);
+    setPetAgeYears(years);
+    setPetAgeMonths(months);
     setPetWeight(pet.weight ? pet.weight.replace(/\s*kg/i, "") : "");
     setPetCoat(pet.coat || "Curta");
     setPetColor(pet.color || "");
@@ -141,6 +147,7 @@ function PetsContent() {
   }, [petIdQuery, searchParamQuery]);
 
   const handleOpenCreateModal = () => {
+    setSelectedPetDetail(null);
     setEditingPet(null);
     setSelectedClientId(clients[0]?.id || "");
     setPetName("");
@@ -161,12 +168,12 @@ function PetsContent() {
   const handleCreatePetSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!petName.trim()) {
-      alert("Por favor, informe o nome do pet.");
+      alert("Por favor, preencha o nome do pet.");
       return;
     }
 
     if (!selectedClientId) {
-      alert("Por favor, selecione o tutor (cliente) do pet.");
+      alert("Por favor, selecione o tutor responsável.");
       return;
     }
 
@@ -182,6 +189,8 @@ function PetsContent() {
         coat: petCoat,
         color: petColor.trim() || null,
         is_neutered: petIsCastrated,
+        age_years: petAgeYears,
+        age_months: petAgeMonths,
         photo_url: petPhotoUrl.trim() || null,
         observations: petObservations.trim() || null,
         client_id: selectedClientId,
@@ -189,9 +198,6 @@ function PetsContent() {
 
       if (editingPet) {
         payload.id = editingPet.id;
-      } else {
-        payload.age_years = petAgeYears;
-        payload.age_months = petAgeMonths;
       }
 
       const res = await fetch("/api/admin/pets", {
@@ -903,6 +909,10 @@ function PetsContent() {
               <div className="flex justify-between">
                 <span className="text-on-surface-variant font-bold">Telefone do Tutor:</span>
                 <span className="text-on-surface">{selectedPetDetail.tutor_phone}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-on-surface-variant font-bold">Idade Aproximada:</span>
+                <span className="text-on-surface font-semibold">{calculateAgeFromBirthDate(selectedPetDetail.birth_date)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-on-surface-variant font-bold">Peso:</span>

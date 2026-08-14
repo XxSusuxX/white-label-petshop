@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { petSchema } from "@/lib/validations/onboarding";
 import OnboardingLayout from "@/components/ui/OnboardingLayout";
-import { formatFloatInput, getFormattedAge } from "@/lib/utils/formatters";
+import { formatFloatInput } from "@/lib/utils/formatters";
 
 export default function RegisterGooglePetStepPage() {
   const router = useRouter();
@@ -66,7 +66,6 @@ export default function RegisterGooglePetStepPage() {
 
     if (user) {
       const mappedSpecies = species === "gato" ? "Gato" : species === "outro" ? "Outro" : "Cachorro";
-      const formattedAge = getFormattedAge(ageYears, ageMonths);
 
       const res = await fetch("/api/pets", {
         method: "POST",
@@ -80,7 +79,9 @@ export default function RegisterGooglePetStepPage() {
           coat: pelagem,
           color: color,
           photo_url: petPhoto,
-          observations: formattedAge,
+          age_years: ageYears,
+          age_months: ageMonths,
+          observations: notes.trim() || null,
         }),
       });
 
@@ -92,7 +93,7 @@ export default function RegisterGooglePetStepPage() {
     }
 
     setIsLoading(false);
-    router.push("/client");
+    window.location.href = "/client";
   };
 
   const handleResetForm = () => {
