@@ -3,8 +3,31 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
+interface StaffMember {
+  id: string;
+  name: string;
+  role: string;
+  role_label: string;
+  phone: string;
+  avatar_url: string | null;
+  is_online: boolean;
+  status_label: string;
+}
+
+interface UpcomingAppointment {
+  id: string;
+  time: string;
+  pet: string;
+  breed: string;
+  service: string;
+  price: number;
+  status: string;
+  tutor: string;
+}
+
 interface DashboardData {
   revenueToday: number;
+  revenueYesterday: number;
   revenueChangePct: number | null;
   todaysAppointmentsCount: number;
   breakdown: { banho: number; tosa: number; vet: number; outros: number };
@@ -12,7 +35,10 @@ interface DashboardData {
   totalClients: number;
   activeAutomations: number;
   totalAutomations: number;
-  upcoming: { time: string; pet: string; breed: string; service: string; status: string; tutor: string }[];
+  staff: StaffMember[];
+  onlineStaffCount: number;
+  totalStaffCount: number;
+  upcoming: UpcomingAppointment[];
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -39,11 +65,13 @@ const STATUS_STYLE: Record<string, string> = {
 export default function AdminDashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
 
-  const loadDashboard = async () => {
-    setIsLoading(true);
+  const loadDashboard = async (silent = false) => {
+    if (!silent) setIsLoading(true);
+    else setIsRefreshing(true);
     setLoadError(null);
     try {
       const res = await fetch("/api/admin/dashboard");
@@ -52,14 +80,20 @@ export default function AdminDashboardPage() {
       setData(json);
     } catch (err: any) {
       console.error("Erro ao carregar dashboard:", err);
-      setLoadError(err.message || "Erro ao carregar dashboard.");
+      if (!silent) setLoadError(err.message || "Erro ao carregar dashboard.");
     } finally {
       setIsLoading(false);
+      setIsRefreshing(false);
     }
   };
 
   useEffect(() => {
     loadDashboard();
+    // Auto-refresh silencioso a cada 15 segundos para manter o faturamento e presença atualizados
+    const interval = setInterval(() => {
+      loadDashboard(true);
+    }, 15000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleCopyBookingLink = () => {
@@ -71,18 +105,46 @@ export default function AdminDashboardPage() {
 
   return (
     <main className="p-4 md:p-8 space-y-6 max-w-7xl mx-auto w-full">
-      {/* Indicador de Carregamento / Erro */}
+      {/* Header com indicador de atualização em tempo real */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-hairline-border/40">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold text-on-surface flex items-center gap-2.5">
+            <span>Painel de Gestão SaaS</span>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              Ao Vivo
+            </span>
+          </h1>
+          <p className="text-xs text-on-surface-variant mt-1">
+            Visão geral da operação, faturamento real e equipe em atividade.
+          </p>
+        </div>
+
+        <button
+          onClick={() => loadDashboard(true)}
+          disabled={isRefreshing}
+          className="self-start sm:self-center px-3.5 py-2 rounded-xl bg-surface-container border border-hairline-border hover:border-primary/40 text-on-surface font-bold text-xs flex items-center gap-2 transition-all cursor-pointer active:scale-95 shadow-sm"
+          title="Atualizar dados agora"
+        >
+          <span className={`material-symbols-outlined text-sm text-primary ${isRefreshing ? "animate-spin" : ""}`}>
+            sync
+          </span>
+          <span>{isRefreshing ? "Sincronizando..." : "Atualizar"}</span>
+        </button>
+      </div>
+
+      {/* Indicador de Carregamento Inicial / Erro */}
       {isLoading ? (
         <div className="p-12 text-center text-on-surface-variant bg-elevated-card rounded-2xl border border-hairline-border flex flex-col items-center justify-center min-h-[50vh]">
           <span className="material-symbols-outlined text-4xl animate-spin text-primary mb-3">sync</span>
-          <p className="font-bold text-sm">Carregando indicadores essenciais...</p>
+          <p className="font-bold text-sm">Carregando indicadores em tempo real...</p>
         </div>
       ) : loadError ? (
         <div className="p-12 text-center bg-elevated-card rounded-2xl border border-rose-500/30 space-y-3">
           <span className="material-symbols-outlined text-4xl text-rose-400">error</span>
           <p className="font-bold text-rose-400">{loadError}</p>
           <button
-            onClick={loadDashboard}
+            onClick={() => loadDashboard()}
             className="bg-primary text-on-primary font-bold text-xs px-5 py-2.5 rounded-xl hover:brightness-110 cursor-pointer"
           >
             Tentar novamente
@@ -93,7 +155,7 @@ export default function AdminDashboardPage() {
           <>
             {/* 1. CARDS DE MÉTRICAS ESSENCIAIS (KPIs) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {/* Card 1: Faturamento Hoje */}
+              {/* Card 1: Faturamento Hoje (PDV + Serviços Concluídos) */}
               <div className="bg-surface-container border border-hairline-border rounded-2xl p-5 extruded-shadow flex flex-col justify-between gap-3 hover:border-primary/40 transition-colors">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-extrabold text-on-surface-variant uppercase tracking-wider">
@@ -109,7 +171,7 @@ export default function AdminDashboardPage() {
                   </div>
                   <p className="text-xs text-on-surface-variant mt-1">
                     {data.revenueChangePct === null ? (
-                      "Sem dados de ontem"
+                      <span className="text-on-surface-variant/80">Serviços concluídos + PDV</span>
                     ) : (
                       <span
                         className={`font-bold inline-flex items-center gap-1 ${
@@ -167,31 +229,35 @@ export default function AdminDashboardPage() {
                 </div>
               </div>
 
-              {/* Card 4: Zap Notifica */}
+              {/* Card 4: Equipe em Atividade */}
               <div className="bg-surface-container border border-hairline-border rounded-2xl p-5 extruded-shadow flex flex-col justify-between gap-3 hover:border-primary/40 transition-colors">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-extrabold text-on-surface-variant uppercase tracking-wider">
-                    Automações Zap
+                    Equipe em Atividade
                   </span>
                   <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-                    <span className="material-symbols-outlined text-lg">mark_chat_unread</span>
+                    <span className="material-symbols-outlined text-lg">badge</span>
                   </div>
                 </div>
                 <div>
-                  <div className="text-2xl sm:text-3xl font-extrabold text-on-surface tracking-tight">
-                    {data.activeAutomations} <span className="text-xs font-bold text-primary font-normal">ativas</span>
+                  <div className="text-2xl sm:text-3xl font-extrabold text-on-surface tracking-tight flex items-center gap-2">
+                    <span>{data.onlineStaffCount}</span>
+                    <span className="text-xs font-bold text-primary flex items-center gap-1 font-normal">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                      online
+                    </span>
                   </div>
                   <p className="text-xs text-on-surface-variant mt-1">
-                    de {data.totalAutomations} configuradas
+                    de {data.totalStaffCount} colaboradores
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* 2. CONTEÚDO PRINCIPAL (LAYOUT LIMPO 2 COLUNAS) */}
+            {/* 2. CONTEÚDO PRINCIPAL (LAYOUT 2 COLUNAS) */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              {/* COLUNA ESQUERDA: PRÓXIMOS ATENDIMENTOS (8 COLUNAS) */}
-              <div className="lg:col-span-8 bg-surface-container border border-hairline-border rounded-2xl p-6 extruded-shadow space-y-4">
+              {/* COLUNA ESQUERDA: PRÓXIMOS ATENDIMENTOS (7 COLUNAS) */}
+              <div className="lg:col-span-7 bg-surface-container border border-hairline-border rounded-2xl p-6 extruded-shadow space-y-4">
                 <div className="flex items-center justify-between border-b border-hairline-border pb-4">
                   <div className="flex items-center gap-2">
                     <span className="material-symbols-outlined text-primary text-xl">schedule</span>
@@ -212,9 +278,9 @@ export default function AdminDashboardPage() {
                       <p className="text-xs font-bold">Nenhum atendimento pendente para hoje.</p>
                     </div>
                   ) : (
-                    data.upcoming.map((item, i) => (
+                    data.upcoming.map((item) => (
                       <div
-                        key={i}
+                        key={item.id}
                         className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-surface-container-high rounded-xl border border-hairline-border/60 hover:border-hairline-border transition-all"
                       >
                         <div className="flex items-center gap-3.5">
@@ -230,21 +296,106 @@ export default function AdminDashboardPage() {
                             </p>
                           </div>
                         </div>
-                        <span
-                          className={`text-[10px] font-extrabold uppercase px-3 py-1 rounded-full border self-start sm:self-center shrink-0 ${
-                            STATUS_STYLE[item.status] || "bg-primary/10 text-primary border-primary/30"
-                          }`}
-                        >
-                          {STATUS_LABEL[item.status] || item.status}
-                        </span>
+
+                        <div className="flex items-center gap-3 self-start sm:self-center shrink-0">
+                          {item.price > 0 && (
+                            <span className="text-xs font-extrabold text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20">
+                              R$ {item.price.toFixed(2).replace(".", ",")}
+                            </span>
+                          )}
+                          <span
+                            className={`text-[10px] font-extrabold uppercase px-3 py-1 rounded-full border ${
+                              STATUS_STYLE[item.status] || "bg-primary/10 text-primary border-primary/30"
+                            }`}
+                          >
+                            {STATUS_LABEL[item.status] || item.status}
+                          </span>
+                        </div>
                       </div>
                     ))
                   )}
                 </div>
               </div>
 
-              {/* COLUNA DIREITA: ATALHOS RÁPIDOS & AGENDAMENTO PÚBLICO (4 COLUNAS) */}
-              <div className="lg:col-span-4 space-y-6">
+              {/* COLUNA DIREITA: GESTÃO DE EQUIPE ONLINE/OFFLINE & ATALHOS (5 COLUNAS) */}
+              <div className="lg:col-span-5 space-y-6">
+                {/* PAINEL DE GESTÃO DA EQUIPE (ONLINE / OFFLINE) */}
+                <div className="bg-surface-container border border-hairline-border rounded-2xl p-6 extruded-shadow space-y-4">
+                  <div className="flex items-center justify-between border-b border-hairline-border pb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="material-symbols-outlined text-primary text-xl">groups</span>
+                      <h3 className="font-bold text-base text-on-surface">Equipe em Atividade</h3>
+                    </div>
+                    <Link
+                      href="/admin/clientes"
+                      className="text-xs font-bold text-primary hover:underline"
+                    >
+                      Gerenciar →
+                    </Link>
+                  </div>
+
+                  <div className="space-y-2.5 max-h-[260px] overflow-y-auto pr-1">
+                    {data.staff.length === 0 ? (
+                      <p className="text-xs text-on-surface-variant text-center py-4">
+                        Nenhum colaborador cadastrado.
+                      </p>
+                    ) : (
+                      data.staff.map((employee) => (
+                        <div
+                          key={employee.id}
+                          className="flex items-center justify-between p-3 bg-surface-container-high rounded-xl border border-hairline-border/50 hover:border-hairline-border transition-all"
+                        >
+                          <div className="flex items-center gap-3">
+                            {/* Avatar com status indicator */}
+                            <div className="relative">
+                              <div className="w-9 h-9 rounded-full bg-primary/15 border border-primary/30 flex items-center justify-center text-primary font-bold text-xs uppercase">
+                                {employee.name.slice(0, 2)}
+                              </div>
+                              <span
+                                className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-surface-container-high ${
+                                  employee.is_online ? "bg-emerald-400 animate-pulse" : "bg-slate-500"
+                                }`}
+                              ></span>
+                            </div>
+
+                            <div>
+                              <h4 className="text-xs font-bold text-on-surface leading-tight">
+                                {employee.name}
+                              </h4>
+                              <p className="text-[11px] text-on-surface-variant">
+                                {employee.role_label}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${
+                                employee.is_online
+                                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                                  : "bg-slate-500/10 text-slate-400 border-slate-500/30"
+                              }`}
+                            >
+                              {employee.is_online ? "Online" : "Offline"}
+                            </span>
+                            {employee.phone && (
+                              <a
+                                href={`https://wa.me/55${employee.phone.replace(/\D/g, "")}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="w-7 h-7 rounded-lg bg-surface-container border border-hairline-border text-on-surface-variant hover:text-primary hover:border-primary flex items-center justify-center transition-all"
+                                title="Enviar mensagem no WhatsApp"
+                              >
+                                <span className="material-symbols-outlined text-sm">chat</span>
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
                 {/* ATALHOS RÁPIDOS */}
                 <div className="bg-surface-container border border-hairline-border rounded-2xl p-6 extruded-shadow space-y-4">
                   <h3 className="font-bold text-base text-on-surface border-b border-hairline-border pb-3 flex items-center gap-2">
@@ -255,9 +406,9 @@ export default function AdminDashboardPage() {
                   <div className="grid grid-cols-2 gap-3">
                     <Link
                       href="/admin/pdv"
-                      className="bg-surface-container-high border border-hairline-border hover:border-primary p-3.5 rounded-xl flex flex-col items-center gap-2 text-center transition-all group"
+                      className="bg-surface-container-high border border-hairline-border hover:border-primary p-3 rounded-xl flex flex-col items-center gap-1.5 text-center transition-all group"
                     >
-                      <span className="material-symbols-outlined text-primary text-2xl group-hover:scale-110 transition-transform">
+                      <span className="material-symbols-outlined text-primary text-xl group-hover:scale-110 transition-transform">
                         point_of_sale
                       </span>
                       <span className="text-xs font-bold text-on-surface">Abrir PDV</span>
@@ -265,9 +416,9 @@ export default function AdminDashboardPage() {
 
                     <Link
                       href="/admin/operacao"
-                      className="bg-surface-container-high border border-hairline-border hover:border-primary p-3.5 rounded-xl flex flex-col items-center gap-2 text-center transition-all group"
+                      className="bg-surface-container-high border border-hairline-border hover:border-primary p-3 rounded-xl flex flex-col items-center gap-1.5 text-center transition-all group"
                     >
-                      <span className="material-symbols-outlined text-amber-400 text-2xl group-hover:scale-110 transition-transform">
+                      <span className="material-symbols-outlined text-amber-400 text-xl group-hover:scale-110 transition-transform">
                         bubble_chart
                       </span>
                       <span className="text-xs font-bold text-on-surface">Esteira Ao Vivo</span>
@@ -275,9 +426,9 @@ export default function AdminDashboardPage() {
 
                     <Link
                       href="/admin/prontuario"
-                      className="bg-surface-container-high border border-hairline-border hover:border-primary p-3.5 rounded-xl flex flex-col items-center gap-2 text-center transition-all group"
+                      className="bg-surface-container-high border border-hairline-border hover:border-primary p-3 rounded-xl flex flex-col items-center gap-1.5 text-center transition-all group"
                     >
-                      <span className="material-symbols-outlined text-sky-400 text-2xl group-hover:scale-110 transition-transform">
+                      <span className="material-symbols-outlined text-sky-400 text-xl group-hover:scale-110 transition-transform">
                         stethoscope
                       </span>
                       <span className="text-xs font-bold text-on-surface">Módulo Vet</span>
@@ -285,9 +436,9 @@ export default function AdminDashboardPage() {
 
                     <Link
                       href="/admin/agenda"
-                      className="bg-surface-container-high border border-hairline-border hover:border-primary p-3.5 rounded-xl flex flex-col items-center gap-2 text-center transition-all group"
+                      className="bg-surface-container-high border border-hairline-border hover:border-primary p-3 rounded-xl flex flex-col items-center gap-1.5 text-center transition-all group"
                     >
-                      <span className="material-symbols-outlined text-emerald-400 text-2xl group-hover:scale-110 transition-transform">
+                      <span className="material-symbols-outlined text-emerald-400 text-xl group-hover:scale-110 transition-transform">
                         calendar_today
                       </span>
                       <span className="text-xs font-bold text-on-surface">Nova Agenda</span>
