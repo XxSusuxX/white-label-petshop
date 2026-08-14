@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { canAccessRoute } from "@/lib/auth-permissions";
 
 const STAFF_ROLES = [
   "admin",
@@ -117,6 +118,24 @@ export async function middleware(request: NextRequest) {
         return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
       }
 
+      // Restrições finas por cargo, só nos endpoints sensíveis específicos —
+      // NÃO aplicamos canAccessRoute a todo /api/admin/*: várias rotas (agenda,
+      // clientes, pets, whatsapp, dashboard) são chamadas pelas próprias telas
+      // liberadas para cargos operacionais (banhista/motorista), e a regra
+      // padrão de canAccessRoute só reconhece caminhos de página, não de API.
+      if (
+        (pathname.startsWith("/api/admin/business-hours") || pathname.startsWith("/api/admin/blocked-dates")) &&
+        !canAccessRoute(role, pathname)
+      ) {
+        return NextResponse.json({ error: "Acesso negado para este cargo" }, { status: 403 });
+      }
+      // /api/admin/staff é compartilhado: qualquer cargo de equipe pode LER a
+      // lista (usada no seletor de profissional da Agenda), mas só quem tem
+      // acesso à Escala da Equipe pode alterar turnos.
+      if (pathname.startsWith("/api/admin/staff") && request.method !== "GET" && !canAccessRoute(role, "/admin/equipe")) {
+        return NextResponse.json({ error: "Acesso negado para este cargo" }, { status: 403 });
+      }
+
       return supabaseResponse;
     }
 
@@ -144,6 +163,15 @@ export async function middleware(request: NextRequest) {
       if (role && pathname.startsWith("/admin") && !isStaff) {
         const url = request.nextUrl.clone();
         url.pathname = "/client";
+        return NextResponse.redirect(url);
+      }
+
+      // 2b2. É da equipe, mas o cargo não tem permissão para esta tela específica
+      // (mesma regra que esconde o link no menu — antes só valia no cliente,
+      // então dava pra acessar digitando a URL direto).
+      if (role && isStaff && pathname.startsWith("/admin") && !canAccessRoute(role, pathname)) {
+        const url = request.nextUrl.clone();
+        url.pathname = "/admin/dashboard";
         return NextResponse.redirect(url);
       }
 

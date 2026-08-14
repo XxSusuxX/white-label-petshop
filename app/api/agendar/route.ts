@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { triggerAutomation } from "@/lib/server/automations";
 import { createNotification } from "@/lib/server/notifications";
 import { getTenantId, withTenantRoute } from "@/lib/server/tenant";
@@ -22,8 +23,17 @@ export const POST = withTenantRoute(async (request: Request) => {
       time,
       professional,
       address,
-      user_id,
     } = body;
+
+    // O id do usuário (quando o visitante já está logado) vem da sessão
+    // verificada no servidor, nunca do corpo da requisição — evita que
+    // qualquer chamador force um user_id alheio e sobrescreva o perfil ou
+    // mescle registros de "convidado" na conta de outra pessoa.
+    const supabase = createClient();
+    const {
+      data: { user: sessionUser },
+    } = await supabase.auth.getUser();
+    const user_id = sessionUser?.id || null;
 
     if (!tutor_name || !tutor_phone || !pet_name || !service_name || !date || !time) {
       return NextResponse.json(
@@ -62,8 +72,10 @@ export const POST = withTenantRoute(async (request: Request) => {
           .neq("id", user_id);
 
         for (const guest of guests || []) {
+          // appointments não tem client_id próprio — a ligação é via pets.client_id,
+          // já atualizado abaixo, então os agendamentos do convidado são
+          // automaticamente "herdados" pelo novo dono do pet.
           await adminSupabase.from("pets").update({ client_id: user_id }).eq("client_id", guest.id);
-          await adminSupabase.from("appointments").update({ client_id: user_id }).eq("client_id", guest.id);
           await adminSupabase.from("client_packages").update({ client_id: user_id }).eq("client_id", guest.id);
           await adminSupabase.from("notifications").update({ client_id: user_id }).eq("client_id", guest.id);
           await adminSupabase.from("profiles").delete().eq("id", guest.id);

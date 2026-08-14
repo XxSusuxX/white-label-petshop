@@ -1,19 +1,31 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
+import { getTenantId, withTenantRoute } from "@/lib/server/tenant";
 
-export async function POST(request: Request) {
+export const POST = withTenantRoute(async (request: Request) => {
   try {
-    const { userId, fullName, phone } = await request.json();
+    // O id do usuário vem da sessão verificada no servidor, nunca do corpo da
+    // requisição — caso contrário qualquer chamador poderia sobrescrever o
+    // perfil (nome/telefone) e mesclar registros de "convidado" na conta de
+    // outro usuário só informando o userId dele.
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-    if (!userId) {
-      return NextResponse.json({ error: "User ID é obrigatório." }, { status: 400 });
+    if (!user) {
+      return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
     }
+    const userId = user.id;
+
+    const { fullName, phone } = await request.json();
 
     const adminSupabase = createAdminClient();
 
-    // 1. Garantir pet shop matriz padrão
+    // 1. Garantir que o pet shop do tenant atual existe
     await adminSupabase.from("pet_shops").upsert({
-      id: "00000000-0000-0000-0000-000000000001",
+      id: getTenantId(),
       name: "PetNexus Matriz",
     });
 
@@ -26,7 +38,7 @@ export async function POST(request: Request) {
       full_name: fullName || "Tutor",
       phone: cleanPhone || null,
       role: "client",
-      pet_shop_id: "00000000-0000-0000-0000-000000000001",
+      pet_shop_id: getTenantId(),
     });
 
     if (profileErr) {
@@ -42,7 +54,7 @@ export async function POST(request: Request) {
       const { data: guests } = await adminSupabase
         .from("profiles")
         .select("id")
-        .eq("pet_shop_id", "00000000-0000-0000-0000-000000000001")
+        .eq("pet_shop_id", getTenantId())
         .eq("phone", cleanPhone)
         .neq("id", userId)
         .limit(10);
@@ -63,4 +75,4 @@ export async function POST(request: Request) {
     console.error("Erro em /api/auth/register-google:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
-}
+});

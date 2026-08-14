@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { generateSlotsForDate } from "@/lib/server/business-hours";
 import { getTenantId, withTenantRoute } from "@/lib/server/tenant";
@@ -10,18 +9,11 @@ const DEFAULT_DURATION_MINUTES = 60;
 
 // GET ?date=YYYY-MM-DD&duration_minutes=60
 // Retorna os intervalos de horário já ocupados naquele dia (para o cliente filtrar
-// os horários disponíveis no agendamento). Não expõe dados de outros tutores.
+// os horários disponíveis no agendamento). Não expõe dados de outros tutores —
+// só o intervalo de tempo ocupado, sem nome/pet/telefone — por isso pode ser
+// consultado sem login (usado também pela página pública /agendar).
 export const GET = withTenantRoute(async (request: Request) => {
   try {
-    const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: "Usuário não autenticado" }, { status: 401 });
-    }
-
     const { searchParams } = new URL(request.url);
     const date = searchParams.get("date");
     if (!date) {

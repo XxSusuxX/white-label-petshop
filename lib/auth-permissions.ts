@@ -36,7 +36,12 @@ export function canAccessRoute(rawRole?: string | null, routeHref?: string): boo
   }
 
   // 2. Horário de Funcionamento: APENAS Dono, Administrador e Recepcionista
-  if (href.includes("/horarios") || href.includes("/horario-funcionamento")) {
+  if (
+    href.includes("/horarios") ||
+    href.includes("/horario-funcionamento") ||
+    href.includes("/api/admin/business-hours") ||
+    href.includes("/api/admin/blocked-dates")
+  ) {
     const isReceptionist =
       role === "recepcionista" ||
       role === "receptionist" ||

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { getTenantId, withTenantRoute } from "@/lib/server/tenant";
 
 export const dynamic = "force-dynamic";
 
@@ -15,13 +16,18 @@ const ROLE_TO_DB_MAP: Record<string, string> = {
   funcionario: "employee",
 };
 
-const DEFAULT_ADMIN_SECRET = "pdhHT6cH-dsbFo-hjv6W_yzZ";
-
-export async function POST(request: Request) {
+export const POST = withTenantRoute(async (request: Request) => {
   try {
     const { email, password, fullName, phone, adminSecretKey, role } = await request.json();
 
-    const expectedSecret = process.env.ADMIN_SIGNUP_SECRET || DEFAULT_ADMIN_SECRET;
+    const expectedSecret = process.env.ADMIN_SIGNUP_SECRET;
+    if (!expectedSecret) {
+      console.error("ADMIN_SIGNUP_SECRET não está configurada no ambiente do servidor.");
+      return NextResponse.json(
+        { error: "Cadastro de administrador desativado: chave de segurança não configurada no servidor." },
+        { status: 500 }
+      );
+    }
 
     // Verificar se quem está fazendo a requisição já é um administrador/dono logado
     const serverSupabase = createClient();
@@ -51,9 +57,9 @@ export async function POST(request: Request) {
 
     const adminSupabase = createAdminClient();
 
-    // 1. Garantir pet shop matriz padrão
+    // 1. Garantir que o pet shop do tenant atual existe
     await adminSupabase.from("pet_shops").upsert({
-      id: "00000000-0000-0000-0000-000000000001",
+      id: getTenantId(),
       name: "PetNexus Matriz",
     });
 
@@ -119,7 +125,7 @@ export async function POST(request: Request) {
         full_name: fullName || "Colaborador",
         phone: phone || null,
         role: dbRole,
-        pet_shop_id: "00000000-0000-0000-0000-000000000001",
+        pet_shop_id: getTenantId(),
       });
 
       if (profileErr) {
@@ -133,4 +139,4 @@ export async function POST(request: Request) {
     console.error("Erro em /api/auth/register-admin:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
-}
+});

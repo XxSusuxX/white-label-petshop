@@ -10,6 +10,7 @@ interface ServiceItem {
   name: string;
   price: number;
   duration: string;
+  durationMinutes: number;
   icon: string;
 }
 
@@ -29,7 +30,7 @@ export default function AgendarPublicPage() {
   const [selectedService, setSelectedService] = useState<ServiceItem | null>(null);
   const [selectedProfessional, setSelectedProfessional] = useState("Qualquer Profissional Disponível");
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [selectedTime, setSelectedTime] = useState("09:00");
+  const [selectedTime, setSelectedTime] = useState("");
 
   const [tutorName, setTutorName] = useState("");
   const [tutorPhone, setTutorPhone] = useState("");
@@ -81,7 +82,49 @@ export default function AgendarPublicPage() {
     );
   };
 
-  const timeSlots = ["08:00", "09:00", "10:30", "13:00", "14:30", "16:00", "17:15"];
+  const [availableSlots, setAvailableSlots] = useState<string[]>([]);
+  const [occupiedRanges, setOccupiedRanges] = useState<{ start: string; end: string }[]>([]);
+  const [dayClosedReason, setDayClosedReason] = useState<string | null>(null);
+  const [isLoadingSlots, setIsLoadingSlots] = useState(false);
+
+  // Horários possíveis vêm do horário de funcionamento configurado pelo admin
+  // (via /api/appointments/availability) — não é mais uma lista fixa.
+  useEffect(() => {
+    if (step !== 2 || !selectedDate) return;
+    async function loadAvailability() {
+      setIsLoadingSlots(true);
+      setSelectedTime("");
+      try {
+        const duration = selectedService?.durationMinutes || 60;
+        const res = await fetch(`/api/appointments/availability?date=${selectedDate}&duration_minutes=${duration}`);
+        const data = await res.json();
+        if (res.ok) {
+          setAvailableSlots(data.slots || []);
+          setOccupiedRanges(data.occupied || []);
+          setDayClosedReason(data.closed ? data.closedReason || "Fechado nesta data." : null);
+        }
+      } catch (err) {
+        console.error("Erro ao carregar horários disponíveis:", err);
+      } finally {
+        setIsLoadingSlots(false);
+      }
+    }
+    loadAvailability();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDate, step, selectedService?.id]);
+
+  const isSlotTaken = (time: string) => {
+    const [h, m] = time.split(":").map(Number);
+    const [y, mo, d] = selectedDate.split("-").map(Number);
+    const slotStart = new Date(y, mo - 1, d, h, m, 0, 0);
+    const duration = selectedService?.durationMinutes || 60;
+    const slotEnd = new Date(slotStart.getTime() + duration * 60000);
+    return occupiedRanges.some((r) => {
+      const rStart = new Date(r.start);
+      const rEnd = new Date(r.end);
+      return slotStart < rEnd && rStart < slotEnd;
+    });
+  };
 
   // 1. Verificar Autenticação Obrigatória no Início
   useEffect(() => {
@@ -108,7 +151,7 @@ export default function AgendarPublicPage() {
     async function loadServices() {
       setIsLoadingServices(true);
       try {
-        const res = await fetch("/api/admin/services");
+        const res = await fetch("/api/services");
         const data = await res.json();
         if (data.services && Array.isArray(data.services) && data.services.length > 0) {
           const formatted: ServiceItem[] = data.services
@@ -118,6 +161,7 @@ export default function AgendarPublicPage() {
               name: s.name,
               price: Number(s.price) || 0,
               duration: `${s.duration_minutes || 30} min`,
+              durationMinutes: s.duration_minutes || 30,
               icon: s.category === "product" ? "inventory_2" : s.category === "package" ? "card_membership" : "content_cut",
             }));
           setServices(formatted);
@@ -127,10 +171,10 @@ export default function AgendarPublicPage() {
         } else {
           // Fallback caso não haja serviços cadastrados
           const defaults: ServiceItem[] = [
-            { id: "s1", name: "Banho & Tosa Completo", price: 85.0, duration: "60 min", icon: "content_cut" },
-            { id: "s2", name: "Banho Simples + Higienização", price: 55.0, duration: "45 min", icon: "shower" },
-            { id: "s3", name: "Hidratação Profunda de Pelagem", price: 40.0, duration: "30 min", icon: "water_drop" },
-            { id: "s4", name: "Consulta Veterinária Geral", price: 150.0, duration: "40 min", icon: "stethoscope" },
+            { id: "s1", name: "Banho & Tosa Completo", price: 85.0, duration: "60 min", durationMinutes: 60, icon: "content_cut" },
+            { id: "s2", name: "Banho Simples + Higienização", price: 55.0, duration: "45 min", durationMinutes: 45, icon: "shower" },
+            { id: "s3", name: "Hidratação Profunda de Pelagem", price: 40.0, duration: "30 min", durationMinutes: 30, icon: "water_drop" },
+            { id: "s4", name: "Consulta Veterinária Geral", price: 150.0, duration: "40 min", durationMinutes: 40, icon: "stethoscope" },
           ];
           setServices(defaults);
           setSelectedService(defaults[0]);
@@ -379,22 +423,40 @@ export default function AgendarPublicPage() {
 
             <div>
               <label className="block text-caption font-label-bold text-on-surface-variant mb-2">Horários Disponíveis</label>
-              <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-                {timeSlots.map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => setSelectedTime(t)}
-                    className={`py-3 rounded-xl border text-center text-body-sm font-label-bold transition-all cursor-pointer ${
-                      selectedTime === t
-                        ? "bg-primary text-on-primary border-primary"
-                        : "bg-elevated-card border-hairline-border text-on-surface hover:border-primary/50"
-                    }`}
-                  >
-                    {t}
-                  </button>
-                ))}
-              </div>
+              {isLoadingSlots ? (
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="h-11 bg-elevated-card border border-hairline-border rounded-xl animate-pulse" />
+                  ))}
+                </div>
+              ) : dayClosedReason ? (
+                <p className="text-body-sm text-amber-400 text-center py-4">{dayClosedReason} Escolha outra data.</p>
+              ) : availableSlots.length === 0 ? (
+                <p className="text-body-sm text-on-surface-variant text-center py-4">Nenhum horário disponível nesta data.</p>
+              ) : (
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                  {availableSlots.map((t) => {
+                    const taken = isSlotTaken(t);
+                    return (
+                      <button
+                        key={t}
+                        type="button"
+                        disabled={taken}
+                        onClick={() => setSelectedTime(t)}
+                        className={`py-3 rounded-xl border text-center text-body-sm font-label-bold transition-all ${
+                          taken
+                            ? "bg-elevated-card/50 border-hairline-border/50 text-on-surface-variant/50 cursor-not-allowed line-through"
+                            : selectedTime === t
+                            ? "bg-primary text-on-primary border-primary cursor-pointer"
+                            : "bg-elevated-card border-hairline-border text-on-surface hover:border-primary/50 cursor-pointer"
+                        }`}
+                      >
+                        {t}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             <div className="flex gap-3 pt-2">
@@ -406,7 +468,8 @@ export default function AgendarPublicPage() {
               </button>
               <button
                 onClick={() => setStep(3)}
-                className="w-2/3 bg-primary text-on-primary font-label-bold py-4 rounded-xl hover:brightness-110 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                disabled={!selectedTime}
+                className="w-2/3 bg-primary text-on-primary font-label-bold py-4 rounded-xl hover:brightness-110 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Continuar para Seus Dados
                 <span className="material-symbols-outlined">arrow_forward</span>
