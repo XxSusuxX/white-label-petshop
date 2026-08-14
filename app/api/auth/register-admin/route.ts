@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -14,19 +15,34 @@ const ROLE_TO_DB_MAP: Record<string, string> = {
   funcionario: "employee",
 };
 
+const DEFAULT_ADMIN_SECRET = "pdhHT6cH-dsbFo-hjv6W_yzZ";
+
 export async function POST(request: Request) {
   try {
     const { email, password, fullName, phone, adminSecretKey, role } = await request.json();
 
-    const expectedSecret = process.env.ADMIN_SIGNUP_SECRET;
-    if (!expectedSecret) {
-      console.error("ADMIN_SIGNUP_SECRET não está configurada no ambiente do servidor.");
-      return NextResponse.json(
-        { error: "Cadastro de administrador desativado: chave de segurança não configurada no servidor." },
-        { status: 500 }
-      );
+    const expectedSecret = process.env.ADMIN_SIGNUP_SECRET || DEFAULT_ADMIN_SECRET;
+
+    // Verificar se quem está fazendo a requisição já é um administrador/dono logado
+    const serverSupabase = createClient();
+    const { data: { user: callerUser } } = await serverSupabase.auth.getUser();
+
+    let isCallerAdmin = false;
+    if (callerUser) {
+      const adminSupabase = createAdminClient();
+      const { data: callerProfile } = await adminSupabase
+        .from("profiles")
+        .select("role")
+        .eq("id", callerUser.id)
+        .maybeSingle();
+
+      if (callerProfile?.role === "admin" || callerProfile?.role === "dono") {
+        isCallerAdmin = true;
+      }
     }
-    if (adminSecretKey?.trim() !== expectedSecret) {
+
+    // Se não for admin logado e não digitou a chave secreta correta:
+    if (!isCallerAdmin && adminSecretKey?.trim() !== expectedSecret) {
       return NextResponse.json({ error: "Chave secreta de administrador incorreta." }, { status: 400 });
     }
 

@@ -223,27 +223,26 @@ export default function AdminRegisterAdminPage() {
 
           <div>
             <label className="block text-xs font-bold text-on-surface-variant mb-1 uppercase">
-              Senha de Acesso
+              Senha de Acesso {selectedUserId ? "(Opcional para manter a atual)" : "*"}
             </label>
             <input
               className="w-full bg-surface-container border border-hairline-border rounded-xl p-3.5 text-on-surface outline-none focus:border-primary transition-all"
-              placeholder="••••••••"
+              placeholder={selectedUserId ? "Deixe em branco para manter a senha atual" : "••••••••"}
               type="password"
-              required
+              required={!selectedUserId}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-primary mb-1 uppercase">
+            <label className="block text-xs font-bold text-on-surface-variant mb-1 uppercase">
               Chave Secreta de Segurança (Master Key)
             </label>
             <input
-              className="w-full bg-surface-container border border-primary/40 rounded-xl p-3.5 text-on-surface outline-none focus:border-primary transition-all"
-              placeholder="Digite a chave master"
+              className="w-full bg-surface-container border border-hairline-border rounded-xl p-3.5 text-on-surface outline-none focus:border-primary transition-all"
+              placeholder="Opcional quando conectado como Administrador"
               type="password"
-              required
               value={adminSecretKey}
               onChange={(e) => setAdminSecretKey(e.target.value)}
             />
