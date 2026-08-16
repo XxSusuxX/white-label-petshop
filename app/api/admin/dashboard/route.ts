@@ -55,12 +55,32 @@ export const GET = withTenantRoute(async () => {
     const weekAgo = new Date(todayStart);
     weekAgo.setDate(weekAgo.getDate() - 7);
 
+    // Otimização: buscar apenas dados do período relevante (ontem→hoje) e colunas mínimas
     const [salesRes, appointmentsRes, petsRes, profilesRes, automationsRes] = await Promise.all([
-      adminSupabase.from("sales").select("total, created_at").eq("pet_shop_id", getTenantId()),
-      adminSupabase.from("appointments").select("*").eq("pet_shop_id", getTenantId()),
-      adminSupabase.from("pets").select("id, name, breed, species, client_id").eq("pet_shop_id", getTenantId()),
-      adminSupabase.from("profiles").select("id, full_name, phone, role, created_at, avatar_url").eq("pet_shop_id", getTenantId()),
-      adminSupabase.from("automation_rules").select("enabled").eq("pet_shop_id", getTenantId()),
+      adminSupabase
+        .from("sales")
+        .select("total, created_at")
+        .eq("pet_shop_id", getTenantId())
+        .gte("created_at", yesterdayStart.toISOString())
+        .lt("created_at", todayEnd.toISOString()),
+      adminSupabase
+        .from("appointments")
+        .select("id, pet_id, service_type, scheduled_at, status, price, notes")
+        .eq("pet_shop_id", getTenantId())
+        .gte("scheduled_at", yesterdayStart.toISOString())
+        .lt("scheduled_at", todayEnd.toISOString()),
+      adminSupabase
+        .from("pets")
+        .select("id, name, breed, species, client_id")
+        .eq("pet_shop_id", getTenantId()),
+      adminSupabase
+        .from("profiles")
+        .select("id, full_name, phone, role, created_at, avatar_url")
+        .eq("pet_shop_id", getTenantId()),
+      adminSupabase
+        .from("automation_rules")
+        .select("enabled")
+        .eq("pet_shop_id", getTenantId()),
     ]);
 
     const sales = salesRes.data || [];

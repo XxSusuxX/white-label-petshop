@@ -44,54 +44,49 @@ export const GET = withTenantRoute(async () => {
   try {
     const adminSupabase = createAdminClient();
 
-    // 1. Buscar perfis
-    const { data: profiles, error: profileErr } = await adminSupabase
-      .from("profiles")
-      .select("*")
-      .eq("pet_shop_id", getTenantId())
-      .order("created_at", { ascending: false });
+    // Otimização: executar TODAS as queries em paralelo (incluindo auth.admin)
+    const [profilesRes, usersRes, petsRes, completedApptsRes] = await Promise.all([
+      adminSupabase
+        .from("profiles")
+        .select("id, full_name, phone, role, created_at, avatar_url")
+        .eq("pet_shop_id", getTenantId())
+        .order("created_at", { ascending: false }),
+      adminSupabase.auth.admin.listUsers({ page: 1, perPage: 1000 }),
+      adminSupabase
+        .from("pets")
+        .select("id, name, species, breed, client_id")
+        .eq("pet_shop_id", getTenantId()),
+      adminSupabase
+        .from("appointments")
+        .select("pet_id")
+        .eq("pet_shop_id", getTenantId())
+        .eq("status", "concluido"),
+    ]);
 
-    if (profileErr) {
-      console.error("Erro ao buscar perfis:", profileErr);
-      return NextResponse.json({ error: profileErr.message }, { status: 500 });
+    const profiles = profilesRes.data || [];
+    if (profilesRes.error) {
+      console.error("Erro ao buscar perfis:", profilesRes.error);
+      return NextResponse.json({ error: profilesRes.error.message }, { status: 500 });
     }
 
-    // 2. Buscar auth.users para obter email real e metadados de cargo
+    // Mapear emails e roles dos auth.users
     const userEmailMap = new Map<string, string>();
     const userMetaRoleMap = new Map<string, string>();
-    let page = 1;
-    const perPage = 200;
-    while (true) {
-      const { data: usersPage, error: usersErr } = await adminSupabase.auth.admin.listUsers({ page, perPage });
-      if (usersErr || !usersPage?.users) break;
-      usersPage.users.forEach((u) => {
-        if (u.email) userEmailMap.set(u.id, u.email);
-        if (u.user_metadata?.role) userMetaRoleMap.set(u.id, u.user_metadata.role);
-      });
-      if (usersPage.users.length < perPage) break;
-      page++;
-    }
+    (usersRes.data?.users || []).forEach((u) => {
+      if (u.email) userEmailMap.set(u.id, u.email);
+      if (u.user_metadata?.role) userMetaRoleMap.set(u.id, u.user_metadata.role);
+    });
 
-    // 3. Buscar pets de todos os clientes
-    const { data: pets } = await adminSupabase
-      .from("pets")
-      .select("*")
-      .eq("pet_shop_id", getTenantId());
-
-    // 3b. Buscar agendamentos concluídos
-    const { data: completedAppointments } = await adminSupabase
-      .from("appointments")
-      .select("pet_id")
-      .eq("pet_shop_id", getTenantId())
-      .eq("status", "concluido");
+    const pets = petsRes.data || [];
+    const completedAppointments = completedApptsRes.data || [];
 
     const petIdToClientId = new Map<string, string>();
-    (pets || []).forEach((p) => {
+    pets.forEach((p) => {
       if (p.client_id) petIdToClientId.set(p.id, p.client_id);
     });
 
     const visitsByClientMap = new Map<string, number>();
-    (completedAppointments || []).forEach((a) => {
+    completedAppointments.forEach((a) => {
       const clientId = petIdToClientId.get(a.pet_id);
       if (clientId) {
         visitsByClientMap.set(clientId, (visitsByClientMap.get(clientId) || 0) + 1);
