@@ -15,6 +15,21 @@ function isLocalHost(hostname: string) {
   return hostname === "localhost" || hostname === "127.0.0.1" || hostname.endsWith(".local");
 }
 
+/**
+ * Domínios da plataforma onde o hostname completo é a própria aplicação,
+ * e NÃO um subdomínio de tenant. Nesses casos, usamos DEFAULT_TENANT_ID.
+ * Ex.: "white-label-petshop.vercel.app" → app da plataforma, não um tenant.
+ */
+const PLATFORM_DOMAINS = [
+  "vercel.app",
+  "netlify.app",
+  "railway.app",
+];
+
+function isPlatformDomain(hostname: string): boolean {
+  return PLATFORM_DOMAINS.some((d) => hostname.endsWith(`.${d}`) || hostname === d);
+}
+
 /** Resolve o tenant de um usuário autenticado a partir do pet_shop_id do perfil. */
 export async function getTenantIdForUser(userId: string): Promise<string | null> {
   const admin = createAdminClient();
@@ -28,7 +43,7 @@ export async function getTenantIdForUser(userId: string): Promise<string | null>
 
 /**
  * Resolve o tenant pelo subdomínio do host (ex.: petshop-a.meusistema.com -> slug "petshop-a").
- * Hosts locais e o domínio raiz caem no tenant padrão (desenvolvimento).
+ * Hosts locais, domínios da plataforma (vercel.app) e o domínio raiz caem no tenant padrão.
  */
 export async function getTenantIdFromHost(host: string | null): Promise<string | null> {
   if (!host) return null;
@@ -36,7 +51,8 @@ export async function getTenantIdFromHost(host: string | null): Promise<string |
   const hostname = host.split(":")[0].toLowerCase();
   const parts = hostname.split(".");
 
-  if (isLocalHost(hostname) || parts.length < 3) {
+  // Localhost, domínios curtos (<3 partes) e domínios da plataforma → tenant padrão
+  if (isLocalHost(hostname) || parts.length < 3 || isPlatformDomain(hostname)) {
     return DEFAULT_TENANT_ID;
   }
 
