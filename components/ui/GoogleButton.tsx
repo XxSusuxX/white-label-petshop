@@ -24,6 +24,10 @@ export default function GoogleButton({
         options: {
           redirectTo: getURL(redirectTo),
           skipBrowserRedirect: false,
+          queryParams: {
+            prompt: "select_account",
+            access_type: "offline",
+          },
         },
       });
       if (error) {

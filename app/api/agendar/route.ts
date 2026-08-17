@@ -62,7 +62,7 @@ export const POST = withTenantRoute(async (request: Request) => {
       // Atualiza app_metadata role
       await adminSupabase.auth.admin.updateUserById(user_id, { app_metadata: { role: "client" } }).catch(() => {});
 
-      // Se havia um perfil de convidado antigo com este mesmo telefone, mescla seus registros
+      // Se havia pets vinculados ao telefone sem conta vinculada
       if (cleanPhone.length >= 8) {
         const { data: guests } = await adminSupabase
           .from("profiles")
@@ -72,13 +72,9 @@ export const POST = withTenantRoute(async (request: Request) => {
           .neq("id", user_id);
 
         for (const guest of guests || []) {
-          // appointments não tem client_id próprio — a ligação é via pets.client_id,
-          // já atualizado abaixo, então os agendamentos do convidado são
-          // automaticamente "herdados" pelo novo dono do pet.
           await adminSupabase.from("pets").update({ client_id: user_id }).eq("client_id", guest.id);
           await adminSupabase.from("client_packages").update({ client_id: user_id }).eq("client_id", guest.id);
           await adminSupabase.from("notifications").update({ client_id: user_id }).eq("client_id", guest.id);
-          await adminSupabase.from("profiles").delete().eq("id", guest.id);
         }
       }
     } else {

@@ -55,49 +55,46 @@ export default function RegisterPage() {
     e.stopPropagation();
     setIsLoading(true);
     try {
-      const supabase = createClient();
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            full_name: fullName,
-            phone: phone,
-          },
-        },
+      // 1. Criar usuário e perfil no backend com tenant_id e role vinculados
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fullName,
+          email,
+          phone,
+          password,
+          petName,
+          species,
+          breed,
+          sex,
+        }),
       });
 
-      if (error) {
+      const resData = await res.json();
+      if (!res.ok || resData.error) {
         setIsLoading(false);
-        alert("Erro ao criar conta: " + error.message);
+        alert("Erro ao criar conta: " + (resData.error || "Erro desconhecido"));
         return;
       }
 
-      if (data.user) {
-        await supabase.from("profiles").upsert({
-          id: data.user.id,
-          full_name: fullName,
-          phone: phone,
-          role: "client",
-        });
+      // 2. Fazer login no cliente para autenticar a sessão
+      const supabase = createClient();
+      const { error: loginError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-        if (petName.trim()) {
-          await fetch("/api/pets", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              name: petName,
-              species: species || "Cachorro",
-              breed: breed || "Vira-lata",
-              sex: sex,
-            }),
-          });
-        }
+      if (loginError) {
+        setIsLoading(false);
+        alert("Conta criada! Por favor, faça login com seu e-mail e senha.");
+        window.location.href = "/auth/login";
+        return;
       }
 
       setIsLoading(false);
       window.location.href = "/client";
-    } catch (err) {
+    } catch (err: any) {
       setIsLoading(false);
       alert("Erro ao criar conta. Tente novamente.");
     }

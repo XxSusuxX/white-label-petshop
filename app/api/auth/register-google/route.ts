@@ -46,28 +46,7 @@ export const POST = withTenantRoute(async (request: Request) => {
       return NextResponse.json({ error: profileErr.message }, { status: 400 });
     }
 
-    // 2b. Mescla um perfil "convidado" (criado sem conta via link público, com o
-    // mesmo telefone) para dentro da conta real: transfere pets, pacotes e
-    // notificações e remove o perfil duplicado. Evita que o tutor agende via
-    // link, depois crie a conta e "perca" o histórico.
-    if (cleanPhone && cleanPhone.length >= 8) {
-      const { data: guests } = await adminSupabase
-        .from("profiles")
-        .select("id")
-        .eq("pet_shop_id", getTenantId())
-        .eq("phone", cleanPhone)
-        .neq("id", userId)
-        .limit(10);
-
-      for (const guest of guests || []) {
-        await adminSupabase.from("pets").update({ client_id: userId }).eq("client_id", guest.id);
-        await adminSupabase.from("client_packages").update({ client_id: userId }).eq("client_id", guest.id);
-        await adminSupabase.from("notifications").update({ client_id: userId }).eq("client_id", guest.id);
-        await adminSupabase.from("profiles").delete().eq("id", guest.id);
-      }
-    }
-
-    // Cacheia o role em app_metadata para o middleware não precisar consultar profiles a cada navegação
+    // 3. Cacheia o role em app_metadata para o middleware não precisar consultar profiles a cada navegação
     await adminSupabase.auth.admin.updateUserById(userId, { app_metadata: { role: "client" } }).catch(() => {});
 
     return NextResponse.json({ success: true });
